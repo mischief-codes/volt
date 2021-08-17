@@ -12,6 +12,7 @@
 +$  state-0
   $:  %0
       =host-info
+      =node-info
   ==
 --
 ::
@@ -31,6 +32,8 @@
   ~&  >  '%volt-provider initialized successfully'
   :_  this(host-info ['' %.n *(set ship)])
   :~  [%pass /bind %arvo %e %connect [~ /'~volt-channels'] %volt-provider]
+      [%pass /bind %arvo %e %connect [~ /'~volt-payments'] %volt-provider]
+      [%pass /bind %arvo %e %connect [~ /'~volt-invoices'] %volt-provider]
       [%pass /bind %arvo %e %connect [~ /'~volt-htlcs'] %volt-provider]
   ==
 ::
@@ -58,7 +61,10 @@
     (handle-action:hc !<(action:provider:volt vase))
   ::
       %handle-http-request
-    (handle-request:hc !<([id=@ta =inbound-request:eyre] vase))
+    =+  !<([id=@ta =inbound-request:eyre] vase)
+    ~|  "volt-provider: blocked http request from {<address.inbound-request>}"
+    ?>  ?=([%ipv4 %.127.0.0.1] address.inbound-request)
+    (handle-request:hc id inbound-request)
   ==
   [cards this]
 ::
@@ -72,11 +78,17 @@
   (on-arvo:def wire sign-arvo)
 ::
 ++  on-watch
-  |=  =path
+  |=  pax=path
   ^-  (quip card _this)
-  ?+    -.path  (on-watch:def path)
+  ?+    -.pax  (on-watch:def pax)
       %http-response
     `this
+  ::
+      %clients
+    ~|  "volt-provider: blocked client {<src.bowl>}"
+    ?>  (team:title our.bowl src.bowl)
+    ~&  >  "volt-provider: accepted client {<src.bowl>}"
+    `this(clients.host-info (~(put in clients.host-info) src.bowl))
   ==
 ::
 ++  on-agent
@@ -107,11 +119,7 @@
     ==
   ==
 ::
-++  on-peek
-  |=  =path
-  ^-  (unit (unit cage))
-  (on-peek:def path)
-::
+++  on-peek   on-peek:def
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
@@ -129,11 +137,31 @@
   ::
       %settle-htlc
     :_  state
-    (do-rpc [%settle-htlc circuit-key.htlc-info.action preimage.action])
+    %-  do-rpc
+    [%settle-htlc circuit-key.htlc-info.action preimage.action]
   ::
       %fail-htlc
     :_  state
-    (do-rpc [%fail-htlc circuit-key.htlc-info.action])
+    %-  do-rpc
+    [%fail-htlc circuit-key.htlc-info.action]
+  ::
+      %wallet-balance
+    :_  state
+    %-  do-rpc
+    [%wallet-balance ~]
+  ::
+      %send-payment
+    |^
+    :_  state
+    %-  do-rpc
+    [%send-payment invoice.action default-timeout]
+    ++  default-timeout  ~s30
+    --
+  ::
+      %add-invoice
+    :_  state
+    %-  do-rpc
+    [%add-invoice amt-msats.action memo.action preimage.action hash.action]
   ==
 ::
 ++  handle-command
@@ -141,14 +169,21 @@
   ^-  (quip card _state)
   ?-    -.command
       %set-url
-    :-  do-ping
-    state(host-info [api-url.command %.n *(set ship)])
+    :_  state(host-info [api-url.command %.n *(set ship)])
+    %-  zing
+    :~  ~[(send-status %disconnected ~)]
+        do-ping
+    ==
   ::
       %open-channel
-    [(do-rpc [%open-channel +.command]) state]
+    :_  state
+    %-  do-rpc
+    [%open-channel +.command]
   ::
       %close-channel
-    [(do-rpc [%close-channel +.command]) state]
+    :_  state
+    %-  do-rpc
+    [%close-channel +.command]
   ==
 ::
 ++  handle-request
@@ -162,6 +197,16 @@
       %-  channel-update:dejs:rpc:libvolt
       json
     ::
+    ?:  =(url.request.inbound-request '/~volt-payments')
+      %+  handle-payment-update  id
+      %-  payment-update:dejs:rpc:libvolt
+      json
+    ::
+    ?:  =(url.request.inbound-request '/~volt-invoices')
+      %+  handle-invoice-update  id
+      %-  invoice:dejs:rpc:libvolt
+      json
+    ::
     ?>  =(url.request.inbound-request '/~volt-htlcs')
       %+  handle-htlc-intercept  id
       %-  htlc-intercept-request:dejs:rpc:libvolt
@@ -172,9 +217,9 @@
     |=  =request:http
     ^-  (unit json)
     %+  biff  body.request
-      |=  =octs
-      =/  body=@t  +.octs
-      (de-json:html body)
+    |=  =octs
+    =/  body=@t  +.octs
+    (de-json:html body)
   --
 ::
 ++  handle-channel-update
@@ -183,30 +228,54 @@
   ?-    -.channel-update
       %open-channel
     ~&  >  "open channel: {<chan-id.channel-update>}"
-    [(no-content id) state]
+    :_  state
+    :-  (send-update [%& %channel-update channel-update] ~)
+        (no-content id)
   ::
       %closed-channel
     ~&  >  "channel closed: {<chan-id.channel-update>}"
-    [(no-content id) state]
+    :_  state
+    :-  (send-update [%& %channel-update channel-update] ~)
+        (no-content id)
   ::
       %active-channel
     =/  =txid   funding-txid.channel-update
     =/  ix=@ud  output-index.channel-update
     ~&  >  "active channel: {<txid>}:{<ix>}"
-    [(no-content id) state]
+    :_  state
+    :-  (send-update [%& %channel-update channel-update] ~)
+        (no-content id)
   ::
       %inactive-channel
     =/  =txid   funding-txid.channel-update
     =/  ix=@ud  output-index.channel-update
     ~&  >  "inactive channel: {<txid>}:{<ix>}"
-    [(no-content id) state]
+    :_  state
+    :-  (send-update [%& %channel-update channel-update] ~)
+        (no-content id)
   ::
       %pending-channel
     =/  =txid   txid.channel-update
     =/  ix=@ud  output-index.channel-update
     ~&  >  "pending channel: {<txid>}:{<ix>}"
-    [(no-content id) state]
+    :_  state
+    :-  (send-update [%& %channel-update channel-update] ~)
+        (no-content id)
   ==
+::
+++  handle-payment-update
+  |=  [id=@ta =payment-update:rpc:volt]
+  ^-  (quip card _state)
+  :_  state
+  :-  (send-update [%& %payment-update payment-update] ~)
+      (no-content id)
+::
+++  handle-invoice-update
+  |=  [id=@ta =invoice:rpc:volt]
+  ^-  (quip card _state)
+  :_  state
+  :-  (send-update [%& %invoice-update invoice] ~)
+      (no-content id)
 ::
 ++  handle-htlc-intercept
   |=  [id=@ta req=htlc-intercept-request:rpc:volt]
@@ -216,8 +285,8 @@
         hash=payment-hash.req
         chan-id=outgoing-requested-chan-id.req
     ==
-  :_  state
-  [(poke-manager /htlc [%settle-htlc htlc-info]) (no-content id)]
+  [(no-content id) state]
+  ::  (poke-manager /htlc [%settle-htlc htlc-info])
 ::
 ++  handle-rpc-response
   |=  [=wire =response:rpc:volt]
@@ -233,7 +302,15 @@
   ?+    -.wire  ~|("Unexpected RPC result" !!)
       %get-info
     ?>  ?=([%get-info *] result)
-    `state(connected.host-info %.y)
+    :_  state(connected.host-info %.y, node-info +.result)
+    :~  (send-status %connected ~)
+        (send-update [%& %node-info +.result] ~)
+    ==
+  ::
+      %wallet-balance
+    ?>  ?=([%wallet-balance *] result)
+    :_  state
+    ~[(send-update [%& %balance-update +.result] ~)]
   ::
       %open-channel
     ?>  ?=([%open-channel *] result)
@@ -253,21 +330,23 @@
     ?>  ?=([%fail-htlc *] result)
     ~&  >>>  "failed HTLC: {<circuit-key.result>}"
     `state
+  ::
+      %send-payment
+    ?>  ?=([%send-payment *] result)
+    `state
+  ::
+      %add-invoice
+    ?>  ?=([%add-invoice *] result)
+    :_  state
+    ~[(send-update [%& %invoice-added +.result] ~)]
   ==
 ::
 ++  handle-rpc-error
   |=  [=wire =error:rpc:volt]
   ^-  (quip card _state)
   %-  (slog leaf+"RPC Error: {(trip message.error)}" ~)
-  `state
-::
-++  poke-manager
-  |=  [=path =action:volt]
-  ^-  card
-  :*  %pass   path
-      %agent  [our.bowl %volt]
-      %poke   %volt-action  !>(action)
-  ==
+  :_  state
+  ~[(send-update [%| %rpc-error error] ~)]
 ::
 ++  do-rpc
   |=  =action:rpc:volt
@@ -275,8 +354,15 @@
   =/  tid     `@ta`(cat 3 'thread_' (scot %uv (sham eny.bowl)))
   =/  args     [~ `tid %lnd-rpc !>([~ host-info.state action])]
   =/  wire     (rpc-wire action)
-  :~  [%pass wire %agent [our.bowl %spider] %watch /thread-result/[tid]]
-      [%pass wire %agent [our.bowl %spider] %poke %spider-start !>(args)]
+  :~
+    :*  %pass   wire
+        %agent  [our.bowl %spider]
+        %watch  /thread-result/[tid]
+    ==
+    :*  %pass   wire
+        %agent  [our.bowl %spider]
+        %poke   %spider-start  !>(args)
+    ==
   ==
 ::
 ++  rpc-wire
@@ -295,15 +381,43 @@
 ++  start-ping-timer
   |=  interval=@dr
   ^-  card
-  [%pass /ping-timer %arvo %b %wait (add now.bowl interval)]
+  :*  %pass  /ping-timer
+      %arvo  %b
+      %wait  (add now.bowl interval)
+  ==
 ::
 ++  do-ping
   ^-  (list card)
-  =/  =action:provider  [%ping ~]
-  :~  :*  %pass  /ping/[(scot %da now.bowl)]  %agent
-          [our.bowl %volt-provider]  %poke
-          %volt-provider-action  !>(action)
+  =/  ping=action:provider  [%ping ~]
+  :~  :*  %pass   /ping/[(scot %da now.bowl)]
+          %agent  [our.bowl %volt-provider]
+          %poke   %volt-provider-action  !>(ping)
       ==
       (start-ping-timer ~s30)
+  ==
+::
+++  send-update
+  |=  [=update ship=(unit ship)]
+  ^-  card
+  %-  ?:  ?=(%& -.update)
+        same
+      ~&(>> "volt-provider: error: {<p.update>}" same)
+  =-  [%give %fact ~[-] %volt-provider-update !>(update)]
+  ?~  ship  /clients
+  /clients/(scot %p u.ship)
+::
+++  send-status
+  |=  [=status ship=(unit ship)]
+  ^-  card
+  =-  [%give %fact ~[-] %volt-provider-status !>(status)]
+  ?~  ship  /clients
+  /clients/(scot %p u.ship)
+::
+++  poke-manager
+  |=  [=path =action:volt]
+  ^-  card
+  :*  %pass   path
+      %agent  [our.bowl %volt]
+      %poke   %volt-action  !>(action)
   ==
 --

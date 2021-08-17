@@ -1,8 +1,8 @@
 ::
 ::  lib/volt.hoon
 ::
-/-  spider, volt=volt
-/+  *strandio
+/-  spider, volt, bc=bitcoin
+/+  *strandio, bcu=bitcoin-utils
 =,  strand=strand:spider
 |%
 ++  rpc
@@ -14,18 +14,15 @@
     ++  action
       |=  act=action:rpc:volt
       |^  ^-  json
-      ?+    -.act  ~|("Unknown request type" !!)
-          %open-channel
-        (open-channel +.act)
-      ::
-          %settle-htlc
-        (settle-htlc +.act)
-      ::
-          %fail-htlc
-        (fail-htlc +.act)
+      ?+  -.act  ~|("Unknown request type" !!)
+        %open-channel        (open-channel +.act)
+        %settle-htlc         (settle-htlc +.act)
+        %fail-htlc           (fail-htlc +.act)
+        %send-payment        (send-payment +.act)
+        %add-invoice         (add-invoice +.act)
       ==
       ++  open-channel
-        |=  [=pubkey:volt local-amt=sats:volt push-amt=sats:volt]
+        |=  [=pubkey:volt local-amt=sats:bc push-amt=sats:bc]
         ^-  json
         %-  pairs
         :~  ['node_pubkey' [%s (en:base64:mimes:html pubkey)]]
@@ -34,7 +31,7 @@
         ==
       ::
       ++  settle-htlc
-        |=  [ck=circuit-key:rpc:volt preimage=octs]
+        |=  [ck=circuit-key:rpc:volt preimage=hexb:bc]
         ^-  json
         %-  pairs
         :~  ['circuit_key' (circuit-key ck)]
@@ -50,6 +47,44 @@
             ['action' [%s 'FAIL']]
         ==
       ::
+      ++  send-payment
+        |=  [invoice=cord timeout=@dr]
+        ^-  json
+        %-  pairs
+        :~  ['payment_request' [%s invoice]]
+            ['timeout_seconds' (numb (div timeout ~s1))]
+        ==
+      ::
+      ++  add-invoice
+        |=  $:  amt=msats:volt
+                memo=(unit cord)
+                preimage=(unit preimage:volt)
+                hash=(unit hash:volt)
+            ==
+        |^  ^-  json
+        %-  pairs
+        :~  ['memo' [%s (fall memo '')]]
+            ['value_msat' (numb amt)]
+            ['r_hash' [%s r-hash]]
+            ['r_preimage' [%s r-preimage]]
+        ==
+        ++  r-hash
+          %+  fall
+            %+  bind  hash
+            |=  h=hash:volt
+            %-  en:base64:mimes:html
+            %-  flip:byt:bcu  h
+          ''
+        ::
+        ++  r-preimage
+          %+  fall
+            %+  bind  preimage
+            |=  pre=preimage:volt
+            %-  en:base64:mimes:html
+            %-  flip:byt:bcu  pre
+          ''
+        --
+      ::
       ++  circuit-key
         |=  ck=circuit-key:rpc:volt
         ^-  json
@@ -63,6 +98,12 @@
   ++  dejs
     =,  dejs:format
     |%
+    ++  base64
+      %+  cu  flip:byt:bcu
+      %-  su  parse:base64:mimes:html
+    ::
+    ++  hex     (su rule:base16:mimes:html)
+    ::
     ++  channel-update
       |=  =json
       |^  ^-  channel-update:rpc:volt
@@ -83,23 +124,23 @@
         [%pending-channel (pending-channel json)]
       ==
       ++  update-type
-        %-  ot  ~[['type' so]]
+        %-  ot  ['type' so]~
       ::
       ++  channel-data
         |*  [k=cord a=fist]
-        %-  ot  ~[[k a]]
+        %-  ot  [k a]~
       ::
       ++  active-channel
         %+  channel-data  'active_channel'
         %-  ot
-        :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
+        :~  ['funding_txid_bytes' base64]
             ['output_index' ni]
         ==
       ::
       ++  inactive-channel
         %+  channel-data  'inactive_channel'
         %-  ot
-        :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
+        :~  ['funding_txid_bytes' base64]
             ['output_index' ni]
         ==
       ::
@@ -110,14 +151,14 @@
             ['chan_id' (su dim:ag)]
             ['chain_hash' so]
             ['closing_tx_hash' so]
-            ['remote_pubkey' (su rule:base16:mimes:html)]
+            ['remote_pubkey' hex]
             ['close_type' so]
         ==
       ::
       ++  pending-channel
         %+  channel-data  'pending_open_channel'
         %-  ot
-        :~  ['txid' (su parse:base64:mimes:html)]
+        :~  ['txid' base64]
             ['output_index' ni]
         ==
       ::
@@ -125,7 +166,7 @@
         %+  channel-data  'open_channel'
         %-  ot
         :~  ['active' bo]
-            ['remote_pubkey' (su rule:base16:mimes:html)]
+            ['remote_pubkey' hex]
             ['channel_point' so]
             ['chan_id' (su dim:ag)]
             ['capacity' (su dim:ag)]
@@ -144,11 +185,11 @@
       :~  ['incoming_circuit_key' circuit-key]
           ['incoming_amount_msat' (su dim:ag)]
           ['incoming_expiry' ni]
-          ['payment_hash' (su parse:base64:mimes:html)]
+          ['payment_hash' base64]
           ['outgoing_requested_chan_id' (su dim:ag)]
           ['outgoing_amount_msat' (su dim:ag)]
           ['outgoing_expiry' ni]
-          ['onion_blob' (su parse:base64:mimes:html)]
+          ['onion_blob' base64]
       ==
       ++  circuit-key
         %-  ot
@@ -159,8 +200,57 @@
       ++  custom-record
         %-  ot
         :~  ['key' ni]
-            ['value' (su parse:base64:mimes:html)]
+            ['value' base64]
         ==
+      --
+    ::
+    ++  payment-update
+      |=  =json
+      ^-  payment-update:rpc:volt
+      %.  json
+      %-  ot
+      :~  ['payment_hash' hex]
+          ['value_msat' (su dim:ag)]
+          ['fee_msat' (su dim:ag)]
+          ['payment_request' so]
+          ['status' (cu payment-status:rpc:volt so)]
+          ['creation_date' (su dim:ag)]
+      ==
+    ::
+    ++  wallet-balance-response
+      %-  ot
+      :~  ['total_balance' (su dim:ag)]
+          ['confirmed_balance' (su dim:ag)]
+          ['unconfirmed_balance' (su dim:ag)]
+      ==
+    ::
+    ++  add-invoice-response
+      %-  ot
+      :~  ['r_hash' base64]
+          ['payment_request' so]
+          ['add_index' (su dim:ag)]
+          ['payment_addr' base64]
+      ==
+    ::
+    ++  invoice
+      =,  chrono:userlib
+      |^
+      %-  ot
+      :~  ['memo' so]
+          ['r_preimage' base64]
+          ['r_hash' base64]
+          ['value_msat' (su dim:ag)]
+          ['settled' bo]
+          ['creation_date' unix-date]
+          ['settle_date' unix-date]
+          ['payment_request' so]
+          ['add_index' (su dim:ag)]
+          ['settle_index' (su dim:ag)]
+          ['amt_paid_msat' (su dim:ag)]
+          ['state' invoice-state]
+      ==
+      ++  invoice-state  (cu invoice-state:rpc:volt so)
+      ++  unix-date      (cu from-unix (su dim:ag))
       --
     ::
     ++  result
@@ -169,8 +259,17 @@
       ?-    -.act
           %get-info
         =/  info=[version=@t hash=@t pubkey=@t]
-        %.  jon  node-info
-        [%get-info version.info hash.info (as-octs:mimes:html pubkey.info)]
+          %-  node-info  jon
+        :*  %get-info
+            version.info
+            hash.info
+            (as-octs:mimes:html pubkey.info)
+        ==
+      ::
+          %wallet-balance
+        =/  [total=msats:volt confirmed=msats:volt unconfirmed=msats:volt]
+        %-  wallet-balance-response  jon
+        [%wallet-balance total confirmed unconfirmed]
       ::
           %open-channel
         [%open-channel (channel-point jon)]
@@ -183,6 +282,12 @@
       ::
           %fail-htlc
         [%fail-htlc circuit-key.act]
+      ::
+          %send-payment
+        [%send-payment ~]
+      ::
+          %add-invoice
+        [%add-invoice (add-invoice-response jon)]
       ==
       ++  node-info
         %-  ot
@@ -214,29 +319,50 @@
     ?-    -.act
         %get-info
       %-  get-request
-      (url '/getinfo' '')
+      %+  url  '/getinfo'  ''
     ::
         %open-channel
-      (post-request (url '/channels' '') act)
+      %+  post-request
+      %+  url  '/channels'  ''
+      act
     ::
         %close-channel
       =/  txid=@t  (en:base64:mimes:html funding-txid.act)
       =/  oidx=@t  (scot %ud output-index.act)
       =/  parms    (cat 3 (cat 3 txid '/') oidx)
       %-  delete-request
-      (url '/channels/' parms)
+      %+  url  '/channels/'  parms
     ::
         %settle-htlc
-      (post-request (url '/resolve_htlc' '') act)
+      %+  post-request
+      %+  url  '/resolve_htlc'  ''
+      act
     ::
         %fail-htlc
-      (post-request (url '/resolve_htlc' '') act)
+      %+  post-request
+      %+  url  '/resolve_htlc'  ''
+      act
     ::
+        %wallet-balance
+      %-  get-request
+      %+  url  '/wallet_balance'  ''
+    ::
+        %send-payment
+      %+  post-request
+      %+  url  '/payment'  ''
+      act
+    ::
+        %add-invoice
+      %+  post-request
+      %+  url  '/invoice'  ''
+      act
     ==
     ++  url
       |=  [route=@t params=@t]
-      %^  cat  3
-      (cat 3 api-url.host-info route)  params
+      %^    cat
+          3
+        (cat 3 api-url.host-info route)
+      params
     ::
     ++  get-request
       |=  url=@t
@@ -253,7 +379,7 @@
       ^-  request:http
       :*  %'POST'
           url
-          ~[['Content-Type' 'application/json']]
+          ['Content-Type' 'application/json']~
           =,  html
           %-  some
           %-  as-octt:mimes
@@ -284,10 +410,5 @@
       ?:  =(status 200)
         [%& (result:dejs act u.jon)]
         [%| (error:dejs u.jon)]
-  --
-::
-++  provider
-  |%
-  ::
   --
 --

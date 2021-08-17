@@ -28,7 +28,11 @@ let loaderOptions = {
     oneoffs: true
 }
 
-let packagedef = protoLoader.loadSync(['rpc.proto', 'router.proto'], loaderOptions)
+let packagedef = protoLoader.loadSync (
+    ['rpc.proto', 'router.proto'],
+    loaderOptions
+)
+
 let rpcpkg = grpc.loadPackageDefinition(packagedef)
 let routerrpc = rpcpkg.routerrpc
 let lnrpc = rpcpkg.lnrpc
@@ -89,6 +93,7 @@ let sendToShip = (path) => {
 		console.log(`${path}: got OK`)
 	    else
 		console.error(`${path}: got ERR (${res.statusCode})`)
+
 	})
 	req.on('error', error => { console.error(error) })
 	req.write(body)
@@ -114,23 +119,28 @@ chans.on('data', sendToShip('/~volt-channels'))
 chans.on('status', status => { console.log(status) })
 chans.on('end', () => {})
 
-/*
-let htlc_events = router.subscribeHtlcEvents({})
-htlc_events.on('data', response => {
-  console.log(response);
-});
-*/
-
 let htlc = router.HtlcInterceptor({})
 htlc.on('data', sendToShip('/~volt-htlcs'))
 htlc.on('status', status => { console.log(status) })
 htlc.on('end', () => {})
+
+let invoices = lightning.SubscribeInvoices({
+    'add_index' : 0,
+    'settle_index' : 0
+})
+invoices.on('data', sendToShip('/~volt-invoices'))
+invoices.on('status', status => { console.log(status) })
+invoices.on('end', () => {})
 
 let app = express()
 app.use(bodyParser.json())
 
 app.get('/getinfo', (req, res) => {
     lightning.getInfo({}, returnToShip(res))
+})
+
+app.get('/wallet_balance', (req, res) => {
+    lightning.walletBalance({}, returnToShip(res))
 })
 
 app.post('/channels', (req, res) => {
@@ -150,7 +160,7 @@ app.delete('/channels/:txid/:oidx', (req, res) => {
     lightning.closeChannel(channel_point, returnToShip(res))
 })
 
-app.post('/send_payment', (req, res) => {
+app.post('/payment', (req, res) => {
     let body = req.body
     if (body.dest) {
 	body.dest =
@@ -173,7 +183,24 @@ app.post('/send_payment', (req, res) => {
 	    body.value = Buffer.from(body.value, 'base64')
 	}
     }
-    lightning.sendPaymentV2(body, returnToShip(res))
+    let call = router.sendPaymentV2(body)
+    call.on('data', sendToShip('/~volt-payments'))
+    call.on('error', () => sendToShip('/~volt-payments'))
+    call.on('end', () => {})
+    res.status(200).send({})
+})
+
+app.post('/invoice', (req, res) => {
+    let body = req.body
+    if (body.r_hash) {
+	body.r_hash =
+	    Buffer.from(body.r_hash, 'base64')
+    }
+    if (body.r_preimage) {
+	body.r_preimage =
+	    Buffer.from(body.r_preimage, 'base64')
+    }
+    lightning.AddInvoice(body, returnToShip(res))
 })
 
 app.post('/resolve_htlc', (req, res) => {
