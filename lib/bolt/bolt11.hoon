@@ -1,7 +1,7 @@
 ::  BOLT 11: Invoice Protocol for Lightning Payments
 ::  https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md
 ::
-/+  bc=bitcoin
+/+  bc=bitcoin, bcu=bitcoin-utils
 |%
 +$  network     ?(network:bc %signet %regtest)
 +$  multiplier  ?(%m %u %n %p)
@@ -96,7 +96,7 @@
 ::
 ++  read-bits
   |=  [n=@ bs=bits:bc]
-  [(take:bit:bc n bs) (drop:bit:bc n bs)]
+  [(take:bit:bcu n bs) (drop:bit:bcu n bs)]
 ::
 ++  pad-bits
   |=  [m=@ data=bits:bc]
@@ -156,7 +156,7 @@
   ^-  bits:bc
   =/  hash=@  (signature-hash hrp data)
   =+  (ecdsa-raw-sign:secp256k1 hash dat.key)
-  %-  cat:bit:bc
+  %-  cat:bit:bcu
   :~  data
       [wid=(mul 32 8) dat=r]
       [wid=(mul 32 8) dat=s]
@@ -170,9 +170,9 @@
   ::
   ++  hash
     ^-  hexb:bc
-    %-  sha256:bc
+    %-  sha256:bcu
     %-  to-hexb
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     ~[(tape-to-bits hrp) (pad-bits 8 raw)]
   --
 ::
@@ -185,7 +185,7 @@
     %+  bind  (~(get by base58-prefixes) network)
     |=  n=[@ @]
     =/  b=bits:bc
-      %-  cat:bit:bc
+      %-  cat:bit:bcu
       ~[[wid=8 dat=`@ub`-.n] f]
     [%base58 `@uc`dat.b]
   ::
@@ -193,7 +193,7 @@
     %+  bind  (~(get by base58-prefixes) network)
     |=  n=[@ @]
     =/  b=bits:bc
-      %-  cat:bit:bc
+      %-  cat:bit:bcu
       ~[[wid=8 dat=`@ub`+.n] f]
     [%base58 `@uc`dat.b]
   ::
@@ -202,7 +202,7 @@
     |=  prefix=tape
     =/  enc=cord
       %+  encode-raw:bech32  prefix
-      [0v0 (to-atoms:bit:bc 5 f)]
+      [0v0 (to-atoms:bit:bcu 5 f)]
     [%bech32 enc]
   ~
 ::
@@ -214,7 +214,7 @@
     %-  need
     %+  bind  (decode-raw:bech32 +.address)
     |=  raw=raw-decoded:bech32
-    =/  data=bits:bc  (from-atoms:bit:bc 5 data.raw)
+    =/  data=bits:bc  (from-atoms:bit:bcu 5 data.raw)
     =/  wver=@ud      dat:(read-bits 8 data)
     ~|  "Invalid witness version {<wver>}"
     ?>  (lte wver 16)
@@ -222,15 +222,15 @@
   ::
       %base58
     =/  addr=hexb:bc  [21 `@ux`+.address]
-    =/  byte=hexb:bc  (take:byt:bc 1 addr)
+    =/  byte=hexb:bc  (take:byt:bcu 1 addr)
     =/  wver=@
       ?:  (is-p2pkh network dat.byte)  17
       ?:  (is-p2sh network dat.byte)   18
       ~|("Unknown address for type {<network>}" !!)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  [wid=5 dat=wver]
         %-  bytes-to-bits
-        %+  drop:byt:bc  1
+        %+  drop:byt:bcu  1
         addr
     ==
   ==
@@ -254,7 +254,7 @@
   ^-  bits:bc
   =/  c=@  (need (charset-to-value:bech32 t))
   =.  b    (pad-bits 5 b)
-  %-  cat:bit:bc
+  %-  cat:bit:bcu
   :~  [wid=5 dat=c]
       [wid=5 dat=(div (div wid.b 5) 32)]
       [wid=5 dat=(mod (div wid.b 5) 32)]
@@ -284,7 +284,7 @@
   =/  hrp=tape     (encode-hrp in)
   =/  inv=bits:bc  (encode-invoice in)
   %+  encode-raw:bech32  hrp
-  %+  to-atoms:bit:bc  5
+  %+  to-atoms:bit:bcu  5
   %^    sign-data
       key
     hrp
@@ -300,26 +300,26 @@
       ~s1
     ::
     =.  data
-    %-  cat:bit:bc  ~[data [wid=35 dat=`@ub`unix]]
+    %-  cat:bit:bcu  ~[data [wid=35 dat=`@ub`unix]]
     ::
     =.  data
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     ~[data (tagged-bytes 'p' payment-hash.in)]
     ::
     =?  data  ?=(^ payment-secret.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged-bytes  's'
       %-  need  payment-secret.in
     ==
     ::
     =?  data  !=(~ route.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged  'r'
       %+  roll  route.in
       |=  [r=route acc=bits:bc]
-      %-  cat:bit:bc
+      %-  cat:bit:bcu
       :~  acc
           [wid=264 dat=`@ub`dat.pubkey.r]
           [wid=64 dat=`@ub`short-channel-id.r]
@@ -330,7 +330,7 @@
     ==
     ::
     =?  data  ?=(^ fallback-address.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged  'f'
       %+  encode-fallback  network.in
@@ -338,7 +338,7 @@
     ==
     ::
     =.  data
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged  'c'
       %+  left-pad-bits  5
@@ -347,14 +347,14 @@
     ::
     =?  data  ?=(^ description.in)
     =/  desc  (need description.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged-bytes  'd'
       %-  to-bytes  (swp 3 desc)
     ==
     ::
     =?  data  !=(~h1 expiry.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged  'x'
       %+  left-pad-bits  5
@@ -363,18 +363,18 @@
     ==
     ::
     =?  data  ?=(^ description-hash.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     :~  data
       %+  tagged-bytes  'h'
       %-  need  description-hash.in
     ==
     ::
     =?  data  !=(0 wid.pubkey.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     ~[data (tagged-bytes 'n' pubkey.in)]
     ::
     =?  data  !=(0 dat.feature-bits.in)
-    %-  cat:bit:bc
+    %-  cat:bit:bcu
     ~[data (tagged '9' feature-bits.in)]
     ::
     data
@@ -415,7 +415,7 @@
   |^  ^-  (unit invoice)
   %+  biff  (decode-raw:bech32 body)
   |=  raw=raw-decoded:bech32
-  =/  =bits:bc  (from-atoms:bit:bc 5 data.raw)
+  =/  =bits:bc  (from-atoms:bit:bcu 5 data.raw)
   ?:  (lth wid.bits sig-wid)
     ~&  >>>  '&de: too short to contain a signature'
     ~
@@ -545,6 +545,7 @@
 ::
 ++  bech32
   =,  bc
+  =,  bcu
   |%
   ++  charset  "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
   +$  raw-decoded  [hrp=tape data=(list @) checksum=(list @)]
