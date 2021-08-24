@@ -254,18 +254,19 @@
     ++  check-invoice
       |=  [=invoice:bolt11 paym=payment]
       ^-  ?
-      %.y
+      ?~  amount.invoice  %.y
+      ?&  =(amnt.paym (amount-msats u.amount.invoice))
+      ==
     ::
     ++  amount-msats
       |=  =amount:bolt11
       ^-  msats
-      ?~  +.amount  -.amount
-      %+  div  -.amount
+      ?~  +.amount  (mul -.amount 100.000.000)
       ?-  +>.amount
-        %m  1
-        %u  10
-        %n  100
-        %p  1.000
+        %m  (mul -.amount 100.000.000)
+        %u  (mul -.amount 100.000)
+        %n  (mul -.amount 100)
+        %p  (div -.amount 10)
       ==
     --
   ==
