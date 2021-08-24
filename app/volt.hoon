@@ -112,17 +112,6 @@
   ^-  (unit (unit cage))
   ?:  ?=([%x %pubkey ~] pax)
     ``noun+!>(identity-pubkey.node-info)
-  ::  ?:  ?=([%x %invoices @ ~] pax)
-  ::    ?>  (team:title our.bowl src.bowl)
-  ::    |^  ``noun+!>(invoices)
-  ::    ::
-  ::    ++  invoices
-  ::      ^-  (set invoice:bolt11)
-  ::      %+  ~(gut by invs)
-  ::      %+  slav  %p  +>-.pax
-  ::      *(set invoice:bolt11)
-  ::    --
-  ::
   (on-peek:def pax)
 ::
 ++  on-watch  on-watch:def
