@@ -21,6 +21,7 @@
       prov=(unit provider-state)
       hahs=(map hash ship)
       pays=(map ship payment)
+      done=(list payment)
   ==
 --
 ::
@@ -327,12 +328,12 @@
           ==
       ?:  =(%'IN_FLIGHT' status.result)
         `state
-       :_
-         %_  state
-           hahs  (~(del by hahs) hash.result)
-           pays  (~(del by pays) who)
-         ==
-       ~
+       :-  ~
+       %_  state
+         hahs  (~(del by hahs) hash.result)
+         pays  (~(del by pays) who)
+         done  :-(paym done)
+       ==
     `state
   ::
       %invoice-update
@@ -345,19 +346,18 @@
       ?>  ?&  =(dire.paym %incoming)
               =(stat.paym %pending-payment)
           ==
-      ?.  settled.result
-        `state
-      :_
-        %_  state
-          hahs  (~(del by hahs) r-hash.result)
-          pays  (~(del by pays) who)
-        ==
-      ~
+      ?.  settled.result  `state
+      :-  ~
+      %_  state
+        hahs  (~(del by hahs) r-hash.result)
+        pays  (~(del by pays) who)
+        done  :-(paym done)
+      ==
     `state
   ::
       %balance-update
-    %.  `state
-    (slog leaf+"balance: {<total-balance.result>}" ~)
+    %-  (slog leaf+"balance: {<total-balance.result>}" ~)
+    `state
   ==
 ::
 ++  handle-provider-status
