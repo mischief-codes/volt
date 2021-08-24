@@ -265,9 +265,4 @@
       prem=(unit preimage)
       hash=(unit hash)
   ==
-::
-+$  invoice-cursor
-  $:  add-index=@ud
-      settle-index=@ud
-  ==
 --

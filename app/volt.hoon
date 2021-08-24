@@ -309,7 +309,7 @@
       =.  pyre.paym  (some payment-request.result)
       :_  state(pays (~(put by pays) who paym))
       ~[(request-payment pyer.paym payment-request.result)]
-    %-  (slog leaf+"{<r-hash.result>}" ~)
+    %-  (slog leaf+"{<payment-request.result>}" ~)
     `state
   ::
       %channel-update
@@ -427,7 +427,6 @@
 ::
 ++  request-invoice
   |=  [who=@p =amt=msats]
-  ~&  >  "requesting invoice from {<who>} for {<amt-msats>}"
   ^-  card
   :*  %pass   /invoices/[(scot %p who)]
       %agent  [who %volt]
