@@ -75,10 +75,23 @@
       %poke-ack
     ?+    -.wire  (on-agent:def wire sign)
         %invoices
+      |^
       =/  who=@p  (slav %p +<.wire)
       ?.  (~(has by pays) who)  `this
       =/  paym=payment  (~(got by pays) who)
-      `this(pays (~(put by pays) who (update-payment-status:hc paym)))
+      `this(pays (~(put by pays) who (update-payment-status paym)))
+      ::
+      ++  update-payment-status
+        |=  paym=payment
+        ^-  payment
+        ?+    stat.paym  paym
+            %sent-invoice-request
+          paym(stat %pending-invoice)
+        ::
+            %sent-payment-request
+          paym(stat %pending-payment)
+        ==
+      --
     ==
   ::
       %kick
@@ -221,12 +234,7 @@
     ++  add-invoice-action
       |=  paym=payment
       ^-  action:provider
-      :*  %add-invoice
-          amt-msats=amnt.paym
-          memo=~
-          preimage=prem.paym
-          hash=hash.paym
-      ==
+      [%add-invoice amnt.paym ~ prem.paym hash.paym]
     --
   ::
       %request-payment
@@ -297,63 +305,61 @@
     `state(node-info node-info.result)
   ::
       %invoice-added
-    %+  fall
-      %+  biff  (~(get by hahs) r-hash.result)
-      |=  who=ship
-      %+  bind  (~(get by pays) who)
-      |=  paym=payment
-      ~|  "invalid payment state"
-      ?>  ?&  =(dire.paym %incoming)
-              =(stat.paym %pending-invoice)
-          ==
-      =.  stat.paym  %pending-payment
-      =.  pyre.paym  (some payment-request.result)
-      :_  state(pays (~(put by pays) who paym))
-      ~[(request-payment pyer.paym payment-request.result)]
-    %-  (slog leaf+"{<payment-request.result>}" ~)
-    `state
+    ?.  (~(has by hahs) r-hash.result)
+      %-  (slog leaf+"{<payment-request.result>}" ~)
+      `state
+    =/  who=@p        (~(got by hahs) r-hash.result)
+    =/  paym=payment  (~(got by pays) who)
+    ~|  "invalid payment state"
+    ?>  ?&  =(dire.paym %incoming)
+            =(stat.paym %pending-invoice)
+        ==
+    =.  stat.paym  %pending-payment
+    =.  pyre.paym  (some payment-request.result)
+    :_  state(pays (~(put by pays) who paym))
+    ~[(request-payment pyer.paym payment-request.result)]
   ::
       %channel-update
     `state
   ::
       %payment-update
-    %+  fall
-      %+  biff  (~(get by hahs) hash.result)
-      |=  who=ship
-      %+  bind  (~(get by pays) who)
-      |=  paym=payment
-      ~|  "invalid payment state"
-      ?>  ?&  =(dire.paym %outgoing)
-              =(stat.paym %sent-payment)
-          ==
-      ?:  =(%'IN_FLIGHT' status.result)
-        `state
-       :-  ~
-       %_  state
-         hahs  (~(del by hahs) hash.result)
-         pays  (~(del by pays) who)
-         done  :-(paym done)
-       ==
-    `state
+    ?.  (~(has by hahs) hash.result)
+      `state
+    =/  who=@p        (~(got by hahs) hash.result)
+    =/  paym=payment  (~(got by pays) who)
+    ~|  "invalid payment state"
+    ?>  ?&  =(dire.paym %outgoing)
+            =(stat.paym %sent-payment)
+        ==
+    ?:  =(%'IN_FLIGHT' status.result)  `state
+    =.  stat.paym
+      ?:  =(%'SUCCEEDED' status.result)
+        %complete
+      %failed
+    :-  ~
+    %_  state
+      hahs  (~(del by hahs) hash.result)
+      pays  (~(del by pays) who)
+      done  :-(paym done)
+    ==
   ::
       %invoice-update
-    %+  fall
-      %+  biff  (~(get by hahs) r-hash.result)
-      |=  who=ship
-      %+  bind  (~(get by pays) who)
-      |=  paym=payment
-      ~|  "invalid payment state"
-      ?>  ?&  =(dire.paym %incoming)
-              =(stat.paym %pending-payment)
-          ==
-      ?.  settled.result  `state
-      :-  ~
-      %_  state
-        hahs  (~(del by hahs) r-hash.result)
-        pays  (~(del by pays) who)
-        done  :-(paym done)
-      ==
-    `state
+    ?.  (~(has by hahs) r-hash.result)
+      `state
+    =/  who=@p        (~(got by hahs) r-hash.result)
+    =/  paym=payment  (~(got by pays) who)
+    ~|  "invalid payment state"
+    ?>  ?&  =(dire.paym %incoming)
+            =(stat.paym %pending-payment)
+        ==
+    ?.  settled.result  `state
+    =.  stat.paym  %complete
+    :-  ~
+    %_  state
+      hahs  (~(del by hahs) r-hash.result)
+      pays  (~(del by pays) who)
+      done  :-(paym done)
+    ==
   ::
       %balance-update
     %-  (slog leaf+"balance: {<total-balance.result>}" ~)
@@ -370,17 +376,6 @@
   ::
       %disconnected
     `state(connected.u.prov %.n)
-  ==
-::
-++  update-payment-status
-  |=  paym=payment
-  ^-  payment
-  ?+    stat.paym  paym
-      %sent-invoice-request
-    paym(stat %pending-invoice)
-  ::
-      %sent-payment-request
-    paym(stat %pending-payment)
   ==
 ::
 ++  watch-provider

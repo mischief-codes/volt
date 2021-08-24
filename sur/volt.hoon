@@ -253,6 +253,8 @@
       %pending-payment
       %sent-payment
       %complete
+      %canceled
+      %failed
   ==
 ::
 +$  payment
