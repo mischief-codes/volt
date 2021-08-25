@@ -162,6 +162,11 @@
     :_  state
     %-  do-rpc
     [%add-invoice amt-msats.action memo.action preimage.action hash.action]
+  ::
+      %cancel-invoice
+    :_  state
+    %-  do-rpc
+    [%cancel-invoice payment-hash.action]
   ==
 ::
 ++  handle-command
@@ -199,7 +204,7 @@
     ::
     ?:  =(url.request.inbound-request '/~volt-payments')
       %+  handle-payment-update  id
-      %-  payment-update:dejs:rpc:libvolt
+      %-  payment:dejs:rpc:libvolt
       json
     ::
     ?:  =(url.request.inbound-request '/~volt-invoices')
@@ -264,10 +269,10 @@
   ==
 ::
 ++  handle-payment-update
-  |=  [id=@ta =payment-update:rpc:volt]
+  |=  [id=@ta =payment:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (send-update [%& %payment-update payment-update] ~)
+  :-  (send-update [%& %payment-update payment] ~)
       (no-content id)
 ::
 ++  handle-invoice-update
@@ -280,13 +285,9 @@
 ++  handle-htlc-intercept
   |=  [id=@ta req=htlc-intercept-request:rpc:volt]
   ^-  (quip card _state)
-  =/  =htlc-info
-    :*  circuit-key=incoming-circuit-key.req
-        hash=payment-hash.req
-        chan-id=outgoing-requested-chan-id.req
-    ==
-  [(no-content id) state]
-  ::  (poke-manager /htlc [%settle-htlc htlc-info])
+  :_  state
+  :-  (send-update [%& %htlc req] ~)
+      (no-content id)
 ::
 ++  handle-rpc-response
   |=  [=wire =response:rpc:volt]
@@ -339,6 +340,10 @@
     ?>  ?=([%add-invoice *] result)
     :_  state
     ~[(send-update [%& %invoice-added +.result] ~)]
+  ::
+      %cancel-invoice
+    ?>  ?=([%cancel-invoice *] result)
+    `state
   ==
 ::
 ++  handle-rpc-error

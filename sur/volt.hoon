@@ -2,6 +2,7 @@
 :: sur/volt.hoon
 ::
 /-  bc=bitcoin
+/+  bolt11=bolt-bolt11
 |%
 ::
 +$  pubkey    hexb:bc
@@ -41,6 +42,7 @@
         [%fail-htlc =circuit-key]
         [%send-payment invoice=cord timeout=@dr]
         [%add-invoice =amt=msats memo=(unit cord) preimage=(unit preimage) hash=(unit hash)]
+        [%cancel-invoice =payment=hash]
     ==
   ::
   +$  result
@@ -52,6 +54,7 @@
         [%fail-htlc =circuit-key]
         [%send-payment ~]
         [%add-invoice add-invoice-response]
+        [%cancel-invoice ~]
     ==
   ::
   +$  error
@@ -127,23 +130,31 @@
   ::
   +$  htlc-action  ?(%'SETTLE' %'FAIL' %'RESUME')
   ::
-  +$  payment-update
-    $:  hash=hexb:bc
+  +$  payment
+    $:  =hash
+        =preimage
         =value=msats
         =fee=msats
-        request=@t
+        request=cord
         status=payment-status
-        create-time=@ud
+        failure-reason=payment-failure-reason
+        creation-time=@da
     ==
   ::
   +$  payment-status
-    $?  %'IN_FLIGHT'
+    $?  %'UNKNOWN'
+        %'IN_FLIGHT'
         %'SUCCEEDED'
-        %'FAILED_TIMEOUT'
-        %'FAILED_NO_ROUTE'
-        %'FAILED_ERROR'
-        %'FAILED_INCORRECT_PAYMENT_DETAILS'
-        %'FAILED_INSUFFICIENT_BALANCE'
+        %'FAILED'
+    ==
+  ::
+  +$  payment-failure-reason
+    $?  %'FAILURE_REASON_NONE'
+        %'FAILURE_REASON_TIMEOUT'
+        %'FAILURE_REASON_NO_ROUTE'
+        %'FAILURE_REASON_ERROR'
+        %'FAILURE_REASON_INCORRECT_PAYMENT_DETAILS'
+        %'FAILURE_REASON_INSUFFICIENT_BALANCE'
     ==
   ::
   +$  wallet-balance-response
@@ -207,6 +218,7 @@
         [%fail-htlc =htlc-info]
         [%send-payment invoice=cord]
         [%add-invoice =amt=msats memo=(unit cord) preimage=(unit preimage) hash=(unit hash)]
+        [%cancel-invoice =payment=hash]
     ==
   ::
   +$  error
@@ -217,10 +229,11 @@
   ::
   +$  result
     $%  [%node-info =node-info]
+        [%htlc htlc-intercept-request:rpc]
         [%invoice-added add-invoice-response:rpc]
         [%invoice-update invoice:rpc]
         [%channel-update channel-update:rpc]
-        [%payment-update payment-update:rpc]
+        [%payment-update payment:rpc]
         [%balance-update wallet-balance-response:rpc]
     ==
   ::
@@ -231,40 +244,56 @@
 ::
 ::  client types
 ::
++$  payreq  cord
+::
++$  payment
+  $:  payer=ship
+      payee=ship
+      payment:rpc
+  ==
+::
++$  invoice
+  $:  payer=ship
+      payee=ship
+      invoice:rpc
+  ==
+::
++$  payment-request
+  $:  payer=ship
+      payee=ship
+      status=payment-status:rpc
+      =payreq
+      =amount=msats
+      received-at=@da
+  ==
+::
 +$  command
   $%  [%set-provider provider=(unit ship)]
-      [%open-channel ~]
-      [%close-channel ~]
-      [%wallet-balance ~]
       [%send-payment to=ship =amt=msats]
-      [%add-invoice =amt=msats memo=(unit cord)]
+      [%send-invoice to=ship =amt=msats memo=(unit cord)]
+      [%cancel-invoice =payment=hash]
+      [%pay-invoice =payment=hash]
       [%reset ~]
   ==
 ::
 +$  action
   $%  [%request-invoice =amt=msats]
-      [%request-payment invoice=cord]
+      [%request-payment =payreq]
   ==
 ::
-+$  payment-state
-  $?  %sent-invoice-request
-      %pending-invoice
-      %sent-payment-request
-      %pending-payment
-      %sent-payment
-      %complete
-      %canceled
-      %failed
++$  error
+  $%  [%payment-failed =payment=hash =payment-failure-reason:rpc]
+      [%provider-error error:provider]
   ==
 ::
-+$  payment
-  $:  stat=payment-state
-      dire=?(%incoming %outgoing)
-      pyer=ship
-      pyee=ship
-      amnt=msats
-      pyre=(unit cord)
-      prem=(unit preimage)
-      hash=(unit hash)
++$  result
+  $%  [%invoice-settled =payment=hash]
+      [%invoice-canceled =payment=hash]
+      [%payment-requested =payment-request]
+      [%payment-sent to=ship =amt=msats]
   ==
+::
++$  update  (each result error)
+::
++$  payment-status  [=hash =payment-status:rpc]
 --

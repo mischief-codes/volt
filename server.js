@@ -29,13 +29,14 @@ let loaderOptions = {
 }
 
 let packagedef = protoLoader.loadSync (
-    ['rpc.proto', 'router.proto'],
+    ['rpc.proto', 'router.proto', 'invoices.proto'],
     loaderOptions
 )
 
 let rpcpkg = grpc.loadPackageDefinition(packagedef)
 let routerrpc = rpcpkg.routerrpc
 let lnrpc = rpcpkg.lnrpc
+let invoicesrpc = rpcpkg.invoicesrpc
 
 let cert = fs.readFileSync(`${lndDir}/tls.cert`)
 let sslCreds = grpc.credentials.createSsl(cert)
@@ -53,6 +54,7 @@ let creds = grpc.credentials.combineChannelCredentials (
 
 let lightning = new lnrpc.Lightning(lndHost, creds)
 let router = new routerrpc.Router(lndHost, creds)
+let invoices = new invoicesrpc.Invoices(lndHost, creds)
 
 let makeRequestOptions = (path, data) => {
     let options = {
@@ -124,13 +126,13 @@ htlc.on('data', sendToShip('/~volt-htlcs'))
 htlc.on('status', status => { console.log(status) })
 htlc.on('end', () => {})
 
-let invoices = lightning.SubscribeInvoices({
+let invoice = lightning.SubscribeInvoices({
     'add_index' : 0,
     'settle_index' : 0
 })
-invoices.on('data', sendToShip('/~volt-invoices'))
-invoices.on('status', status => { console.log(status) })
-invoices.on('end', () => {})
+invoice.on('data', sendToShip('/~volt-invoices'))
+invoice.on('status', status => { console.log(status) })
+invoice.on('end', () => { console.log('Closing invoices') })
 
 let app = express()
 app.use(bodyParser.json())
@@ -143,7 +145,7 @@ app.get('/wallet_balance', (req, res) => {
     lightning.walletBalance({}, returnToShip(res))
 })
 
-app.post('/channels', (req, res) => {
+app.post('/channel', (req, res) => {
     let body = req.body
     if (body.node_pubkey) {
 	body.node_pubkey =
@@ -152,10 +154,10 @@ app.post('/channels', (req, res) => {
     lightning.openChannelSync(body, returnToShip(res))
 })
 
-app.delete('/channels/:txid/:oidx', (req, res) => {
+app.delete('/channel/:txid/:oidx', (req, res) => {
     let channel_point = {
-	'funding_txid_bytes': Buffer.from(txid, 'base64'),
-	'output_index': new Number(oidx)
+	'funding_txid_bytes': Buffer.from(req.params.txid, 'base64'),
+	'output_index': new Number(req.params.oidx)
     }
     lightning.closeChannel(channel_point, returnToShip(res))
 })
@@ -201,6 +203,13 @@ app.post('/invoice', (req, res) => {
 	    Buffer.from(body.r_preimage, 'base64')
     }
     lightning.AddInvoice(body, returnToShip(res))
+})
+
+app.delete('/invoice/:payment_hash', (req, res) => {
+    let msg = {
+	'payment_hash' : Buffer.from(req.params.payment_hash, 'base64')
+    }
+    invoices.cancelInvoice(msg, returnToShip(res))
 })
 
 app.post('/resolve_htlc', (req, res) => {

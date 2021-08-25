@@ -204,18 +204,27 @@
         ==
       --
     ::
-    ++  payment-update
+    ++  payment
       |=  =json
-      ^-  payment-update:rpc:volt
+      |^  ^-  payment:rpc:volt
       %.  json
       %-  ot
       :~  ['payment_hash' hex]
+          ['payment_preimage' hex]
           ['value_msat' (su dim:ag)]
           ['fee_msat' (su dim:ag)]
           ['payment_request' so]
           ['status' (cu payment-status:rpc:volt so)]
-          ['creation_date' (su dim:ag)]
+          ['failure_reason' (cu payment-failure-reason:rpc:volt so)]
+          ['creation_time_ns' unix-ns]
       ==
+      ++  unix-ns
+        %+  cu
+          |=  a=@
+          %-  from-unix-ms:chrono:userlib
+            (div a 1.000)
+        (su dim:ag)
+      --
     ::
     ++  wallet-balance-response
       %-  ot
@@ -288,6 +297,9 @@
       ::
           %add-invoice
         [%add-invoice (add-invoice-response jon)]
+      ::
+          %cancel-invoice
+        [%cancel-invoice ~]
       ==
       ++  node-info
         %-  ot
@@ -323,15 +335,15 @@
     ::
         %open-channel
       %+  post-request
-      %+  url  '/channels'  ''
+      %+  url  '/channel'  ''
       act
     ::
         %close-channel
-      =/  txid=@t  (en:base64:mimes:html funding-txid.act)
+      =/  txid=@t  (~(en base64:mimes:html & &) funding-txid.act)
       =/  oidx=@t  (scot %ud output-index.act)
       =/  parms    (cat 3 (cat 3 txid '/') oidx)
       %-  delete-request
-      %+  url  '/channels/'  parms
+      %+  url  '/channel/'  parms
     ::
         %settle-htlc
       %+  post-request
@@ -356,6 +368,12 @@
       %+  post-request
       %+  url  '/invoice'  ''
       act
+    ::
+        %cancel-invoice
+      %-  delete-request
+      %+  url  '/invoice/'
+      %-  ~(en base64:mimes:html & &)
+      %-  flip:byt:bcu  payment-hash.act
     ==
     ++  url
       |=  [route=@t params=@t]
@@ -405,7 +423,9 @@
     ;<  status=@ud             bind:m  (status-code client-response)
     ;<  body=@t                bind:m  (extract-body client-response)
     =/  jon=(unit json)  (de-json:html body)
-    ?~  jon  (strand-fail:strand %json-parse-error ~)
+    ?~  jon
+      %-  (slog leaf+"{<body>}")
+      (strand-fail:strand %json-parse-error ~)
     %-  pure:m
       ?:  =(status 200)
         [%& (result:dejs act u.jon)]

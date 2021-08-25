@@ -19,9 +19,11 @@
   $:  %0
       =node-info
       prov=(unit provider-state)
-      hahs=(map hash ship)
-      pays=(map ship payment)
-      done=(list payment)
+      pays=(map hash payment)
+      invs=(map hash invoice)
+      reqs=(map hash payment-request)
+      tmp-pays=(map ship payment)
+      tmp-invs=(map ship invoice)
   ==
 --
 ::
@@ -47,7 +49,10 @@
 ++  on-load
   |=  old-state=vase
   ^-  (quip card _this)
-  `this(state !<(versioned-state old-state))
+::  `this(state !<(versioned-state old-state))
+  :_  this(state *state-0)
+  ?~  prov  ~
+  ~[(leave-provider host.u.prov)]
 ::
 ++  on-poke
   |=  [=mark =vase]
@@ -71,29 +76,7 @@
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
-  ?-    -.sign
-      %poke-ack
-    ?+    -.wire  (on-agent:def wire sign)
-        %invoices
-      |^
-      =/  who=@p  (slav %p +<.wire)
-      ?.  (~(has by pays) who)  `this
-      =/  paym=payment  (~(got by pays) who)
-      `this(pays (~(put by pays) who (update-payment-status paym)))
-      ::
-      ++  update-payment-status
-        |=  paym=payment
-        ^-  payment
-        ?+    stat.paym  paym
-            %sent-invoice-request
-          paym(stat %pending-invoice)
-        ::
-            %sent-payment-request
-          paym(stat %pending-payment)
-        ==
-      --
-    ==
-  ::
+  ?+    -.sign  (on-agent:def wire sign)
       %kick
     ?:  ?=(%set-provider -.wire)
       :_  this(prov [~ src.bowl %.n])
@@ -108,6 +91,9 @@
       ::
           %volt-provider-update
         (handle-provider-update:hc !<(update:provider q.cage.sign))
+      ::
+          %volt-payment-status
+        (handle-payment-status:hc !<(payment-status q.cage.sign))
       ==
     [cards this]
   ::
@@ -126,9 +112,25 @@
   ^-  (unit (unit cage))
   ?:  ?=([%x %pubkey ~] pax)
     ``noun+!>(identity-pubkey.node-info)
+  ?:  ?=([%x %invoices *] pax)
+    ``noun+!>(invs)
+  ?:  ?=([%x %payments *] pax)
+    ``noun+!>(pays)
   (on-peek:def pax)
 ::
-++  on-watch  on-watch:def
+++  on-watch
+  |=  pax=path
+  ^-  (quip card _this)
+  ?:  ?=([%invoice @ ~] pax)
+    ~|  "volt: blocked watch from {<src.bowl>}"
+    =+  hash=[32 (slav %ux +<.pax)]
+    =+  invo=(~(got by invs) hash)
+    ?>  ?|  =(src.bowl payer.invo)
+            (team:title our.bowl src.bowl)
+        ==
+    `this
+  (on-watch:def pax)
+::
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
@@ -140,58 +142,70 @@
   ^-  (quip card _state)
   ?-    -.command
       %set-provider
-    |^
     ?~  provider.command
       ?~  prov  `state
       :_  state(prov ~)
-      (leave-provider host.u.prov)
+      ~[(leave-provider host.u.prov)]
     :_  state(prov `[u.provider.command %.n])
     ?~  prov
       (watch-provider u.provider.command)
     %-  zing
-    :~  (leave-provider host.u.prov)
+    :~  ~[(leave-provider host.u.prov)]
         (watch-provider u.provider.command)
     ==
-    ::
-    ++  leave-provider
-      |=  who=@p
-      ^-  (list card)
-      :-  :*  %pass   /set-provider/[(scot %p who)]
-              %agent  [who %volt-provider]  %leave  ~
-          ==
-        ~
-    --
+  ::
+      %send-payment
+    =+  +.command
+    ~|  "volt: payment with {<to.command>} already in-flight"
+    ?<  (~(has by tmp-pays) to.command)
+    =|  paym=payment
+    =.  payer.paym          our.bowl
+    =.  payee.paym          to
+    =.  status.paym         %'UNKNOWN'
+    =.  creation-time.paym  now.bowl
+    =.  value-msats.paym    amt-msats
+    :_  state(tmp-pays (~(put by tmp-pays) to.command paym))
+    ~[(request-invoice payee.paym value-msats.paym)]
+  ::
+      %send-invoice
+    =+  +.command
+    =|  invo=invoice
+    =.  payer.invo        to
+    =.  payee.invo        src.bowl
+    =.  memo.invo         (fall memo '')
+    =/  =preimage         (generate-preimage)
+    =/  =hash             (sha256:bcu preimage)
+    =.  r-preimage.invo   preimage
+    =.  r-hash.invo       hash
+    =.  value-msats.invo  amt-msats
+    =.  settled.invo      %.n
+    :_  state(invs (~(put by invs) hash invo))
+    ~[(add-invoice amt-msats memo `r-preimage.invo `r-hash.invo)]
+  ::
+      %cancel-invoice
+    ?.  (~(has by invs) payment-hash.command)
+      `state
+    =+  invo=(~(got by invs) payment-hash.command)
+    =/  in-temp=?
+      ?&  (~(has by tmp-invs) payer.invo)
+          =+  tmp=(~(got by tmp-invs) payer.invo)
+          =+  hsh=`payment-hash.command
+          =(hsh r-hash.tmp)
+      ==
+    :-  ~[(cancel-invoice payment-hash.command)]
+    state(tmp-invs ?:(in-temp (~(del by tmp-invs) payer.invo) tmp-invs))
+  ::
+      %pay-invoice
+    =+  +.command
+    ?.  (~(has by reqs) payment-hash)
+      `state
+    =+  invoice=(~(got by reqs) payment-hash)
+    :_  state
+    ~[(send-payment payreq.invoice)]
   ::
       %reset
     ~&  >>>  "resetting payment state"
-    `state(hahs *(map hash ship), pays *(map ship payment))
-  ::
-      %wallet-balance
-    :_  state
-    ~[(provider-action /balance command)]
-  ::
-      %send-payment
-    ~|  "volt: payment with {<to.command>} already in-flight"
-    ?<  (~(has by pays) to.command)
-    =|  paym=payment
-    =.  stat.paym  %pending-invoice
-    =.  dire.paym  %outgoing
-    =.  amnt.paym  amt-msats.command
-    =.  pyee.paym  to.command
-    =.  pyer.paym  our.bowl
-    :_  state(pays (~(put by pays) to.command paym))
-    ~[(request-invoice pyee.paym amnt.paym)]
-  ::
-      %add-invoice
-    =+  +.command
-    :_  state
-    ~[(provider-action /invoice [%add-invoice amt-msats memo ~ ~])]
-  ::
-      %open-channel
-    `state
-  ::
-      %close-channel
-    `state
+    `state(tmp-invs *(map ship invoice), tmp-pays *(map ship payment))
   ==
 ::
 ++  handle-action
@@ -199,85 +213,61 @@
   ^-  (quip card _state)
   ?-    -.action
       %request-invoice
-    |^
-    ?:  (~(has by pays) src.bowl)
-      =/  paym=payment  (~(got by pays) src.bowl)
-      ~|  "invalid payment state"
-      ?>  =(dire.paym %incoming)
-      ::  invoice already generated, send it back
+    ?:  (~(has by tmp-invs) src.bowl)
+      ::  invoice already generated, send it back:
+      ::
+      =+  invo=(~(got by tmp-invs) src.bowl)
       :_  state
-      ~[(request-payment src.bowl (need pyre.paym))]
+      ~[(request-payment src.bowl payment-request.invo)]
+    ::  generate a new invoice
     ::
-    =|  paym=payment
-    =.  stat.paym  %pending-invoice
-    =.  dire.paym  %incoming
-    =.  pyer.paym  src.bowl
-    =.  pyee.paym  our.bowl
-    =.  amnt.paym  amt-msats.action
-    =/  =preimage  (generate-preimage)
-    =/  =hash      (sha256:bcu preimage)
-    =.  prem.paym  (some preimage)
-    =.  hash.paym  (some hash)
+    =|  invo=invoice
+    =.  payer.invo        src.bowl
+    =.  payee.invo        our.bowl
+    =/  =preimage         (generate-preimage)
+    =/  =hash             (sha256:bcu preimage)
+    =.  r-preimage.invo   preimage
+    =.  r-hash.invo       hash
+    =.  value-msats.invo  amt-msats.action
+    =.  settled.invo      %.n
     :_  %_  state
-          pays  (~(put by pays) src.bowl paym)
-          hahs  (~(put by hahs) hash src.bowl)
+          tmp-invs  (~(put by tmp-invs) src.bowl invo)
+          invs      (~(put by invs) hash invo)
         ==
-    ~[(provider-action /invoice (add-invoice-action paym))]
-    ::
-    ++  generate-preimage
-      |.
-      ^-  preimage
-      :-  32
-      %-  ~(rad og eny.bowl)
-      (lsh [0 256] 1)
-    ::
-    ++  add-invoice-action
-      |=  paym=payment
-      ^-  action:provider
-      [%add-invoice amnt.paym ~ prem.paym hash.paym]
-    --
+    ~[(add-invoice value-msats.invo ~ `preimage `hash)]
   ::
       %request-payment
-    |^
-    ~|  "no payment associated with {<src.bowl>}"
-    ?>  (~(has by pays) src.bowl)
-    =/  paym=payment  (~(got by pays) src.bowl)
-    ~|  "invalid payment sate {<stat.paym>}"
-    ?>  ?&  =(dire.paym %outgoing)
-            =(stat.paym %pending-invoice)
+    =/  invoice=(unit invoice:bolt11)
+      %-  de:bolt11  payreq.action
+    ~|  %invalid-payment-request
+    ?~  invoice  !!
+    ?:  ?&  (~(has by tmp-pays) src.bowl)
+            =+  paym=(~(got by tmp-pays) src.bowl)
+            (check-invoice u.invoice paym)
         ==
-    =/  =invoice:bolt11
-      %-  need
-      (de:bolt11 invoice.action)
-    ~|  "invalid payment request"
-    ?>  (check-invoice invoice paym)
-    =.  stat.paym  %sent-payment
-    =.  pyre.paym  (some invoice.action)
-    =.  hash.paym  (some payment-hash.invoice)
-    :-  ~[(provider-action /payment [%send-payment invoice.action])]
-    %_  state
-      pays  (~(put by pays) src.bowl paym)
-      hahs  (~(put by hahs) payment-hash.invoice src.bowl)
+        ::  invoice for unconditional payment:
+        ::
+        =+  paym=(~(got by tmp-pays) src.bowl)
+        =.  request.paym  payreq.action
+        =.  hash.paym     payment-hash.u.invoice
+        :_  %_  state
+              tmp-pays  (~(put by tmp-pays) payee.paym paym)
+              pays      (~(put by pays) payment-hash.u.invoice paym)
+            ==
+        ~[(send-payment payreq.action)]
+    ::  unrequested invoice:
+    ::
+    =|  payreq=payment-request
+    =.  payer.payreq          our.bowl
+    =.  payee.payreq          src.bowl
+    =.  amount-msats.payreq   (amount-msats (fall amount.u.invoice [0 ~]))
+    =.  received-at.payreq    now.bowl
+    =.  payreq.payreq         payreq.action
+    =.  status.payreq         %'UNKNOWN'
+    :_  state(reqs (~(put by reqs) payment-hash.u.invoice payreq))
+    :~  (send-update [%& %payment-requested payreq] ~)
+        (watch-invoice payment-hash.u.invoice)
     ==
-    ::
-    ++  check-invoice
-      |=  [=invoice:bolt11 paym=payment]
-      ^-  ?
-      ?~  amount.invoice  %.y
-      ?&  =(amnt.paym (amount-msats u.amount.invoice))
-      ==
-    ::
-    ++  amount-msats
-      |=  =amount:bolt11
-      ^-  msats
-      ?~  +.amount  (mul -.amount 100.000.000)
-      ?-  +>.amount
-        %m  (mul -.amount 100.000.000)
-        %u  (mul -.amount 100.000)
-        %n  (mul -.amount 100)
-        %p  (div -.amount 10)
-      ==
-    --
   ==
 ::
 ++  handle-provider-update
@@ -291,11 +281,14 @@
 ++  handle-provider-error
   |=  =error:provider
   ^-  (quip card _state)
-  ?:  ?=([%rpc-error *] error)
-    ~&  >>>  "volt: rpc error: {<message.error>}"
+  =^  cards  state
+    ?:  ?=([%rpc-error *] error)
+      ~&  >>>  "volt: rpc error: {<message.error>}"
+      `state
+    ~&  >>>  "volt: provider error: {<error>}"
     `state
-  ~&  >>>  "volt: provider error: {<error>}"
-  `state
+  :_  state
+  [(send-update [%| %provider-error error] ~) cards]
 ::
 ++  handle-provider-result
   |=  =result:provider
@@ -304,65 +297,98 @@
       %node-info
     `state(node-info node-info.result)
   ::
+      %htlc
+    `state
+  ::
       %invoice-added
-    ?.  (~(has by hahs) r-hash.result)
-      %-  (slog leaf+"{<payment-request.result>}" ~)
+    ?.  (~(has by invs) r-hash.result)
       `state
-    =/  who=@p        (~(got by hahs) r-hash.result)
-    =/  paym=payment  (~(got by pays) who)
-    ~|  "invalid payment state"
-    ?>  ?&  =(dire.paym %incoming)
-            =(stat.paym %pending-invoice)
+    =+  invo=(~(got by invs) r-hash.result)
+    =/  for-temp=?
+      ?&  (~(has by tmp-invs) payer.invo)
+          =(`r-hash.result r-hash:(~(got by tmp-invs) payer.invo))
+      ==
+    =.  payment-request.invo  payment-request.result
+    :_  %_  state
+          tmp-invs  ?:(for-temp (~(put by tmp-invs) payer.invo invo) tmp-invs)
+          invs      (~(put by invs) r-hash.result invo)
         ==
-    =.  stat.paym  %pending-payment
-    =.  pyre.paym  (some payment-request.result)
-    :_  state(pays (~(put by pays) who paym))
-    ~[(request-payment pyer.paym payment-request.result)]
+    ~[(request-payment payer.invo payment-request.result)]
   ::
       %channel-update
     `state
   ::
       %payment-update
-    ?.  (~(has by hahs) hash.result)
-      `state
-    =/  who=@p        (~(got by hahs) hash.result)
-    =/  paym=payment  (~(got by pays) who)
-    ~|  "invalid payment state"
-    ?>  ?&  =(dire.paym %outgoing)
-            =(stat.paym %sent-payment)
-        ==
-    ?:  =(%'IN_FLIGHT' status.result)  `state
-    =.  stat.paym
-      ?:  =(%'SUCCEEDED' status.result)
-        %complete
-      %failed
-    :-  ~
-    %_  state
-      hahs  (~(del by hahs) hash.result)
-      pays  (~(del by pays) who)
-      done  :-(paym done)
+    ?.  (~(has by pays) hash.result)  `state
+    =+  paym=(~(got by pays) hash.result)
+    =/  for-temp=?
+      ?&  (~(has by tmp-pays) payee.paym)
+          =(hash.result hash:(~(got by tmp-pays) payee.paym))
+      ==
+    =.  paym
+      :*  payer=payer.paym
+          payee=payee.paym
+          +.result
+      ==
+    ?-    status.result
+        %'SUCCEEDED'
+      :_  %_  state
+            tmp-pays  ?:(for-temp (~(del by tmp-pays) payee.paym) tmp-pays)
+            pays      (~(put by pays) hash.result paym)
+          ==
+      ~[(send-update [%& %payment-sent payee.paym value-msats.paym] ~)]
+    ::
+        %'FAILED'
+      :_  %_  state
+            tmp-pays  ?:(for-temp (~(del by tmp-pays) payee.paym) tmp-pays)
+            pays      (~(put by pays) hash.result paym)
+          ==
+      ~[(send-update [%| %payment-failed hash.result failure-reason.result] ~)]
+    ::
+        %'UNKNOWN'    `state
+        %'IN_FLIGHT'  `state
     ==
   ::
       %invoice-update
-    ?.  (~(has by hahs) r-hash.result)
+    ?.  (~(has by invs) r-hash.result)
       `state
-    =/  who=@p        (~(got by hahs) r-hash.result)
-    =/  paym=payment  (~(got by pays) who)
-    ~|  "invalid payment state"
-    ?>  ?&  =(dire.paym %incoming)
-            =(stat.paym %pending-payment)
-        ==
-    ?.  settled.result  `state
-    =.  stat.paym  %complete
-    :-  ~
-    %_  state
-      hahs  (~(del by hahs) r-hash.result)
-      pays  (~(del by pays) who)
-      done  :-(paym done)
+    =+  invo=(~(got by invs) r-hash.result)
+    =/  for-temp=?
+      ?&  (~(has by tmp-invs) payer.invo)
+          =(r-hash.result r-hash:(~(got by tmp-invs) payer.invo))
+      ==
+    =.  invo
+      :*  payer=payer.invo
+          payee=payee.invo
+          +.result
+      ==
+    ?-    state.result
+        %'SETTLED'
+
+      :_  %_  state
+            tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
+            invs      (~(put by invs) r-hash.result invo)
+          ==
+      :~  (send-update [%& %invoice-settled r-hash.result] ~)
+          (send-payment-status [r-hash.result %'SUCCEEDED'])
+          (kick-invoice-watchers r-hash.result)
+      ==
+    ::
+        %'CANCELED'
+      :_  %_  state
+            tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
+            invs      (~(put by invs) r-hash.result invo)
+          ==
+      :~  (send-update [%& %invoice-canceled r-hash.result] ~)
+          (send-payment-status [r-hash.result %'FAILED'])
+          (kick-invoice-watchers r-hash.result)
+      ==
+    ::
+        %'OPEN'      `state
+        %'ACCEPTED'  `state
     ==
   ::
       %balance-update
-    %-  (slog leaf+"balance: {<total-balance.result>}" ~)
     `state
   ==
 ::
@@ -377,6 +403,17 @@
       %disconnected
     `state(connected.u.prov %.n)
   ==
+::
+++  handle-payment-status
+  |=  status=payment-status
+  ^-  (quip card _state)
+  =+  status
+  %-  (slog leaf+"{<dat.hash>} : {<payment-status>}" ~)
+  ?.  (~(has by reqs) hash)
+    `state
+  =+  preq=(~(got by reqs) hash)
+  =.  status.preq  payment-status
+  `state(reqs (~(put by reqs) hash preq))
 ::
 ++  watch-provider
   |=  who=@p
@@ -395,6 +432,13 @@
     ==
   ==
 ::
+++  leave-provider
+  |=  who=@p
+  ^-  card
+  :*  %pass   /set-provider/[(scot %p who)]
+      %agent  [who %volt-provider]  %leave  ~
+  ==
+::
 ++  provider-action
   |=  [=wire =action:provider]
   ^-  card
@@ -411,10 +455,39 @@
       %volt-provider-command  !>(command)
   ==
 ::
+++  watch-invoice
+  |=  =hash
+  ^-  card
+  =/  =dock  [src.bowl %volt]
+  :*  %pass   /watch-invoice/[(scot %ux dat.hash)]
+      %agent  dock
+      %watch  /invoice/[(scot %ux dat.hash)]
+  ==
+::
+++  kick-invoice-watchers
+  |=  =hash
+  [%give %kick ~[/invoice/[(scot %ux dat.hash)]] ~]
+::
+++  send-update
+  |=  [=update ship=(unit ship)]
+  ^-  card
+  %-  ?:  ?=(%& -.update)
+        same
+      ~&(>> "volt: error: {<-.p.update>}" same)
+  =-  [%give %fact ~[-] %volt-update !>(update)]
+  ?~  ship  /event
+  /event/(scot %p u.ship)
+::
+++  send-payment-status
+  |=  status=payment-status
+  ^-  card
+  =-  [%give %fact ~[-] %volt-payment-status !>(status)]
+  /invoice/[(scot %ux dat.hash.status)]
+::
 ++  request-payment
   |=  [who=@p req=cord]
   ^-  card
-  :*  %pass   /payments/[(scot %p who)]
+  :*  %pass   /payment/[(scot %p who)]
       %agent  [who %volt]
       %poke   %volt-action
       !>([%request-payment req])
@@ -423,9 +496,51 @@
 ++  request-invoice
   |=  [who=@p =amt=msats]
   ^-  card
-  :*  %pass   /invoices/[(scot %p who)]
+  :*  %pass   /invoice/[(scot %p who)]
       %agent  [who %volt]
       %poke   %volt-action
       !>([%request-invoice amt-msats])
+  ==
+::
+++  add-invoice
+  |=  [=amt=msats memo=(unit cord) prem=(unit preimage) hash=(unit hash)]
+  ^-  card
+  %+  provider-action  /invoice
+  [%add-invoice amt-msats memo prem hash]
+::
+++  cancel-invoice
+  |=  =payment=hash
+  ^-  card
+  %+  provider-action  /invoice
+  [%cancel-invoice payment-hash]
+::
+++  send-payment
+  |=  invoice=cord
+  ^-  card
+  %+  provider-action  /payment
+  [%send-payment invoice]
+::
+++  generate-preimage
+  |.
+  ^-  preimage
+  :-  32
+  %-  ~(rad og eny.bowl)
+  (lsh [0 256] 1)
+::
+++  check-invoice
+  |=  [=invoice:bolt11 paym=payment]
+  ^-  ?
+  ?~  amount.invoice  %.y
+  =(value-msats.paym (amount-msats u.amount.invoice))
+::
+++  amount-msats
+  |=  =amount:bolt11
+  ^-  msats
+  ?~  +.amount  (mul -.amount 100.000.000)
+  ?-  +>.amount
+    %m  (mul -.amount 100.000.000)
+    %u  (mul -.amount 100.000)
+    %n  (mul -.amount 100)
+    %p  (div -.amount 10)
   ==
 --
