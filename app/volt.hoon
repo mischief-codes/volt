@@ -113,9 +113,9 @@
   ?:  ?=([%x %pubkey ~] pax)
     ``noun+!>(identity-pubkey.node-info)
   ?:  ?=([%x %invoices *] pax)
-    ``noun+!>(invs)
+    ``noun+!>(~(val by invs))
   ?:  ?=([%x %payments *] pax)
-    ``noun+!>(pays)
+    ``noun+!>(~(val by pays))
   (on-peek:def pax)
 ::
 ++  on-watch
