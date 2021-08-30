@@ -49,10 +49,7 @@
 ++  on-load
   |=  old-state=vase
   ^-  (quip card _this)
-::  `this(state !<(versioned-state old-state))
-  :_  this(state *state-0)
-  ?~  prov  ~
-  ~[(leave-provider host.u.prov)]
+  `this(state !<(versioned-state old-state))
 ::
 ++  on-poke
   |=  [=mark =vase]
