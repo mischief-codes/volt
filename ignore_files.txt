@@ -3,3 +3,6 @@
 *.md
 *.txt
 *.js
+*.proto
+*.conf
+*.nix
