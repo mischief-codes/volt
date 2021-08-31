@@ -11,7 +11,7 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const fs = require('fs')
 const http = require('http')
-const grpc = require('grpc')
+const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 
 process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA'

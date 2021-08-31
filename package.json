@@ -1,0 +1,25 @@
+{
+  "name": "volt-proxy",
+  "version": "1.0.0",
+  "description": "Lightning on Urbit",
+  "main": "server.js",
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github-urbit:dasrun-fadben/volt.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.3.7",
+    "@grpc/proto-loader": "^0.6.4",
+    "express": "^4.17.1"
+  }
+}
