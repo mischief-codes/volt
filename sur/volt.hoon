@@ -279,6 +279,7 @@
 +$  action
   $%  [%request-invoice =amt=msats]
       [%request-payment =payreq]
+      [%payment-receipt =payment=hash]
   ==
 ::
 +$  error
@@ -294,6 +295,4 @@
   ==
 ::
 +$  update  (each result error)
-::
-+$  payment-status  [=hash =payment-status:rpc]
 --

@@ -88,9 +88,6 @@
       ::
           %volt-provider-update
         (handle-provider-update:hc !<(update:provider q.cage.sign))
-      ::
-          %volt-payment-status
-        (handle-payment-status:hc !<(payment-status q.cage.sign))
       ==
     [cards this]
   ::
@@ -115,19 +112,7 @@
     ``noun+!>(~(val by pays))
   (on-peek:def pax)
 ::
-++  on-watch
-  |=  pax=path
-  ^-  (quip card _this)
-  ?:  ?=([%invoice @ ~] pax)
-    ~|  "volt: blocked watch from {<src.bowl>}"
-    =+  hash=[32 (slav %ux +<.pax)]
-    =+  invo=(~(got by invs) hash)
-    ?>  ?|  =(src.bowl payer.invo)
-            (team:title our.bowl src.bowl)
-        ==
-    `this
-  (on-watch:def pax)
-::
+++  on-watch  on-watch:def
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
@@ -262,9 +247,15 @@
     =.  payreq.payreq         payreq.action
     =.  status.payreq         %'UNKNOWN'
     :_  state(reqs (~(put by reqs) payment-hash.u.invoice payreq))
-    :~  (send-update [%& %payment-requested payreq] ~)
-        (watch-invoice payment-hash.u.invoice)
-    ==
+    ~[(send-update [%& %payment-requested payreq] ~)]
+  ::
+      %payment-receipt
+    =+  action
+    =+  preq=(~(get by reqs) payment-hash)
+    ?~  preq
+      ~|(%invalid-payment-hash !!)
+    =.  status.u.preq  %'SUCCEEDED'
+    `state(reqs (~(put by reqs) payment-hash u.preq))
   ==
 ::
 ++  handle-provider-update
@@ -367,8 +358,7 @@
             invs      (~(put by invs) r-hash.result invo)
           ==
       :~  (send-update [%& %invoice-settled r-hash.result] ~)
-          (send-payment-status [r-hash.result %'SUCCEEDED'])
-          (kick-invoice-watchers r-hash.result)
+          (payment-receipt r-hash.result payer.invo)
       ==
     ::
         %'CANCELED'
@@ -376,10 +366,7 @@
             tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
             invs      (~(put by invs) r-hash.result invo)
           ==
-      :~  (send-update [%& %invoice-canceled r-hash.result] ~)
-          (send-payment-status [r-hash.result %'FAILED'])
-          (kick-invoice-watchers r-hash.result)
-      ==
+      ~[(send-update [%& %invoice-canceled r-hash.result] ~)]
     ::
         %'OPEN'      `state
         %'ACCEPTED'  `state
@@ -400,17 +387,6 @@
       %disconnected
     `state(connected.u.prov %.n)
   ==
-::
-++  handle-payment-status
-  |=  status=payment-status
-  ^-  (quip card _state)
-  =+  status
-  %-  (slog leaf+"{<dat.hash>} : {<payment-status>}" ~)
-  ?.  (~(has by reqs) hash)
-    `state
-  =+  preq=(~(got by reqs) hash)
-  =.  status.preq  payment-status
-  `state(reqs (~(put by reqs) hash preq))
 ::
 ++  watch-provider
   |=  who=@p
@@ -452,19 +428,6 @@
       %volt-provider-command  !>(command)
   ==
 ::
-++  watch-invoice
-  |=  =hash
-  ^-  card
-  =/  =dock  [src.bowl %volt]
-  :*  %pass   /watch-invoice/[(scot %ux dat.hash)]
-      %agent  dock
-      %watch  /invoice/[(scot %ux dat.hash)]
-  ==
-::
-++  kick-invoice-watchers
-  |=  =hash
-  [%give %kick ~[/invoice/[(scot %ux dat.hash)]] ~]
-::
 ++  send-update
   |=  [=update ship=(unit ship)]
   ^-  card
@@ -474,12 +437,6 @@
   =-  [%give %fact ~[-] %volt-update !>(update)]
   ?~  ship  /event
   /event/(scot %p u.ship)
-::
-++  send-payment-status
-  |=  status=payment-status
-  ^-  card
-  =-  [%give %fact ~[-] %volt-payment-status !>(status)]
-  /invoice/[(scot %ux dat.hash.status)]
 ::
 ++  request-payment
   |=  [who=@p req=cord]
@@ -516,6 +473,15 @@
   ^-  card
   %+  provider-action  /payment
   [%send-payment invoice]
+::
+++  payment-receipt
+  |=  [=payment=hash who=ship]
+  ^-  card
+  :*  %pass   /payment/[(scot %p who)]
+      %agent  [who %volt]
+      %poke    %volt-action
+      !>([%payment-receipt payment-hash])
+  ==
 ::
 ++  generate-preimage
   |.
