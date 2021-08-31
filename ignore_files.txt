@@ -3,6 +3,10 @@
 *.md
 *.txt
 *.js
+*.json
 *.proto
 *.conf
 *.nix
+dev/*
+node_modules/*
+LICENSE
