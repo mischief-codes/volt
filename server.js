@@ -1,18 +1,22 @@
 // mode: javascript
 
-const shipHost = process.env.SHIP_HOST
-const shipPort = process.env.SHIP_PORT
-const lndDir = process.env.LND_DIR
-const lndHost = process.env.LND_HOST
-const network = process.env.BTC_NETWORK
-const port = process.env.SERVER_PORT
-
+const os = require('os')
 const express = require('express')
 const bodyParser = require('body-parser')
 const fs = require('fs')
 const http = require('http')
 const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
+
+const defaultLndDir = (os.platform == 'darwin') ?
+      `${process.env.HOME}/Library/Application Support/Lnd` :
+      `${process.env.HOME}/.lnd`
+const lndDir = process.env.LND_DIR || defaultLndDir
+const lndHost = process.env.LND_HOST || 'localhost:10009'
+const shipHost = process.env.SHIP_HOST || 'localhost'
+const shipPort = process.env.SHIP_PORT || '80'
+const network = process.env.BTC_NETWORK || 'mainnet'
+const port = process.env.SERVER_PORT || 5000
 
 process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA'
 
