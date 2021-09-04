@@ -272,6 +272,7 @@
       [%send-payment to=ship =amt=msats]
       [%send-invoice to=ship =amt=msats memo=(unit cord)]
       [%cancel-invoice =payment=hash]
+      [%request-invoice from=ship =amt=msats]
       [%pay-invoice =payment=hash]
       [%reset ~]
   ==

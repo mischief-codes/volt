@@ -22,6 +22,7 @@
       pays=(map hash payment)
       invs=(map hash invoice)
       reqs=(map hash payment-request)
+      ::
       tmp-pays=(map ship payment)
       tmp-invs=(map ship invoice)
   ==
@@ -177,9 +178,14 @@
     :-  ~[(cancel-invoice payment-hash.command)]
     state(tmp-invs ?:(in-temp (~(del by tmp-invs) payer.invo) tmp-invs))
   ::
+      %request-invoice
+    :_  state
+    ~[(request-invoice from.command amt-msats.command)]
+  ::
       %pay-invoice
     =+  +.command
     ?.  (~(has by reqs) payment-hash)
+      ~&  >>>  "no invoice for payment {<dat.payment-hash>}"
       `state
     =+  invoice=(~(got by reqs) payment-hash)
     :_  state
@@ -237,7 +243,6 @@
               pays      (~(put by pays) payment-hash.u.invoice paym)
             ==
         ~[(send-payment payreq.action)]
-    ::  unrequested invoice:
     ::
     =|  payreq=payment-request
     =.  payer.payreq          our.bowl
@@ -294,7 +299,7 @@
     =+  invo=(~(got by invs) r-hash.result)
     =/  for-temp=?
       ?&  (~(has by tmp-invs) payer.invo)
-          =(`r-hash.result r-hash:(~(got by tmp-invs) payer.invo))
+          =(r-hash.result r-hash:(~(got by tmp-invs) payer.invo))
       ==
     =.  payment-request.invo  payment-request.result
     :_  %_  state
