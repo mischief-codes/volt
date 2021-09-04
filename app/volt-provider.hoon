@@ -176,7 +176,7 @@
       %set-url
     :_  state(host-info [api-url.command %.n *(set ship)])
     %-  zing
-    :~  ~[(send-status %disconnected ~)]
+    :~  ~[(send-status %disconnected)]
         do-ping
     ==
   ::
@@ -234,13 +234,13 @@
       %open-channel
     ~&  >  "open channel: {<chan-id.channel-update>}"
     :_  state
-    :-  (send-update [%& %channel-update channel-update] ~)
+    :-  (send-update [%& %channel-update channel-update])
         (no-content id)
   ::
       %closed-channel
     ~&  >  "channel closed: {<chan-id.channel-update>}"
     :_  state
-    :-  (send-update [%& %channel-update channel-update] ~)
+    :-  (send-update [%& %channel-update channel-update])
         (no-content id)
   ::
       %active-channel
@@ -248,7 +248,7 @@
     =/  ix=@ud  output-index.channel-update
     ~&  >  "active channel: {<txid>}:{<ix>}"
     :_  state
-    :-  (send-update [%& %channel-update channel-update] ~)
+    :-  (send-update [%& %channel-update channel-update])
         (no-content id)
   ::
       %inactive-channel
@@ -256,7 +256,7 @@
     =/  ix=@ud  output-index.channel-update
     ~&  >  "inactive channel: {<txid>}:{<ix>}"
     :_  state
-    :-  (send-update [%& %channel-update channel-update] ~)
+    :-  (send-update [%& %channel-update channel-update])
         (no-content id)
   ::
       %pending-channel
@@ -264,7 +264,7 @@
     =/  ix=@ud  output-index.channel-update
     ~&  >  "pending channel: {<txid>}:{<ix>}"
     :_  state
-    :-  (send-update [%& %channel-update channel-update] ~)
+    :-  (send-update [%& %channel-update channel-update])
         (no-content id)
   ==
 ::
@@ -272,21 +272,21 @@
   |=  [id=@ta =payment:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (send-update [%& %payment-update payment] ~)
+  :-  (send-update [%& %payment-update payment])
       (no-content id)
 ::
 ++  handle-invoice-update
   |=  [id=@ta =invoice:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (send-update [%& %invoice-update invoice] ~)
+  :-  (send-update [%& %invoice-update invoice])
       (no-content id)
 ::
 ++  handle-htlc-intercept
   |=  [id=@ta req=htlc-intercept-request:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (send-update [%& %htlc req] ~)
+  :-  (send-update [%& %htlc req])
       (no-content id)
 ::
 ++  handle-rpc-response
@@ -304,14 +304,14 @@
       %get-info
     ?>  ?=([%get-info *] result)
     :_  state(connected.host-info %.y, node-info +.result)
-    :~  (send-status %connected ~)
-        (send-update [%& %node-info +.result] ~)
+    :~  (send-status %connected)
+        (send-update [%& %node-info +.result])
     ==
   ::
       %wallet-balance
     ?>  ?=([%wallet-balance *] result)
     :_  state
-    ~[(send-update [%& %balance-update +.result] ~)]
+    ~[(send-update [%& %balance-update +.result])]
   ::
       %open-channel
     ?>  ?=([%open-channel *] result)
@@ -339,7 +339,7 @@
       %add-invoice
     ?>  ?=([%add-invoice *] result)
     :_  state
-    ~[(send-update [%& %invoice-added +.result] ~)]
+    ~[(send-update [%& %invoice-added +.result])]
   ::
       %cancel-invoice
     ?>  ?=([%cancel-invoice *] result)
@@ -351,7 +351,7 @@
   ^-  (quip card _state)
   %-  (slog leaf+"RPC Error: {(trip message.error)}" ~)
   :_  state
-  ~[(send-update [%| %rpc-error error] ~)]
+  ~[(send-update [%| %rpc-error error])]
 ::
 ++  do-rpc
   |=  =action:rpc:volt
@@ -402,21 +402,17 @@
   ==
 ::
 ++  send-update
-  |=  [=update ship=(unit ship)]
+  |=  =update
   ^-  card
   %-  ?:  ?=(%& -.update)
         same
       ~&(>> "volt-provider: error: {<p.update>}" same)
-  =-  [%give %fact ~[-] %volt-provider-update !>(update)]
-  ?~  ship  /clients
-  /clients/(scot %p u.ship)
+  [%give %fact ~[/clients] %volt-provider-update !>(update)]
 ::
 ++  send-status
-  |=  [=status ship=(unit ship)]
+  |=  =status
   ^-  card
-  =-  [%give %fact ~[-] %volt-provider-status !>(status)]
-  ?~  ship  /clients
-  /clients/(scot %p u.ship)
+  [%give %fact ~[/clients] %volt-provider-status !>(status)]
 ::
 ++  poke-manager
   |=  [=path =action:volt]

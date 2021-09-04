@@ -247,7 +247,7 @@
     =.  payreq.payreq         payreq.action
     =.  status.payreq         %'UNKNOWN'
     :_  state(reqs (~(put by reqs) payment-hash.u.invoice payreq))
-    ~[(send-update [%& %payment-requested payreq] ~)]
+    ~[(send-update [%& %payment-requested payreq])]
   ::
       %payment-receipt
     =+  action
@@ -276,7 +276,7 @@
     ~&  >>>  "volt: provider error: {<error>}"
     `state
   :_  state
-  [(send-update [%| %provider-error error] ~) cards]
+  [(send-update [%| %provider-error error]) cards]
 ::
 ++  handle-provider-result
   |=  =result:provider
@@ -324,14 +324,14 @@
             tmp-pays  ?:(for-temp (~(del by tmp-pays) payee.paym) tmp-pays)
             pays      (~(put by pays) hash.result paym)
           ==
-      ~[(send-update [%& %payment-sent payee.paym value-msats.paym] ~)]
+      ~[(send-update [%& %payment-sent payee.paym value-msats.paym])]
     ::
         %'FAILED'
       :_  %_  state
             tmp-pays  ?:(for-temp (~(del by tmp-pays) payee.paym) tmp-pays)
             pays      (~(put by pays) hash.result paym)
           ==
-      ~[(send-update [%| %payment-failed hash.result failure-reason.result] ~)]
+      ~[(send-update [%| %payment-failed hash.result failure-reason.result])]
     ::
         %'UNKNOWN'    `state
         %'IN_FLIGHT'  `state
@@ -357,7 +357,7 @@
             tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
             invs      (~(put by invs) r-hash.result invo)
           ==
-      :~  (send-update [%& %invoice-settled r-hash.result] ~)
+      :~  (send-update [%& %invoice-settled r-hash.result])
           (payment-receipt r-hash.result payer.invo)
       ==
     ::
@@ -366,7 +366,7 @@
             tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
             invs      (~(put by invs) r-hash.result invo)
           ==
-      ~[(send-update [%& %invoice-canceled r-hash.result] ~)]
+      ~[(send-update [%& %invoice-canceled r-hash.result])]
     ::
         %'OPEN'      `state
         %'ACCEPTED'  `state
@@ -399,10 +399,6 @@
         %agent  dock
         %watch  /clients
     ==
-    :*  %pass   pir
-        %agent  dock
-        %watch  /clients/[(scot %p our.bowl)]
-    ==
   ==
 ::
 ++  leave-provider
@@ -429,14 +425,12 @@
   ==
 ::
 ++  send-update
-  |=  [=update ship=(unit ship)]
+  |=  =update
   ^-  card
   %-  ?:  ?=(%& -.update)
         same
       ~&(>> "volt: error: {<-.p.update>}" same)
-  =-  [%give %fact ~[-] %volt-update !>(update)]
-  ?~  ship  /event
-  /event/(scot %p u.ship)
+  [%give %fact ~[/events] %volt-update !>(update)]
 ::
 ++  request-payment
   |=  [who=@p req=cord]
