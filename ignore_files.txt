@@ -1,6 +1,7 @@
 .*
 *.sh
 *.md
+*.org
 *.txt
 *.js
 *.json
@@ -8,6 +9,7 @@
 *.conf
 *.nix
 dev/*
+#*#
 node_modules
 node_modules/*
 LICENSE

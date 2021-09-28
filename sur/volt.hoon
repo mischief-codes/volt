@@ -296,4 +296,21 @@
   ==
 ::
 +$  update  (each result error)
+::
+++  wallet
+  |%
+  ::
+  +$  action
+    $%  [%new-wallet ~]
+        [%get-public-key path=(list @u)]
+        [%get-address path=(list @u)]
+        [%sign-digest path=(list @u) hash=hexb:bc]
+    ==
+ ::
+  +$  result
+    $%  [%public-key =pubkey]
+        [%address =address:bc]
+        [%signature signature=hexb:bc]
+    ==
+  --
 --
