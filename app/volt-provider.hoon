@@ -151,17 +151,20 @@
     [%wallet-balance ~]
   ::
       %send-payment
-    |^
     :_  state
     %-  do-rpc
-    [%send-payment invoice.action default-timeout]
-    ++  default-timeout  ~s30
-    --
+    [%send-payment invoice.action ~]
   ::
       %add-invoice
     :_  state
     %-  do-rpc
-    [%add-invoice amt-msats.action memo.action preimage.action hash.action]
+    :*  %add-invoice
+      amt-msats.action
+      memo.action
+      preimage.action
+      hash.action
+      expiry.action
+    ==
   ::
       %cancel-invoice
     :_  state

@@ -48,11 +48,11 @@
         ==
       ::
       ++  send-payment
-        |=  [invoice=cord timeout=@dr]
+        |=  [invoice=cord timeout=(unit @dr)]
         ^-  json
         %-  pairs
         :~  ['payment_request' [%s invoice]]
-            ['timeout_seconds' (numb (div timeout ~s1))]
+            ['timeout_seconds' (numb (div (fall timeout ~s30) ~s1))]
         ==
       ::
       ++  add-invoice
@@ -60,6 +60,7 @@
                 memo=(unit cord)
                 preimage=(unit preimage:volt)
                 hash=(unit hash:volt)
+                expiry=(unit @dr)
             ==
         |^  ^-  json
         %-  pairs
@@ -67,7 +68,14 @@
             ['value_msat' (numb amt)]
             ['r_hash' [%s r-hash]]
             ['r_preimage' [%s r-preimage]]
+            ['expiry' expiry-time]
         ==
+        ++  expiry-time
+          %-  numb
+          %+  div
+            (fall expiry ~h1)
+          ~s1
+        ::
         ++  r-hash
           %+  fall
             %+  bind  hash
@@ -252,6 +260,7 @@
           ['settled' bo]
           ['creation_date' unix-date]
           ['settle_date' unix-date]
+          ['expiry' seconds]
           ['payment_request' so]
           ['add_index' (su dim:ag)]
           ['settle_index' (su dim:ag)]
@@ -260,6 +269,7 @@
       ==
       ++  invoice-state  (cu invoice-state:rpc:volt so)
       ++  unix-date      (cu from-unix (su dim:ag))
+      ++  seconds        (cu |=(a=@ (mul a ~s1)) (su dim:ag))
       --
     ::
     ++  result

@@ -4,7 +4,6 @@
 /-  *volt
 /+  bolt11=bolt-bolt11, bcu=bitcoin-utils
 /+  server, default-agent, dbug
-::
 |%
 ::
 +$  card  card:agent:gall
@@ -63,13 +62,19 @@
   ::
       %volt-action
     (handle-action:hc !<(action vase))
+  ::
+      %volt-wallet-result
+    %-  (slog leaf+"{<dap.bowl>}: {<!<(result:wallet vase)>}" ~)
+    (handle-wallet-result:hc !<(result:wallet vase))
   ==
   [cards this]
 ::
 ++  on-arvo
   |=  [=wire =sign-arvo]
   ^-  (quip card _this)
-  `this
+  ?:  ?=([%invoice-timeout *] wire)
+    `this(tmp-invs (remove-expired-invoices:hc tmp-invs))
+  (on-arvo:def wire sign-arvo)
 ::
 ++  on-agent
   |=  [=wire =sign:agent:gall]
@@ -139,8 +144,6 @@
   ::
       %send-payment
     =+  +.command
-    ~|  "volt: payment with {<to.command>} already in-flight"
-    ?<  (~(has by tmp-pays) to.command)
     =|  paym=payment
     =.  payer.paym          our.bowl
     =.  payee.paym          to
@@ -204,11 +207,13 @@
     ?:  (~(has by tmp-invs) src.bowl)
       ::  invoice already generated, send it back:
       ::
+      ~&  >  "repeated request for invoice: {<amt-msats.action>}"
       =+  invo=(~(got by tmp-invs) src.bowl)
       :_  state
       ~[(request-payment src.bowl payment-request.invo)]
     ::  generate a new invoice
     ::
+    ~&  >  "got request for invoice: {<amt-msats.action>}"
     =|  invo=invoice
     =.  payer.invo        src.bowl
     =.  payee.invo        our.bowl
@@ -222,17 +227,19 @@
           tmp-invs  (~(put by tmp-invs) src.bowl invo)
           invs      (~(put by invs) hash invo)
         ==
-    ~[(add-invoice value-msats.invo ~ `preimage `hash)]
+    :~
+      (add-invoice value-msats.invo ~ `preimage `hash)
+    ==
   ::
       %request-payment
     =/  invoice=(unit invoice:bolt11)
       %-  de:bolt11  payreq.action
-    ~|  %invalid-payment-request
-    ?~  invoice  !!
+    ?~  invoice  ~|(%invalid-payment-request !!)
     ?:  ?&  (~(has by tmp-pays) src.bowl)
             =+  paym=(~(got by tmp-pays) src.bowl)
             (check-invoice u.invoice paym)
         ==
+        ~&  >  "unconditional payment request: {<payreq.action>}"
         ::  invoice for unconditional payment:
         ::
         =+  paym=(~(got by tmp-pays) src.bowl)
@@ -244,6 +251,7 @@
             ==
         ~[(send-payment payreq.action)]
     ::
+    ~&  >  "got request: {<payreq.action>}"
     =|  payreq=payment-request
     =.  payer.payreq          our.bowl
     =.  payee.payreq          src.bowl
@@ -256,9 +264,10 @@
   ::
       %payment-receipt
     =+  action
+    ~&  >  "got receipt for: {<payment-hash>}"
     =+  preq=(~(get by reqs) payment-hash)
     ?~  preq
-      ~|(%invalid-payment-hash !!)
+      `state
     =.  status.u.preq  %'SUCCEEDED'
     `state(reqs (~(put by reqs) payment-hash u.preq))
   ==
@@ -357,7 +366,6 @@
       ==
     ?-    state.result
         %'SETTLED'
-
       :_  %_  state
             tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
             invs      (~(put by invs) r-hash.result invo)
@@ -373,8 +381,21 @@
           ==
       ~[(send-update [%& %invoice-canceled r-hash.result])]
     ::
-        %'OPEN'      `state
-        %'ACCEPTED'  `state
+        %'OPEN'
+      :_  %_  state
+            tmp-invs  ?:(for-temp (~(put by tmp-invs) payer.invo invo) tmp-invs)
+            invs      ?:(for-temp invs (~(put by invs) r-hash.result invo))
+          ==
+      ?:  for-temp
+        ~[set-invoice-timeout]
+      ~
+    ::
+        %'ACCEPTED'
+      :-  ~
+      %_  state
+        tmp-invs  ?:(for-temp (~(put by tmp-invs) payer.invo invo) tmp-invs)
+        invs      ?:(for-temp invs (~(put by invs) r-hash.result invo))
+      ==
     ==
   ::
       %balance-update
@@ -392,6 +413,11 @@
       %disconnected
     `state(connected.u.prov %.n)
   ==
+::
+++  handle-wallet-result
+  |=  =result:wallet
+  ^-  (quip card _state)
+  `state
 ::
 ++  watch-provider
   |=  who=@p
@@ -459,7 +485,24 @@
   |=  [=amt=msats memo=(unit cord) prem=(unit preimage) hash=(unit hash)]
   ^-  card
   %+  provider-action  /invoice
-  [%add-invoice amt-msats memo prem hash]
+  [%add-invoice amt-msats memo prem hash `~m2]
+::
+++  set-invoice-timeout
+  ^-  card
+  :*  %pass  /invoice-timeout
+      %arvo  %b
+      %wait  (add now.bowl (add ~s30 ~m2))
+  ==
+::
+++  remove-expired-invoices
+  |=  invs=(map ship invoice)
+  ^-  (map ship invoice)
+  ~&  >>  "%volt: removing expired invoices"
+  %-  ~(rep by invs)
+  |=  [[k=ship v=invoice] acc=(map ship invoice)]
+  ?:  (gte (add creation-date.v expiry.v) now.bowl)
+    acc
+  (~(put by acc) k v)
 ::
 ++  cancel-invoice
   |=  =payment=hash
@@ -471,7 +514,7 @@
   |=  invoice=cord
   ^-  card
   %+  provider-action  /payment
-  [%send-payment invoice]
+  [%send-payment invoice ~]
 ::
 ++  payment-receipt
   |=  [=payment=hash who=ship]
@@ -498,7 +541,7 @@
 ++  amount-msats
   |=  =amount:bolt11
   ^-  msats
-  ?~  +.amount  (mul -.amount 100.000.000)
+  ?~  +.amount  (mul -.amount 100.000.000.000)
   ?-  +>.amount
     %m  (mul -.amount 100.000.000)
     %u  (mul -.amount 100.000)

@@ -40,8 +40,14 @@
         [%close-channel funding-txid=txid output-index=@ud]
         [%settle-htlc =circuit-key =preimage]
         [%fail-htlc =circuit-key]
-        [%send-payment invoice=cord timeout=@dr]
-        [%add-invoice =amt=msats memo=(unit cord) preimage=(unit preimage) hash=(unit hash)]
+        [%send-payment invoice=cord timeout=(unit @dr)]
+        $:  %add-invoice
+          =amt=msats
+          memo=(unit cord)
+          preimage=(unit preimage)
+          hash=(unit hash)
+          expiry=(unit @dr)
+        ==
         [%cancel-invoice =payment=hash]
     ==
   ::
@@ -178,12 +184,12 @@
         settled=?
         creation-date=@da
         settle-date=@da
+        expiry=@dr
         payment-request=cord
         add-index=@ud
         settle-index=@ud
         =amt-paid=msats
         state=invoice-state
-
     ==
   ::
   +$  invoice-state
@@ -216,8 +222,14 @@
         [%wallet-balance ~]
         [%settle-htlc =htlc-info =preimage]
         [%fail-htlc =htlc-info]
-        [%send-payment invoice=cord]
-        [%add-invoice =amt=msats memo=(unit cord) preimage=(unit preimage) hash=(unit hash)]
+        [%send-payment invoice=cord timeout=(unit @dr)]
+        $:  %add-invoice
+          =amt=msats
+          memo=(unit cord)
+          preimage=(unit preimage)
+          hash=(unit hash)
+          expiry=(unit @dr)
+        ==
         [%cancel-invoice =payment=hash]
     ==
   ::
@@ -299,7 +311,6 @@
 ::
 ++  wallet
   |%
-  ::
   +$  action
     $%  [%new-wallet ~]
         [%get-public-key path=(list @u)]

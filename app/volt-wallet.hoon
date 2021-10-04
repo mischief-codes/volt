@@ -58,18 +58,7 @@
 ++  on-arvo  on-arvo:def
 ++  on-agent  on-agent:def
 ++  on-peek  on-peek:def
-::
-++  on-watch
-  |=  pax=path
-  ^-  (quip card _this)
-  ?+    -.pax  (on-watch:def pax)
-      %clients
-    ~|  "volt-wallet: blocked client {<src.bowl>}"
-    ?>  (team:title our.bowl src.bowl)
-    ~&  >  "volt-wallet: accepted client {<src.bowl>}"
-    `this
-  ==
-::
+++  on-watch  on-watch:def
 ++  on-leave  on-leave:def
 ++  on-fail  on-fail:def
 --
@@ -105,21 +94,18 @@
   ::
       %get-public-key
     =/  pubkey=hexb:bc  (get-public-key path.action)
-    %-  (slog leaf+"{<dat:pubkey>}" ~)
     :_  state
-    ~[(send-result [%public-key pubkey] src.bowl)]
+    ~[(send-result [%public-key pubkey])]
   ::
       %get-address
     =/  =address:bc  (get-address path.action)
-    %-  (slog leaf+"{<address>}" ~)
     :_  state
-    ~[(send-result [%address address] src.bowl)]
+    ~[(send-result [%address address])]
   ::
       %sign-digest
     =/  sig=hexb:bc  (sign-digest path.action hash.action)
-    %-  (slog leaf+"{<sig>}" ~)
     :_  state
-    ~[(send-result [%signature sig] src.bowl)]
+    ~[(send-result [%signature sig])]
   ==
 ::
 ++  get-public-key
@@ -149,7 +135,10 @@
   ==
 ::
 ++  send-result
-  |=  [=result:wallet who=@p]
+  |=  =result:wallet
   ^-  card
-  [%give %fact ~[/clients/[(scot %p who)]] %volt-wallet-result !>(result)]
+  :*  %pass   /wallet
+      %agent  [src.bowl %volt]
+      %poke   %volt-wallet-result  !>(result)
+  ==
 --
