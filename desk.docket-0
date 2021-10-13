@@ -1,0 +1,11 @@
+:: -*- mode: hoon -*-
+:~
+  title+'Volt'
+  info+'Lightning on urbit'
+  color+0x40.90f0
+  version+[0 0 1]
+  website+'https://urbit.org'
+  license+'MIT'
+  base+'volt'
+  site+/volt
+==

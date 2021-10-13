@@ -8,8 +8,7 @@
 *.proto
 *.conf
 *.nix
-dev/*
+dev
 #*#
 node_modules
-node_modules/*
 LICENSE

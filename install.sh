@@ -40,7 +40,7 @@ fi
 pier="$1"
 
 sync_files () {
-  rsync -r --exclude-from="${excludes}" ./* "${pier}"/home/
+  rsync -r --exclude-from="${excludes}" ./* "${pier}"/volt/
 }
 
 if $watch ; then
