@@ -155,6 +155,7 @@
     ==
   ::
   +$  payment-failure-reason
+    $~  %'FAILURE_REASON_NONE'
     $?  %'FAILURE_REASON_NONE'
         %'FAILURE_REASON_TIMEOUT'
         %'FAILURE_REASON_NO_ROUTE'

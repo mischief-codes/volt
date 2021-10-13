@@ -386,6 +386,11 @@
       [%give %kick ~[/http-response/[id]] ~]
   ==
 ::
+++  is-client
+  |=  who=@p
+  ^-  ?
+  (~(has in clients.host-info) who)
+::
 ++  start-ping-timer
   |=  interval=@dr
   ^-  card

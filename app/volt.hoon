@@ -18,12 +18,21 @@
   $:  %0
       =node-info
       prov=(unit provider-state)
-      pays=(map hash payment)
-      invs=(map hash invoice)
+    ::
+      ::  our payments
+      $=  pays
+      $:  by-hash=(map hash payment)
+          by-ship=(map ship payment)
+      ==
+    ::
+      ::  our invoices
+      $=  invs
+      $:  by-hash=(map hash invoice)
+          by-ship=(map ship invoice)
+      ==
+    ::
+      ::  received payreqs
       reqs=(map hash payment-request)
-      ::
-      tmp-pays=(map ship payment)
-      tmp-invs=(map ship invoice)
   ==
 --
 ::
@@ -73,7 +82,8 @@
   |=  [=wire =sign-arvo]
   ^-  (quip card _this)
   ?:  ?=([%invoice-timeout *] wire)
-    `this(tmp-invs (remove-expired-invoices:hc tmp-invs))
+    `this
+    ::  TODO: expire the invoice (tmp-invs (remove-expired-invoices:hc tmp-invs))
   (on-arvo:def wire sign-arvo)
 ::
 ++  on-agent
@@ -113,9 +123,9 @@
   ?:  ?=([%x %pubkey ~] pax)
     ``noun+!>(identity-pubkey.node-info)
   ?:  ?=([%x %invoices *] pax)
-    ``noun+!>(~(val by invs))
+    ``noun+!>(~(val by by-hash.invs))
   ?:  ?=([%x %payments *] pax)
-    ``noun+!>(~(val by pays))
+    ``noun+!>(~(val by by-hash.pays))
   (on-peek:def pax)
 ::
 ++  on-watch  on-watch:def
@@ -150,7 +160,7 @@
     =.  status.paym         %'UNKNOWN'
     =.  creation-time.paym  now.bowl
     =.  value-msats.paym    amt-msats
-    :_  state(tmp-pays (~(put by tmp-pays) to.command paym))
+    :_  state(by-ship.pays (~(put by by-ship.pays) to.command paym))
     ~[(request-invoice payee.paym value-msats.paym)]
   ::
       %send-invoice
@@ -165,21 +175,21 @@
     =.  r-hash.invo       hash
     =.  value-msats.invo  amt-msats
     =.  settled.invo      %.n
-    :_  state(invs (~(put by invs) hash invo))
+    :_  state(by-hash.invs (~(put by by-hash.invs) hash invo))
     ~[(add-invoice amt-msats memo `r-preimage.invo `r-hash.invo)]
   ::
       %cancel-invoice
-    ?.  (~(has by invs) payment-hash.command)
+    ?.  (~(has by by-hash.invs) payment-hash.command)
       `state
-    =+  invo=(~(got by invs) payment-hash.command)
-    =/  in-temp=?
-      ?&  (~(has by tmp-invs) payer.invo)
-          =+  tmp=(~(got by tmp-invs) payer.invo)
+    =+  invo=(~(got by by-hash.invs) payment-hash.command)
+    =/  for-ship=?
+      ?&  (~(has by by-ship.invs) payer.invo)
+          =+  inv=(~(got by by-ship.invs) payer.invo)
           =+  hsh=`payment-hash.command
-          =(hsh r-hash.tmp)
+          =(hsh r-hash.inv)
       ==
     :-  ~[(cancel-invoice payment-hash.command)]
-    state(tmp-invs ?:(in-temp (~(del by tmp-invs) payer.invo) tmp-invs))
+    state(by-ship.invs ?:(for-ship (~(del by by-ship.invs) payer.invo) by-ship.invs))
   ::
       %request-invoice
     :_  state
@@ -188,15 +198,15 @@
       %pay-invoice
     =+  +.command
     ?.  (~(has by reqs) payment-hash)
-      ~&  >>>  "no invoice for payment {<dat.payment-hash>}"
+      ~&  >>>  "volt: no invoice for payment {<dat.payment-hash>}"
       `state
     =+  invoice=(~(got by reqs) payment-hash)
     :_  state
     ~[(send-payment payreq.invoice)]
   ::
       %reset
-    ~&  >>>  "resetting payment state"
-    `state(tmp-invs *(map ship invoice), tmp-pays *(map ship payment))
+    ~&  >>>  "volt: resetting payment state"
+    `state(by-ship.invs *(map ship invoice), by-ship.pays *(map ship payment))
   ==
 ::
 ++  handle-action
@@ -204,16 +214,18 @@
   ^-  (quip card _state)
   ?-    -.action
       %request-invoice
-    ?:  (~(has by tmp-invs) src.bowl)
-      ::  invoice already generated, send it back:
+    =+  old-invo=(~(get by by-ship.invs) src.bowl)
+    ?:  ?&  ?=(^ old-invo)
+            =(value-msats.u.old-invo amt-msats.action)
+        ==
+      ::  invoice for ship already generated
       ::
-      ~&  >  "repeated request for invoice: {<amt-msats.action>}"
-      =+  invo=(~(got by tmp-invs) src.bowl)
+      ~&  >  "volt: repeated request for invoice: {<amt-msats.action>}"
       :_  state
-      ~[(request-payment src.bowl payment-request.invo)]
+      ~[(request-payment src.bowl payment-request.u.old-invo)]
     ::  generate a new invoice
     ::
-    ~&  >  "got request for invoice: {<amt-msats.action>}"
+    ~&  >  "volt: got request for invoice: {<amt-msats.action>}"
     =|  invo=invoice
     =.  payer.invo        src.bowl
     =.  payee.invo        our.bowl
@@ -224,34 +236,36 @@
     =.  value-msats.invo  amt-msats.action
     =.  settled.invo      %.n
     :_  %_  state
-          tmp-invs  (~(put by tmp-invs) src.bowl invo)
-          invs      (~(put by invs) hash invo)
+          by-ship.invs  (~(put by by-ship.invs) src.bowl invo)
+          by-hash.invs  (~(put by by-hash.invs) hash invo)
         ==
-    :~
-      (add-invoice value-msats.invo ~ `preimage `hash)
-    ==
+    %+  weld
+      ~[(add-invoice value-msats.invo ~ `preimage `hash)]
+    ?~  old-invo
+      ~
+    ~[(cancel-invoice r-hash.u.old-invo)]
   ::
       %request-payment
     =/  invoice=(unit invoice:bolt11)
       %-  de:bolt11  payreq.action
     ?~  invoice  ~|(%invalid-payment-request !!)
-    ?:  ?&  (~(has by tmp-pays) src.bowl)
-            =+  paym=(~(got by tmp-pays) src.bowl)
+    ?:  ?&  (~(has by by-ship.pays) src.bowl)
+            =+  paym=(~(got by by-ship.pays) src.bowl)
             (check-invoice u.invoice paym)
         ==
-        ~&  >  "unconditional payment request: {<payreq.action>}"
+        ~&  >  "volt: got invoice for our request: {<payreq.action>}"
         ::  invoice for unconditional payment:
         ::
-        =+  paym=(~(got by tmp-pays) src.bowl)
+        =+  paym=(~(got by by-ship.pays) src.bowl)
         =.  request.paym  payreq.action
         =.  hash.paym     payment-hash.u.invoice
         :_  %_  state
-              tmp-pays  (~(put by tmp-pays) payee.paym paym)
-              pays      (~(put by pays) payment-hash.u.invoice paym)
+              by-ship.pays  (~(put by by-ship.pays) payee.paym paym)
+              by-hash.pays  (~(put by by-hash.pays) payment-hash.u.invoice paym)
             ==
         ~[(send-payment payreq.action)]
     ::
-    ~&  >  "got request: {<payreq.action>}"
+    ~&  >  "volt: got request: {<payreq.action>}"
     =|  payreq=payment-request
     =.  payer.payreq          our.bowl
     =.  payee.payreq          src.bowl
@@ -264,10 +278,9 @@
   ::
       %payment-receipt
     =+  action
-    ~&  >  "got receipt for: {<payment-hash>}"
+    ~&  >  "volt: got receipt for: {<dat.payment-hash>}"
     =+  preq=(~(get by reqs) payment-hash)
-    ?~  preq
-      `state
+    ?~  preq  `state
     =.  status.u.preq  %'SUCCEEDED'
     `state(reqs (~(put by reqs) payment-hash u.preq))
   ==
@@ -303,17 +316,22 @@
     `state
   ::
       %invoice-added
-    ?.  (~(has by invs) r-hash.result)
+    ?.  (~(has by by-hash.invs) r-hash.result)
       `state
-    =+  invo=(~(got by invs) r-hash.result)
-    =/  for-temp=?
-      ?&  (~(has by tmp-invs) payer.invo)
-          =(r-hash.result r-hash:(~(got by tmp-invs) payer.invo))
+    =+  invo=(~(got by by-hash.invs) r-hash.result)
+    =/  for-ship=?
+      ?&  (~(has by by-ship.invs) payer.invo)
+          =(r-hash.result r-hash:(~(got by by-ship.invs) payer.invo))
       ==
     =.  payment-request.invo  payment-request.result
     :_  %_  state
-          tmp-invs  ?:(for-temp (~(put by tmp-invs) payer.invo invo) tmp-invs)
-          invs      (~(put by invs) r-hash.result invo)
+          by-hash.invs  (~(put by by-hash.invs) r-hash.result invo)
+        ::
+          by-ship.invs
+            ?:  for-ship
+              ~&  >  "volt: invoice for unrequested payment added: {<dat.r-hash.result>}"
+              (~(put by by-ship.invs) payer.invo invo)
+            by-ship.invs
         ==
     ~[(request-payment payer.invo payment-request.result)]
   ::
@@ -321,11 +339,11 @@
     `state
   ::
       %payment-update
-    ?.  (~(has by pays) hash.result)  `state
-    =+  paym=(~(got by pays) hash.result)
-    =/  for-temp=?
-      ?&  (~(has by tmp-pays) payee.paym)
-          =(hash.result hash:(~(got by tmp-pays) payee.paym))
+    ?.  (~(has by by-hash.pays) hash.result)  `state
+    =+  paym=(~(got by by-hash.pays) hash.result)
+    =/  for-ship=?
+      ?&  (~(has by by-ship.pays) payee.paym)
+          =(hash.result hash:(~(got by by-ship.pays) payee.paym))
       ==
     =.  paym
       :*  payer=payer.paym
@@ -335,15 +353,23 @@
     ?-    status.result
         %'SUCCEEDED'
       :_  %_  state
-            tmp-pays  ?:(for-temp (~(del by tmp-pays) payee.paym) tmp-pays)
-            pays      (~(put by pays) hash.result paym)
+            by-hash.pays  (~(put by by-hash.pays) hash.result paym)
+          ::
+            by-ship.pays
+              ?:  for-ship
+                (~(del by by-ship.pays) payee.paym)
+              by-ship.pays
           ==
       ~[(send-update [%& %payment-sent payee.paym value-msats.paym])]
     ::
         %'FAILED'
       :_  %_  state
-            tmp-pays  ?:(for-temp (~(del by tmp-pays) payee.paym) tmp-pays)
-            pays      (~(put by pays) hash.result paym)
+            by-hash.pays  (~(put by by-hash.pays) hash.result paym)
+          ::
+            by-ship.pays
+              ?:  for-ship
+                (~(del by by-ship.pays) payee.paym)
+              by-ship.pays
           ==
       ~[(send-update [%| %payment-failed hash.result failure-reason.result])]
     ::
@@ -352,50 +378,46 @@
     ==
   ::
       %invoice-update
-    ?.  (~(has by invs) r-hash.result)
+    ?.  (~(has by by-hash.invs) r-hash.result)
       `state
-    =+  invo=(~(got by invs) r-hash.result)
-    =/  for-temp=?
-      ?&  (~(has by tmp-invs) payer.invo)
-          =(r-hash.result r-hash:(~(got by tmp-invs) payer.invo))
+    =+  invo=(~(got by by-hash.invs) r-hash.result)
+    =/  for-ship=?
+      ?&  (~(has by by-ship.invs) payer.invo)
+          =(r-hash.result r-hash:(~(got by by-ship.invs) payer.invo))
       ==
     =.  invo
       :*  payer=payer.invo
           payee=payee.invo
           +.result
       ==
+    :_  %_  state
+            by-hash.invs
+              %+  ~(put by by-hash.invs)
+                r-hash.result
+              invo
+          ::
+            by-ship.invs
+              ?:  for-ship
+                %-  ~(del by by-ship.invs)
+                  payer.invo
+              by-ship.invs
+          ==
     ?-    state.result
         %'SETTLED'
-      :_  %_  state
-            tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
-            invs      (~(put by invs) r-hash.result invo)
-          ==
       :~  (send-update [%& %invoice-settled r-hash.result])
           (payment-receipt r-hash.result payer.invo)
       ==
     ::
         %'CANCELED'
-      :_  %_  state
-            tmp-invs  ?:(for-temp (~(del by tmp-invs) payer.invo) tmp-invs)
-            invs      (~(put by invs) r-hash.result invo)
-          ==
       ~[(send-update [%& %invoice-canceled r-hash.result])]
     ::
         %'OPEN'
-      :_  %_  state
-            tmp-invs  ?:(for-temp (~(put by tmp-invs) payer.invo invo) tmp-invs)
-            invs      ?:(for-temp invs (~(put by invs) r-hash.result invo))
-          ==
-      ?:  for-temp
+      ?:  for-ship
         ~[set-invoice-timeout]
       ~
     ::
         %'ACCEPTED'
-      :-  ~
-      %_  state
-        tmp-invs  ?:(for-temp (~(put by tmp-invs) payer.invo invo) tmp-invs)
-        invs      ?:(for-temp invs (~(put by invs) r-hash.result invo))
-      ==
+      ~
     ==
   ::
       %balance-update
