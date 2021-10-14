@@ -19,6 +19,11 @@
     ^-  sats:bc
     (div a 1.000)
   ::
+  ++  sats-to-msats
+    |=  a=sats:bc
+    ^-  msats
+    (mul a 1.000)
+  ::
   ++  fee-by-weight
     |=  [feerate-per-kw=@ud weight=@ud]
     ^-  @ud
@@ -1010,15 +1015,11 @@
       g:t
     dat:commit-secret
   ::
-  ++  first-index
-    ^-  @ud
-    281.474.976.710.655
-  ::
-  ++  generate-from-seed
-    |=  [=seed i=index]
-    |^  ^-  commit-secret
-    =/  p=@    dat.seed
-    =/  b=@ud  48
+  ++  derive-secret
+    |=  [base=@ bits=@ i=index]
+    ^-  commit-secret
+    =/  p=@    base
+    =/  b=@    bits
     |-
     =.  b  (dec b)
     =?  p  (test-bit b i)
@@ -1030,29 +1031,54 @@
         dat=(swp 3 p)
       ==
     $(b b, p p)
-    ::
-    ++  test-bit
-      |=  [n=@ p=@]
-      =(1 (get-bit n p))
-    ::
-    ++  get-bit
-      |=  [n=@ p=@]
-      =/  byt=@  (div n 8)
-      =/  bit=@  (mod n 8)
-      %+  dis  0x1
-      %+  rsh  [0 bit]
-      %+  rsh  [3 byt]
-      p
-    ::
-    ++  flip-bit
-      |=  [n=@ b=@]
-      =/  byt=@  (div n 8)
-      =/  bit=@  (mod n 8)
-      %+  mix  b
-      %+  lsh  [0 bit]
-      %+  lsh  [3 byt]
-      1
-    --
+  ::
+  ++  test-bit
+    |=  [n=@ p=@]
+    =(1 (get-bit n p))
+  ::
+  ++  get-bit
+    |=  [n=@ p=@]
+    =/  byt=@  (div n 8)
+    =/  bit=@  (mod n 8)
+    %+  dis  0x1
+    %+  rsh  [0 bit]
+    %+  rsh  [3 byt]
+    p
+  ::
+  ++  flip-bit
+    |=  [n=@ b=@]
+    =/  byt=@  (div n 8)
+    =/  bit=@  (mod n 8)
+    %+  mix  b
+    %+  lsh  [0 bit]
+    %+  lsh  [3 byt]
+    1
+  ::
+  ++  where-to-put-secret
+    |=  i=index
+    ^-  @
+    =|  b=@
+    |-
+    ?:  =(b 47)         48
+    ?:  (test-bit b i)  b
+    $(b (add b 1))
+  ::
+  ++  insert-secret
+    |=  [=secret i=index]
+    =/  b=@  (where-to-put-secret)
+    =|  a=@
+    |-
+    ?:  =(a b)
+  ::
+  ++  derive-old-secret
+    |=
+  ::
+  ++  generate-from-seed
+    |=  [=seed i=index]
+    %^    derive-secret
+        dat.seed
+      48
+    i
   ::
   ++  next
     |=  [=seed i=index]
@@ -1063,8 +1089,178 @@
   ++  init-from-seed
     |=  =seed
     ^-  (pair commit-secret index)
-    %+  next
-      seed
-    first-index
+    (next seed 281.474.976.710.655)
+  --
+::
+++  const
+  |%
+  ++  min-remote-delay       144
+  ++  max-remote-delay       2.016
+  ++  min-chan-funding-size  20.000
+  ++  max-funding-amount     16.777.216
+  ++  max-htlc-number        966
+  ++  min-conf               3
+  ++  max-conf               6
+  --
+::
+++  config
+  |_  $:  min-chan-size=sats:bc
+          max-chan-size=sats:bc
+          max-pending-chans=@ud
+          min-htlc-value=msats
+          reject-push=?
+      ==
+  ::
+  ++  num-required-confs
+    |=  [amt=sats:bc push=msats]
+    |^  ^-  @ud
+    ?:  (gth amt max-funding-amount:const)
+      max-conf:const
+    ?:  (lth conf min-conf:const)
+      min-conf:const
+    ?:  (gth conf max-conf:const)
+      max-conf:const
+    conf
+    ::
+    ++  max-size
+      ^-  msats
+      %-  sats-to-msats:bolt-tx
+      max-funding-amount:const
+    ::
+    ++  stake
+      ^-  msats
+      %+  add
+      %-  sats-to-msats:bolt-tx  amt
+      push
+    ::
+    ++  conf
+      %+  div
+      %+  mul  max-conf:const  stake
+      max-size
+    --
+  ::
+  ++  required-remote-chan-reserve
+    |=  [amt=sats:bc dust-limit=sats:bc]
+    |^  ^-  sats:bc
+    ?:  (lth reserve dust-limit)
+      dust-limit
+    reserve
+    ::
+    ++  reserve
+      ^-  sats:bc
+      %+  div
+        amt
+      100
+    --
+  ::
+  ++  required-remote-max-value
+    |=  amt=sats:bc
+    ^-  msats
+    %+  sub
+    %-  sats-to-msats:bolt-tx  amt
+    %-  sats-to-msats:bolt-tx  (div amt 100)
+  ::
+  ++  required-remote-delay
+    |=  amt=sats:bc
+    |^  ^-  blocks
+    ?:  (gth amt max-funding-amount:const)
+      max-remote-delay:const
+    ?:  (lth delay min-remote-delay:const)
+      min-remote-delay:const
+    ?:  (gth delay max-remote-delay:const)
+      max-remote-delay:const
+    delay
+    ::
+    ++  delay
+      %+  div
+        %+  mul
+          max-remote-delay:const
+        amt
+      max-funding-amount:const
+    --
+  ::
+  ++  required-remote-max-htlcs
+    |=  amt=sats:bc
+    (div max-htlc-number:const 2)
+  --
+::
+++  keys
+  |_  =keyring
+  ::
+  ++  en-family
+    |=  =key-family
+    ?-  key-family
+      %multisig         0
+      %revocation-base  1
+      %htlc-base        2
+      %payment-base     3
+      %delay-base       4
+      %revocation-root  5
+    ==
+  ::
+  ++  coin-type
+    |=  =network
+    ?-  network
+      %main     0
+      %testnet  1
+      %regtest  2
+    ==
+  ::
+  ++  from-seed
+    |=  seed=hexb:bc
+    |^  ^-  keyring
+    =|  keys=keyring
+    keyring(wamp wamp)
+    ::
+    ++  gen
+      %-  from-seed:bip32
+        seed
+    ::
+    ++  wamp
+      :*  prv=prv:gen
+          pub=pub:gen
+          cad=cad:gen
+          dep=dep:gen
+          ind=ind:gen
+          pif=pif:gen
+      ==
+    --
+  ::
+  ++  derive
+    |=  [=fam =idx:bc]
+    |^
+    %-  ~(derive-sequence bip32 wamp.keyr)
+    :~  purpose
+        %-  coin-type  network.keyring
+        %-  en-family  key-family
+        0
+        idx
+     ==
+     ++  purpose  1.337
+     --
+  ::
+  ++  derive-pubkey
+    |=  [=key-family =idx:bc]
+    ^-  keyd
+    :*  key-family
+        idx
+        pub:(derive key-family idx)
+    ==
+  ::
+  ++  derive-privkey
+    |=  =key-descriptor
+    |^  ^-  hexb:bc
+    [(met 3 key) key]
+    ++  key  prv:(derive fam.keyd ind.keyd)
+    --
+  ::
+  ++  next-pubkey
+    |=  =key-family
+    =/  =idx:bc
+      (~(gut by idxs.keyr) fam 0)
+    :_  keyr(idxs (~(put by idxs.keyr) fam (add idx 1)))
+    %+  derive-pubkey
+      fam
+    idx
   --
 --

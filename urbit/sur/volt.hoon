@@ -295,6 +295,13 @@
   $%  [%request-invoice =amt=msats]
       [%request-payment =payreq]
       [%payment-receipt =payment=hash]
+      [%set-btc-provider provider=(unit ship)]
+      [%set-wallet who=(unit ship)]
+      ::
+      [%open-channel to=ship]
+      [%close-channel =chan-id]
+      [%send-payment to=ship =amt=msats]
+      [%send-invoice to=ship =amt=msats memo=(unit cord)]
   ==
 ::
 +$  error

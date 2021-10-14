@@ -13,6 +13,7 @@
 +$  point  point:secp:crypto
 +$  blocks  @ud                               ::  number of blocks
 +$  msats  @ud                                ::  millisats
++$  network  ?(%main %testnet %regtest)
 ::  +tx
 ::   modifications to bitcoin tx types, to be merged back later
 ::
@@ -132,10 +133,10 @@
         =funding=sats:bc
         =push=msats
         =funding=pubkey
-        dust-limit=sats:bc
-        max-htlc-value-in-flight=msats
-        channel-reserve=sats:bc
-        htlc-minimum=msats
+        =dust-limit=sats:bc
+        =max-htlc-value-in-flight=msats
+        =channel-reserve=sats:bc
+        =htlc-minimum=msats
         feerate-per-kw=sats:bc
         to-self-delay=blocks
         cltv-expiry-delta=blocks
@@ -145,28 +146,34 @@
         =shutdown-script=pubkey
         anchor-outputs=?
     ==
+  ::
   +$  accept-channel
-    $:  =funding=pubkey
-        dust-limit=sats:bc
-        max-htlc-value-in-flight=msats
-        channel-reserve=sats:bc
-        htlc-minimum=msats
+    $:  temporary-channel-id=hexb:bc
+        =dust-limit=sats:bc
+        =max-htlc-value-in-flight=msats
+        =channel-reserve=sats:bc
+        =htlc-minimum=msats
         minimum-depth=blocks
         to-self-delay=blocks
         max-accepted-htlcs=@ud
+        =funding=pubkey
         =basepoints
         =first-per-commitment=point
         =shutdown-script=pubkey
+        anchor-outputs=?
     ==
+  ::
   +$  funding-created
     $:  temporary-channel-id=hexb:bc
         =funding=outpoint
         =signature
     ==
+  ::
   +$  funding-signed
     $:  =channel=id
         =signature
     ==
+  ::
   +$  funding-locked
     $:  =channel=id
         =next-per-commitment=point
@@ -178,39 +185,81 @@
     $:  add=update-add-htlc
         sign=commitment-signed
     ==
+  ::
   +$  update-add-htlc
     $:  =channel=id
-        =htlc=id
+        =id
+        =amount=msats
+        payment-hash=hexb:bc
+        cltv-expiry=blocks
     ==
+  ::
   +$  commitment-signed
     $:  =channel=id
         sig=signature
         num-htlcs=@ud
         htlc-sigs=(list signature)
     ==
+  ::
   +$  revoke-and-ack
     $:  =channel=id
         =id
         per-commitment-secret=hexb:bc
         next-per-commitment-point=point
     ==
+  ::
+  ::  Closing Messages
+  ::
+  +$  shutdown
+    $:  =channel=id
+        =script=pubkey
+    ==
+  ::
+  +$  closing-signed
+    $:  =channel=id
+        =fee=sats:bc
+        =signature
+        min-fee=(unit sats:bc)
+        max-fee=(unit sats:bc)
+    ==
   --
-  ::
-  +$  message
-    $%  [%open-channel open-channel:msg]
-        [%accept-channel accept-channel:msg]
-        [%funding-created funding-created:msg]
-        [%funding-signed funding-signed:msg]
-        [%funding-locked funding-locked:msg]
-::        [%shutdown shutdown:msg]
-::        [%closing-signed closing-signed:msg]
-        [%update-add-htlc update-add-htlc:msg]
-        [%commitment-signed commitment-signed:msg]
-        [%revoke-and-ack revoke-and-ack:msg]
-    ==
-  ::
-  +$  state
-    $:  chans=(map id chan)
-        pending=(map id larva-chan)
-    ==
+::
++$  message
+  $%  [%open-channel open-channel:msg]
+      [%accept-channel accept-channel:msg]
+      [%funding-created funding-created:msg]
+      [%funding-signed funding-signed:msg]
+      [%funding-locked funding-locked:msg]
+      [%shutdown shutdown:msg]
+      [%closing-signed closing-signed:msg]
+      [%update-add-htlc update-add-htlc:msg]
+      [%commitment-signed commitment-signed:msg]
+      [%revoke-and-ack revoke-and-ack:msg]
+  ==
+::
++$  key-family
+  $?  %multisig
+      %revocation-base
+      %htlc-base
+      %payment-base
+      %delay-base
+      %revocation-root
+  ==
+::
++$  key-descriptor
+  $:  =key-family
+      =idx:bc
+      pubkey=point
+  ==
+::
++$  key-locator
+  $:  =key-family
+      =idx:bc
+  ==
+::
++$  keyring
+  $:  =wamp:bw
+      =network
+      idxs=(map fam idx:bc)
+  ==
 --

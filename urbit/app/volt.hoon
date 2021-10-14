@@ -3,7 +3,7 @@
 ::
 /-  *volt
 /+  bolt11=bolt-bolt11, bcu=bitcoin-utils
-/+  server, default-agent, dbug
+/+  default-agent, dbug
 |%
 ::
 +$  card  card:agent:gall

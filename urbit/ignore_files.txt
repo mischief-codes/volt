@@ -9,6 +9,6 @@
 *.conf
 *.nix
 dev
-#*#
+*#
 node_modules
 LICENSE
