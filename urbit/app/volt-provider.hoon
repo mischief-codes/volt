@@ -153,7 +153,7 @@
       %send-payment
     :_  state
     %-  do-rpc
-    [%send-payment invoice.action ~]
+    [%send-payment invoice.action timeout.action fee-limit.action]
   ::
       %add-invoice
     :_  state

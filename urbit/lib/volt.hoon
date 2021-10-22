@@ -48,11 +48,12 @@
         ==
       ::
       ++  send-payment
-        |=  [invoice=cord timeout=(unit @dr)]
+        |=  [invoice=cord timeout=(unit @dr) fee-limit=(unit msats:volt)]
         ^-  json
         %-  pairs
         :~  ['payment_request' [%s invoice]]
             ['timeout_seconds' (numb (div (fall timeout ~s30) ~s1))]
+            ['fee_limit_msat' (numb (fall fee-limit 0))]
         ==
       ::
       ++  add-invoice

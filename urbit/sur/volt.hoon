@@ -40,7 +40,7 @@
         [%close-channel funding-txid=txid output-index=@ud]
         [%settle-htlc =circuit-key =preimage]
         [%fail-htlc =circuit-key]
-        [%send-payment invoice=cord timeout=(unit @dr)]
+        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit msats)]
         $:  %add-invoice
           =amt=msats
           memo=(unit cord)
@@ -223,7 +223,7 @@
         [%wallet-balance ~]
         [%settle-htlc =htlc-info =preimage]
         [%fail-htlc =htlc-info]
-        [%send-payment invoice=cord timeout=(unit @dr)]
+        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit msats)]
         $:  %add-invoice
           =amt=msats
           memo=(unit cord)

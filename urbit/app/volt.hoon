@@ -534,9 +534,14 @@
 ::
 ++  send-payment
   |=  invoice=cord
-  ^-  card
+  |^  ^-  card
   %+  provider-action  /payment
-  [%send-payment invoice ~]
+  [%send-payment invoice ~ `default-fee-limit]
+  ::
+  ++  default-fee-limit
+    ^-  msats
+    10.000
+  --
 ::
 ++  payment-receipt
   |=  [=payment=hash who=ship]
