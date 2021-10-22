@@ -2,7 +2,7 @@
 set -e
 
 usage() {
-  printf "Usage: %s [-hwxv] URBIT_PIER_DIRECTORY
+  printf "Usage: %s [-hwxv] URBIT_DESK_DIRECTORY
 (-h: show this help)
 (-w: flag to watch and live copy code)
 (-x: set excludes file, default=ignore_files.txt)
@@ -16,7 +16,7 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 
-pier=''
+desk=''
 verbose=false
 watch=false
 excludes=ignore_files.txt
@@ -37,14 +37,14 @@ if $verbose ; then
   set -x
 fi
 
-pier="$1"
+desk="$1"
 
 sync_files () {
-  rsync -r --exclude-from="${excludes}" ./* "${pier}"/volt/
+  rsync -r --exclude-from="${excludes}" ./* "${desk}"/
 }
 
 if $watch ; then
-  echo "Watching for changes to copy to ${pier}..."
+  echo "Watching for changes to copy to ${desk}..."
   while true
   do
     sleep 0.8
