@@ -95,17 +95,17 @@
       %get-public-key
     =/  pubkey=hexb:bc  (get-public-key path.action)
     :_  state
-    ~[(send-result [%public-key pubkey])]
+    ~[(send-result [%public-key path.action pubkey])]
   ::
       %get-address
     =/  =address:bc  (get-address path.action)
     :_  state
-    ~[(send-result [%address address])]
+    ~[(send-result [%address path.action address])]
   ::
       %sign-digest
     =/  sig=hexb:bc  (sign-digest path.action hash.action)
     :_  state
-    ~[(send-result [%signature sig])]
+    ~[(send-result [%signature path.action sig])]
   ==
 ::
 ++  get-public-key

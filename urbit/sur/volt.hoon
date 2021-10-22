@@ -1,5 +1,4 @@
-::
-:: sur/volt.hoon
+::  sur/volt.hoon
 ::
 /-  bc=bitcoin
 /+  bolt11=bolt-bolt11
@@ -255,6 +254,24 @@
   +$  status  ?(%connected %disconnected)
   --
 ::
+::  wallet types
+::
+++  wallet
+  |%
+  +$  action
+    $%  [%new-wallet ~]
+        [%get-public-key path=(list @u)]
+        [%get-address path=(list @u)]
+        [%sign-digest path=(list @u) hash=hexb:bc]
+    ==
+  ::
+  +$  result
+    $%  [%public-key path=(list @u) =pubkey]
+        [%address path=(list @u) =address:bc]
+        [%signature path=(list @u) signature=hexb:bc]
+    ==
+  --
+::
 ::  client types
 ::
 +$  payreq  cord
@@ -283,54 +300,20 @@
 ::
 +$  command
   $%  [%set-provider provider=(unit ship)]
+      [%set-btc-provider provider=(unit ship)]
+      [%set-wallet who=(unit ship)]
       [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
-      [%send-invoice to=ship =amt=msats memo=(unit cord)]
-      [%cancel-invoice =payment=hash]
-      [%request-invoice from=ship =amt=msats]
-      [%pay-invoice =payment=hash fee-limit=(unit sats:bc)]
-      [%reset ~]
+      [%open-channel who=ship =funding=sats:bc =push=msats]
+      [%close-channel =chan-id]
   ==
 ::
 +$  action
   $%  [%request-invoice =amt=msats]
       [%request-payment =payreq]
       [%payment-receipt =payment=hash]
-      [%set-btc-provider provider=(unit ship)]
-      [%set-wallet who=(unit ship)]
       ::
-      [%open-channel to=ship]
-      [%close-channel =chan-id]
       [%send-payment to=ship =amt=msats]
       [%send-invoice to=ship =amt=msats memo=(unit cord)]
   ==
-::
-+$  error
-  $%  [%payment-failed =payment=hash =payment-failure-reason:rpc]
-      [%provider-error error:provider]
-  ==
-::
-+$  result
-  $%  [%invoice-settled =payment=hash]
-      [%invoice-canceled =payment=hash]
-      [%payment-requested =payment-request]
-      [%payment-sent to=ship =amt=msats]
-  ==
-::
-+$  update  (each result error)
-::
-++  wallet
-  |%
-  +$  action
-    $%  [%new-wallet ~]
-        [%get-public-key path=(list @u)]
-        [%get-address path=(list @u)]
-        [%sign-digest path=(list @u) hash=hexb:bc]
-    ==
- ::
-  +$  result
-    $%  [%public-key =pubkey]
-        [%address =address:bc]
-        [%signature signature=hexb:bc]
-    ==
-  --
+
 --

@@ -1,7 +1,7 @@
-::  bolt.hoon
+::  sur/bolt.hoon
 ::  Datatypes to implement Lightning BOLT RFCs.
 ::
-/-  bc=bitcoin, bp=btc-provider
+/-  bc=bitcoin
 |%
 +$  id  @ud
 +$  pubkey  hexb:bc
@@ -13,9 +13,38 @@
 +$  point  point:secp:crypto
 +$  blocks  @ud                               ::  number of blocks
 +$  msats  @ud                                ::  millisats
-+$  network  ?(%main %testnet %regtest)
-::  +tx
-::   modifications to bitcoin tx types, to be merged back later
++$  network  ?(network:bc %regtest)
+::  +const: protocol constants
+::
+++  const
+  |%
+  ++  min-final-cltv-expiry  144
+  ++  min-remote-delay       144
+  ++  max-remote-delay       2.016
+  ++  min-funding-sats       200.000
+  ++  max-funding-sats       16.777.216
+  ++  max-htlc-number        966
+  ++  min-confirmations      3
+  ++  max-confirmations      6
+  ++  fee-eta-target         0
+  ++  feerate-regtest        0
+  ++  dust-limit-sats        546
+  --
+::  +key: key-related types
+::
+++  key
+  |%
+  +$  family
+    $?  %multisig
+        %revocation-base
+        %htlc-base
+        %payment-base
+        %delay-base
+        %revocation-root
+    ==
+  +$  pair  [pub=point prv=@]
+  --
+::  +tx: modifications to bitcoin tx types, to be merged back later
 ::
 ++  tx
   |%
@@ -30,6 +59,34 @@
       payment=point
       delayed-payment=point
       htlc=point
+  ==
+::
+++  channel-config
+  $:  =basepoints
+      =multisig=pubkey
+      to-self-delay=blocks
+      =dust-limit=sats:bc
+      =max-htlc-value-in-flight=msats
+      max-accepted-htlcs=@ud
+      =initial=msats
+      =reserve=sats:bc
+      =htlc-minimum=msats
+      upfront-shutdown-script=hexb:bc
+  ==
+::
+++  local-config
+  $:  channel-config
+      seed=hexb:bc
+      funding-locked-received=?
+      =current-commitment=signature
+      =current-htlc=signature
+      per-commitment-secret-seed=@
+  ==
+::
+++  remote-config
+  $:  channel-config
+      =next-per-commitment=point
+      =current-per-commitment=point
   ==
 ::
 +$  htlc
@@ -92,7 +149,10 @@
 ::   - holds all the messages back and forth until finalized
 ::   - used to build chan
 +$  larva-chan
-  $:  oc=(unit open-channel:msg)
+  $:  initiator=?
+      our=local-config
+      her=remote-config
+      oc=(unit open-channel:msg)
       ac=(unit accept-channel:msg)
       fc=(unit funding-created:msg)
       fs=(unit funding-signed:msg)
@@ -179,7 +239,7 @@
         =next-per-commitment=point
     ==
   ::
-  ::  HTLC Messages
+  ::  htlc messages
   ::
   +$  add-signed-htlc
     $:  add=update-add-htlc
@@ -208,7 +268,7 @@
         next-per-commitment-point=point
     ==
   ::
-  ::  Closing Messages
+  ::  closing messages
   ::
   +$  shutdown
     $:  =channel=id
@@ -235,31 +295,9 @@
       [%update-add-htlc update-add-htlc:msg]
       [%commitment-signed commitment-signed:msg]
       [%revoke-and-ack revoke-and-ack:msg]
-  ==
-::
-+$  key-family
-  $?  %multisig
-      %revocation-base
-      %htlc-base
-      %payment-base
-      %delay-base
-      %revocation-root
-  ==
-::
-+$  key-descriptor
-  $:  =key-family
-      =idx:bc
-      pubkey=point
-  ==
-::
-+$  key-locator
-  $:  =key-family
-      =idx:bc
-  ==
-::
-+$  keyring
-  $:  =wamp:bw
-      =network
-      idxs=(map fam idx:bc)
+      [%update-fulfill-htlc =channel=id =id preimage=hexb:bc]
+      [%update-fail-htlc =channel=id =id reason=@t]
+      [%update-fail-malformed-htlc =channel=id =id]
+      [%update-fee ~]
   ==
 --

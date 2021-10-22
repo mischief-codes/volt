@@ -2,8 +2,38 @@
 ::  Library functions to implement Lightning BOLT RFCs.
 ::
 /-  *bolt
-/+  bc=bitcoin, bcu=bitcoin-utils, btc-script=bolt-script
+/+  bc=bitcoin, bcu=bitcoin-utils, btc-script=bolt-script, bip32
 |%
+::  +chain-hash:  get chain hash for network
+::
+++  chain-hash
+  |=  =network
+  |^  ^-  hexb:bc
+  :-  32
+  ?-  network
+    %main     main
+    %testnet  test
+    %regtest  regtest
+  ==
+  ++  main
+    0x19.d668.9c08.5ae1.6583.1e93.4ff7.63ae.46a2.a6c1.72b3.f1b6.0a8c.e26f
+  ::
+  ++  test
+    0x933.ea01.ad0e.e984.2097.79ba.aec3.ced9.0fa3.f408.7195.26f8.d77f.4943
+  ::
+  ++  regtest
+    0xf91.88f1.3cb7.b2c7.1f2a.335e.3a4f.c328.bf5b.eb43.6012.afca.590b.1a11.466e.2206
+  --
+::
+++  msats-to-sats
+  |=  a=msats
+  ^-  sats:bc
+  (div a 1.000)
+::
+++  sats-to-msats
+  |=  a=sats:bc
+  ^-  msats
+  (mul a 1.000)
 ::  +bolt-tx
 ::    helpers for building & signing commitment/HTLC txs
 ::
@@ -13,16 +43,6 @@
     |=  [funding-txid=id funding-output-index=@ud]
     ^-  id
     (mix funding-txid funding-output-index)
-  ::
-  ++  msats-to-sats
-    |=  a=msats
-    ^-  sats:bc
-    (div a 1.000)
-  ::
-  ++  sats-to-msats
-    |=  a=sats:bc
-    ^-  msats
-    (mul a 1.000)
   ::
   ++  fee-by-weight
     |=  [feerate-per-kw=@ud weight=@ud]
@@ -1001,195 +1021,19 @@
     --
   --
 ::
-++  commitment-secret
-  |%
-  +$  index  @u
-  +$  seed   hexb:bc
-  +$  commit-secret  hexb:bc
-  ::
-  ++  compute-commitment-point
-    =,  secp256k1:secp:crypto
-    |=  =commit-secret
-    ^-  point
-    %+  mul-point-scalar
-      g:t
-    dat:commit-secret
-  ::
-  ++  derive-secret
-    |=  [base=@ bits=@ i=index]
-    ^-  commit-secret
-    =/  p=@    base
-    =/  b=@    bits
-    |-
-    =.  b  (dec b)
-    =?  p  (test-bit b i)
-      %+  shay  32
-      %+  flip-bit  b  p
-    ?:  =(0 b)
-      :*
-        wid=32
-        dat=(swp 3 p)
-      ==
-    $(b b, p p)
-  ::
-  ++  test-bit
-    |=  [n=@ p=@]
-    =(1 (get-bit n p))
-  ::
-  ++  get-bit
-    |=  [n=@ p=@]
-    =/  byt=@  (div n 8)
-    =/  bit=@  (mod n 8)
-    %+  dis  0x1
-    %+  rsh  [0 bit]
-    %+  rsh  [3 byt]
-    p
-  ::
-  ++  flip-bit
-    |=  [n=@ b=@]
-    =/  byt=@  (div n 8)
-    =/  bit=@  (mod n 8)
-    %+  mix  b
-    %+  lsh  [0 bit]
-    %+  lsh  [3 byt]
-    1
-  ::
-  ++  where-to-put-secret
-    |=  i=index
-    ^-  @
-    =|  b=@
-    |-
-    ?:  =(b 47)         48
-    ?:  (test-bit b i)  b
-    $(b (add b 1))
-  ::
-  ++  insert-secret
-    |=  [=secret i=index]
-    =/  b=@  (where-to-put-secret)
-    =|  a=@
-    |-
-    ?:  =(a b)
-  ::
-  ++  derive-old-secret
-    |=
-  ::
-  ++  generate-from-seed
-    |=  [=seed i=index]
-    %^    derive-secret
-        dat.seed
-      48
-    i
-  ::
-  ++  next
-    |=  [=seed i=index]
-    ^-  (pair commit-secret index)
-    :-  (generate-from-seed seed i)
-        (dec i)
-  ::
-  ++  init-from-seed
-    |=  =seed
-    ^-  (pair commit-secret index)
-    (next seed 281.474.976.710.655)
-  --
-::
-++  const
-  |%
-  ++  min-remote-delay       144
-  ++  max-remote-delay       2.016
-  ++  min-chan-funding-size  20.000
-  ++  max-funding-amount     16.777.216
-  ++  max-htlc-number        966
-  ++  min-conf               3
-  ++  max-conf               6
-  --
-::
-++  config
-  |_  $:  min-chan-size=sats:bc
-          max-chan-size=sats:bc
-          max-pending-chans=@ud
-          min-htlc-value=msats
-          reject-push=?
-      ==
-  ::
-  ++  num-required-confs
-    |=  [amt=sats:bc push=msats]
-    |^  ^-  @ud
-    ?:  (gth amt max-funding-amount:const)
-      max-conf:const
-    ?:  (lth conf min-conf:const)
-      min-conf:const
-    ?:  (gth conf max-conf:const)
-      max-conf:const
-    conf
-    ::
-    ++  max-size
-      ^-  msats
-      %-  sats-to-msats:bolt-tx
-      max-funding-amount:const
-    ::
-    ++  stake
-      ^-  msats
-      %+  add
-      %-  sats-to-msats:bolt-tx  amt
-      push
-    ::
-    ++  conf
-      %+  div
-      %+  mul  max-conf:const  stake
-      max-size
-    --
-  ::
-  ++  required-remote-chan-reserve
-    |=  [amt=sats:bc dust-limit=sats:bc]
-    |^  ^-  sats:bc
-    ?:  (lth reserve dust-limit)
-      dust-limit
-    reserve
-    ::
-    ++  reserve
-      ^-  sats:bc
-      %+  div
-        amt
-      100
-    --
-  ::
-  ++  required-remote-max-value
-    |=  amt=sats:bc
-    ^-  msats
-    %+  sub
-    %-  sats-to-msats:bolt-tx  amt
-    %-  sats-to-msats:bolt-tx  (div amt 100)
-  ::
-  ++  required-remote-delay
-    |=  amt=sats:bc
-    |^  ^-  blocks
-    ?:  (gth amt max-funding-amount:const)
-      max-remote-delay:const
-    ?:  (lth delay min-remote-delay:const)
-      min-remote-delay:const
-    ?:  (gth delay max-remote-delay:const)
-      max-remote-delay:const
-    delay
-    ::
-    ++  delay
-      %+  div
-        %+  mul
-          max-remote-delay:const
-        amt
-      max-funding-amount:const
-    --
-  ::
-  ++  required-remote-max-htlcs
-    |=  amt=sats:bc
-    (div max-htlc-number:const 2)
-  --
-::
-++  keys
-  |_  =keyring
-  ::
-  ++  en-family
-    |=  =key-family
-    ?-  key-family
+++  generate-keypair
+  |=  [seed=hexb:bc =network family=family:key =idx:bc]
+  |^  ^-  pair:key
+  [pub=pub:node prv=private-key:node]
+  ++  purpose  1.337
+  ++  coin
+    ?-  network
+      %main     0
+      %testnet  1
+      %regtest  2
+    ==
+  ++  fam
+    ?-  family
       %multisig         0
       %revocation-base  1
       %htlc-base        2
@@ -1197,70 +1041,8 @@
       %delay-base       4
       %revocation-root  5
     ==
-  ::
-  ++  coin-type
-    |=  =network
-    ?-  network
-      %main     0
-      %testnet  1
-      %regtest  2
-    ==
-  ::
-  ++  from-seed
-    |=  seed=hexb:bc
-    |^  ^-  keyring
-    =|  keys=keyring
-    keyring(wamp wamp)
-    ::
-    ++  gen
-      %-  from-seed:bip32
-        seed
-    ::
-    ++  wamp
-      :*  prv=prv:gen
-          pub=pub:gen
-          cad=cad:gen
-          dep=dep:gen
-          ind=ind:gen
-          pif=pif:gen
-      ==
-    --
-  ::
-  ++  derive
-    |=  [=fam =idx:bc]
-    |^
-    %-  ~(derive-sequence bip32 wamp.keyr)
-    :~  purpose
-        %-  coin-type  network.keyring
-        %-  en-family  key-family
-        0
-        idx
-     ==
-     ++  purpose  1.337
-     --
-  ::
-  ++  derive-pubkey
-    |=  [=key-family =idx:bc]
-    ^-  keyd
-    :*  key-family
-        idx
-        pub:(derive key-family idx)
-    ==
-  ::
-  ++  derive-privkey
-    |=  =key-descriptor
-    |^  ^-  hexb:bc
-    [(met 3 key) key]
-    ++  key  prv:(derive fam.keyd ind.keyd)
-    --
-  ::
-  ++  next-pubkey
-    |=  =key-family
-    =/  =idx:bc
-      (~(gut by idxs.keyr) fam 0)
-    :_  keyr(idxs (~(put by idxs.keyr) fam (add idx 1)))
-    %+  derive-pubkey
-      fam
-    idx
+  ++  path      ~[purpose coin fam 0 idx]
+  ++  generator  (from-seed:bip32 seed)
+  ++  node       (derive-sequence:generator path)
   --
 --

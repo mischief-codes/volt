@@ -1,3 +1,4 @@
+::  volt-provider.hoon
 ::
 /-  volt
 /+  server, default-agent, dbug, libvolt=volt
@@ -421,12 +422,4 @@
   |=  =status
   ^-  card
   [%give %fact ~[/clients] %volt-provider-status !>(status)]
-::
-++  poke-manager
-  |=  [=path =action:volt]
-  ^-  card
-  :*  %pass   path
-      %agent  [our.bowl %volt]
-      %poke   %volt-action  !>(action)
-  ==
 --
