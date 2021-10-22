@@ -40,7 +40,7 @@
         [%close-channel funding-txid=txid output-index=@ud]
         [%settle-htlc =circuit-key =preimage]
         [%fail-htlc =circuit-key]
-        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit msats)]
+        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
         $:  %add-invoice
           =amt=msats
           memo=(unit cord)
@@ -223,7 +223,7 @@
         [%wallet-balance ~]
         [%settle-htlc =htlc-info =preimage]
         [%fail-htlc =htlc-info]
-        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit msats)]
+        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
         $:  %add-invoice
           =amt=msats
           memo=(unit cord)
@@ -262,6 +262,7 @@
 +$  payment
   $:  payer=ship
       payee=ship
+      fee-limit=(unit sats:bc)
       payment:rpc
   ==
 ::
@@ -282,11 +283,11 @@
 ::
 +$  command
   $%  [%set-provider provider=(unit ship)]
-      [%send-payment to=ship =amt=msats]
+      [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
       [%send-invoice to=ship =amt=msats memo=(unit cord)]
       [%cancel-invoice =payment=hash]
       [%request-invoice from=ship =amt=msats]
-      [%pay-invoice =payment=hash]
+      [%pay-invoice =payment=hash fee-limit=(unit sats:bc)]
       [%reset ~]
   ==
 ::

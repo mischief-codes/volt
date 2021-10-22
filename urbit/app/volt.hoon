@@ -157,6 +157,7 @@
     =|  paym=payment
     =.  payer.paym          our.bowl
     =.  payee.paym          to
+    =.  fee-limit.paym      fee-limit
     =.  status.paym         %'UNKNOWN'
     =.  creation-time.paym  now.bowl
     =.  value-msats.paym    amt-msats
@@ -202,7 +203,7 @@
       `state
     =+  invoice=(~(got by reqs) payment-hash)
     :_  state
-    ~[(send-payment payreq.invoice)]
+    ~[(send-payment payreq.invoice fee-limit)]
   ::
       %reset
     ~&  >>>  "volt: resetting payment state"
@@ -263,7 +264,7 @@
               by-ship.pays  (~(put by by-ship.pays) payee.paym paym)
               by-hash.pays  (~(put by by-hash.pays) payment-hash.u.invoice paym)
             ==
-        ~[(send-payment payreq.action)]
+        ~[(send-payment payreq.action fee-limit.paym)]
     ::
     ~&  >  "volt: got request: {<payreq.action>}"
     =|  payreq=payment-request
@@ -348,6 +349,7 @@
     =.  paym
       :*  payer=payer.paym
           payee=payee.paym
+          fee-limit=fee-limit.paym
           +.result
       ==
     ?-    status.result
@@ -533,15 +535,10 @@
   [%cancel-invoice payment-hash]
 ::
 ++  send-payment
-  |=  invoice=cord
-  |^  ^-  card
+  |=  [invoice=cord fee-limit=(unit sats:bc)]
+  ^-  card
   %+  provider-action  /payment
-  [%send-payment invoice ~ `default-fee-limit]
-  ::
-  ++  default-fee-limit
-    ^-  msats
-    10.000
-  --
+  [%send-payment invoice ~ fee-limit]
 ::
 ++  payment-receipt
   |=  [=payment=hash who=ship]
