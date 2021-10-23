@@ -204,7 +204,6 @@
 ::
 ++  provider
   |%
-  ::
   +$  host-info
     $:  api-url=@t
         connected=?
@@ -311,9 +310,7 @@
   $%  [%request-invoice =amt=msats]
       [%request-payment =payreq]
       [%payment-receipt =payment=hash]
-      ::
       [%send-payment to=ship =amt=msats]
       [%send-invoice to=ship =amt=msats memo=(unit cord)]
   ==
-
 --

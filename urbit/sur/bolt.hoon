@@ -185,7 +185,7 @@
 ::
 ++  msg
   |%
-  ::  channel messages
+  ::  funding messages
   ::
   +$  open-channel
     $:  chain-hash=hexb:bc

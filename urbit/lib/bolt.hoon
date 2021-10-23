@@ -1021,6 +1021,78 @@
     --
   --
 ::
+++  secret
+  =,  secp256k1:secp:crypto
+  |%
+  +$  index  @u
+  +$  seed   hexb:bc
+  +$  commit-secret  hexb:bc
+  ::
+  ++  compute-commitment-point
+    |=  =commit-secret
+    ^-  point
+    %+  mul-point-scalar
+      g:t
+    dat:commit-secret
+  ::
+  ++  first-index
+    ^-  @ud
+    281.474.976.710.655
+  ::
+  ++  generate-from-seed
+    |=  [=seed i=index]
+    |^  ^-  commit-secret
+    =/  p=@    dat.seed
+    =/  b=@ud  48
+    |-
+    =.  b  (dec b)
+    =?  p  (test-bit b i)
+      %+  shay  32
+      %+  flip-bit  b  p
+    ?:  =(0 b)
+      :*
+        wid=32
+        dat=(swp 3 p)
+      ==
+    $(b b, p p)
+    ::
+    ++  test-bit
+      |=  [n=@ p=@]
+      =(1 (get-bit n p))
+    ::
+    ++  get-bit
+      |=  [n=@ p=@]
+      =/  byt=@  (div n 8)
+      =/  bit=@  (mod n 8)
+      %+  dis  0x1
+      %+  rsh  [0 bit]
+      %+  rsh  [3 byt]
+      p
+    ::
+    ++  flip-bit
+      |=  [n=@ b=@]
+      =/  byt=@  (div n 8)
+      =/  bit=@  (mod n 8)
+      %+  mix  b
+      %+  lsh  [0 bit]
+      %+  lsh  [3 byt]
+      1
+    --
+  ::
+  ++  next
+    |=  [=seed i=index]
+    ^-  (pair commit-secret index)
+    :-  (generate-from-seed seed i)
+        (dec i)
+  ::
+  ++  init-from-seed
+    |=  =seed
+    ^-  (pair commit-secret index)
+    %+  next
+      seed
+    first-index
+  --
+::
 ++  generate-keypair
   |=  [seed=hexb:bc =network family=family:key =idx:bc]
   |^  ^-  pair:key
