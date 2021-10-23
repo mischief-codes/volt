@@ -83,9 +83,13 @@
           pif:wallet
       ==
     ::
-    ++  wallet  (~(from-seed bip32 wall) (seed))
+    ++  wallet
+      %-  ~(from-seed bip32 wall)
+        ?~  seed.action
+          (generate-seed)
+        u.seed.action
     ::
-    ++  seed
+    ++  generate-seed
       |.
       :-  32
       %-  ~(rad og eny.bowl)

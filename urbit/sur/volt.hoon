@@ -259,7 +259,7 @@
 ++  wallet
   |%
   +$  action
-    $%  [%new-wallet ~]
+    $%  [%new-wallet seed=(unit hexb:bc)]
         [%get-public-key path=(list @u)]
         [%get-address path=(list @u)]
         [%sign-digest path=(list @u) hash=hexb:bc]
