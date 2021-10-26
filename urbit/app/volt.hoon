@@ -1,8 +1,8 @@
 ::  volt.hoon
 ::
 /-  *volt, bolt
-/-  btc=bitcoin, btc-wallet, btc-provider
-/+  default-agent, dbug, libbolt=bolt
+/-  btc=bitcoin, btc-provider
+/+  bolt, default-agent, dbug
 |%
 +$  card  card:agent:gall
 ::
@@ -180,7 +180,7 @@
     ::
     =|  oc=open-channel:msg:bolt
     =.  temporary-channel-id.oc            tmp-id
-    =.  chain-hash.oc                      (chain-hash:libbolt %main)
+    =.  chain-hash.oc                      (chain-hash:bolt %main)
     =.  funding-sats.oc                    funding-sats
     =.  push-msats.oc                      push-msats
     =.  funding-pubkey.oc                  multisig-pubkey.conf
@@ -192,10 +192,13 @@
     =.  to-self-delay.oc                   to-self-delay.conf
     =.  max-accepted-htlcs.oc              max-accepted-htlcs.conf
     =.  basepoints.oc                      basepoints.conf
-    =.  first-per-commitment-point.oc      [x=0 y=0]
-    ::  ok, we need to figure out per-commitment-secret generation
-    ::  i thought i had this code but it wasn't compiling so let's
-    ::  try to revive it.
+    ::
+    =.  first-per-commitment-point.oc
+      %-  compute-commitment-point:secret:bolt
+      %+  generate-from-seed:secret:bolt
+        per-commitment-secret-seed.conf
+      first-index:secret:bolt
+    ::
     =.  shutdown-script-pubkey.oc          0^0x0
     =.  anchor-outputs.oc                  %.y
     ::
@@ -540,7 +543,7 @@
   =/  initial-msats=msats
     ?:  initiator
       %+  sub
-        %-  sats-to-msats:libbolt  funding-sats
+        %-  sats-to-msats:bolt  funding-sats
       push-msats
     push-msats
   =|  =local-config:bolt
@@ -549,23 +552,24 @@
     to-self-delay               (mul 7 144)
     dust-limit-sats             dust-limit-sats:const:bolt
     ::
-    max-htlc-value-in-flight-msats  (sats-to-msats:libbolt funding-sats)
+    max-htlc-value-in-flight-msats  (sats-to-msats:bolt funding-sats)
     max-accepted-htlcs          30
     initial-msats               initial-msats
     reserve-sats                (max (div funding-sats 100) dust-limit-sats:const:bolt)
     funding-locked-received     %.n
     htlc-minimum-msats          1
     ::
-    per-commitment-secret-seed  prv:(generate-keypair seed %revocation-root)
+    per-commitment-secret-seed  [32 prv:(generate-keypair seed %revocation-root)]
     multisig-pubkey             pub:(generate-keypair seed %multisig)
     htlc.basepoints             pub:(generate-keypair seed %htlc-base)
     payment.basepoints          pub:(generate-keypair seed %payment-base)
     delayed-payment.basepoints  pub:(generate-keypair seed %delay-base)
     revocation.basepoints       pub:(generate-keypair seed %revocation-base)
   ==
+  ::
   ++  generate-keypair
     |=  [seed=hexb:bc =family:key:bolt]
-    (generate-keypair:libbolt seed %main family 0)
+    (generate-keypair:bolt seed %main family 0)
   --
 ::
 ++  reserve-funding

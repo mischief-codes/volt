@@ -3,7 +3,6 @@
 /-  bc=bitcoin
 /+  bolt11=bolt-bolt11
 |%
-::
 +$  pubkey    hexb:bc
 +$  txid      hexb:bc
 +$  hash      hexb:bc
@@ -301,9 +300,9 @@
   $%  [%set-provider provider=(unit ship)]
       [%set-btc-provider provider=(unit ship)]
       [%set-wallet who=(unit ship)]
-      [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
       [%open-channel who=ship =funding=sats:bc =push=msats]
       [%close-channel =chan-id]
+      [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
   ==
 ::
 +$  action

@@ -3,17 +3,19 @@
 ::
 /-  bc=bitcoin
 |%
-+$  id  @ud
-+$  pubkey  hexb:bc
-+$  privkey  hexb:bc
-+$  witness  (list hexb:bc)
-+$  signature  hexb:bc
-+$  outpoint  [=txid:bc pos=@ud =sats:bc]
-+$  commitment-number  @ud
-+$  point  point:secp:crypto
++$  id      @ud
 +$  blocks  @ud                               ::  number of blocks
-+$  msats  @ud                                ::  millisats
-+$  network  ?(network:bc %regtest)
++$  msats   @ud                               ::  millisats
++$  commitment-number  @ud
+::
++$  pubkey     hexb:bc
++$  privkey    hexb:bc
++$  signature  hexb:bc
+::
++$  network   ?(network:bc %regtest)
++$  point     point:secp:crypto
++$  outpoint  [=txid:bc pos=@ud =sats:bc]
++$  witness   (list hexb:bc)
 ::  +const: protocol constants
 ::
 ++  const
@@ -80,7 +82,7 @@
       funding-locked-received=?
       =current-commitment=signature
       =current-htlc=signature
-      per-commitment-secret-seed=@
+      per-commitment-secret-seed=hexb:bc
   ==
 ::
 ++  remote-config
@@ -132,7 +134,7 @@
       offer=(unit htlc-pend)
       receive=(unit htlc-pend)
   ==
-::  chlen: 1 of the 2 members of a channel
+::  +chlen: 1 of the 2 members of a channel
 ::
 +$  chlen
   $:  =ship
@@ -145,7 +147,7 @@
       =commit-state
   ==
 ::
-::  larva-chan: a channel in the larval state
+::  +larva-chan: a channel in the larval state
 ::   - holds all the messages back and forth until finalized
 ::   - used to build chan
 +$  larva-chan
