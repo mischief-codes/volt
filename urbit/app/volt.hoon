@@ -24,6 +24,12 @@
           fund=(set utxo:btc)  :: funding outputs
           resv=(set utxo:btc)  :: reserved outputs
       ==
+      ::
+      $=  chain
+      $:  block=@ud
+          fee=(unit sats:bc)   :: sats/vbyte
+          time=@da
+      ==
   ==
 ::
 +$  versioned-state
@@ -192,15 +198,17 @@
     =.  to-self-delay.oc                   to-self-delay.conf
     =.  max-accepted-htlcs.oc              max-accepted-htlcs.conf
     =.  basepoints.oc                      basepoints.conf
+    =.  shutdown-script-pubkey.oc          0^0x0
+    =.  anchor-outputs.oc                  %.y
     ::
-    =.  first-per-commitment-point.oc
-      %-  compute-commitment-point:secret:bolt
+    =/  first-per-commitment-secret=hexb:bc
       %+  generate-from-seed:secret:bolt
         per-commitment-secret-seed.conf
       first-index:secret:bolt
     ::
-    =.  shutdown-script-pubkey.oc          0^0x0
-    =.  anchor-outputs.oc                  %.y
+    =.  first-per-commitment-point.oc
+      %-  compute-commitment-point:secret:bolt
+        first-per-commitment-secret
     ::
     =|  lar=larva-chan:bolt
     =.  oc.lar         `oc
@@ -214,6 +222,9 @@
     `state
   ::
       %send-payment
+    ?~  prov
+    ?:  =(host.u.prov our.bowl) :: own provider
+      `state
     `state
   ==
 ::
@@ -311,7 +322,6 @@
     |=  =open-channel:msg:bolt
     ^-  (quip card _state)
     =+  open-channel
-    =|  conf=remote-config:bolt
     =|  ac=accept-channel:msg:bolt
     :_  state
     ~[(send-message [%accept-channel ac] src.bowl)]
@@ -323,22 +333,67 @@
     =/  c=(unit larva-chan:bolt)
       %-  ~(get by pends.chan)
         temporary-channel-id
-    ?~  c  `state
+    ?~  c       `state
+    ?~  oc.u.c  `state
+    ::
+    ~|  "minimum depth too low {<minimum-depth>}"
+    ?<  (lte minimum-depth 0)
+    ~|  "minimum depth too high {<minimum-depth>}"
+    ?<  (gth minimum-depth 30)
+    ::
+    =|  rc=remote-config:bolt
+    =.  basepoints.rc                      basepoints
+    =.  multisig-pubkey.rc                 funding-pubkey
+    =.  to-self-delay.rc                   to-self-delay
+    =.  dust-limit-sats.rc                 dust-limit-sats
+    =.  max-htlc-value-in-flight-msats.rc  max-htlc-value-in-flight-msats
+    =.  max-accepted-htlcs.rc              max-accepted-htlcs
+    =.  initial-msats.rc                   push-msats.u.oc.u.c
+    =.  reserve-sats.rc                    channel-reserve-sats
+    =.  htlc-minimum-msats.rc              htlc-minimum-msats
+    =.  next-per-commitment-point.rc       first-per-commitment-point
+    =.  upfront-shutdown-script.rc         shutdown-script-pubkey
+    =.  anchor-outputs.rc                  anchor-outputs
+    ::
+    ~|  %incompatible-channel-configurations
+    ?>  (validate-channel-sides our.u.c rc funding-sats.u.oc.u.c %.y feerate-per-kw.u.oc.u.c)
+    ::
+    ::  redeem script
+    ::  funding address
+    ::  funding output
+    ::  dummy output ??
+    ::  build funding and sign
+    ::  build remote commitment
+    ::
     =|  fc=funding-created:msg:bolt
-    :_  state
+    =.  temporary-channel-id.fc  temporary-channel-id
+    =.  funding-outpoint.fc      [0^0x0 0 0]
+    =.  signature.fc             0^0x0
+    ::
+    =.  her.u.c  rc
+    =.  ac.u.c   `accept-channel
+    =.  fc.u.c   `fc
+    :_  state(pends.chan (~(put by pends.chan) temporary-channel-id u.c))
     ~[(send-message [%funding-created fc] src.bowl)]
   ::
   ++  handle-funding-created
     |=  =funding-created:msg:bolt
     ^-  (quip card _state)
     =+  funding-created
-    `state
+    =/  c=(unit larva-chan:bolt)
+      %-  ~(get by pends.chan)
+        temporary-channel-id
+    ?~  c  `state
+    =|  fs=funding-signed:msg:bolt
+    :_  state
+    ~[(send-message [%funding-signed fs] src.bowl)]
   ::
   ++  handle-funding-signed
     |=  =funding-signed:msg:bolt
     ^-  (quip card _state)
     =+  funding-signed
-    `state
+    :_  state
+    ~[(poke-btc-provider [%broadcast-tx 0^0x0])]
   ::
   ++  handle-funding-locked
     |=  =funding-locked:msg:bolt
@@ -427,7 +482,7 @@
     ::
         %block-info
       ::  check blockfilter for addresses we're interested in.
-      `state
+      `state(chain [block=block.result fee=fee.result time=now.bowl])
     ==
   --
 ::

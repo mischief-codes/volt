@@ -28,9 +28,15 @@
   ++  max-htlc-number        966
   ++  min-confirmations      3
   ++  max-confirmations      6
-  ++  fee-eta-target         0
-  ++  feerate-regtest        0
   ++  dust-limit-sats        546
+  ::
+  ++  fee-eta-target         2
+  ++  feerate-regtest        180.000
+  ++  feerate-max-dynamic    1.500.000
+  ++  feerate-fallback       150.000
+  ++  feerate-default-relay  1.000
+  ++  feerate-max-relay      50.000
+  ++  feerate-per-kw-min-relay  253
   --
 ::  +key: key-related types
 ::
