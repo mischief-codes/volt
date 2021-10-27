@@ -198,8 +198,9 @@
     =.  to-self-delay.oc                   to-self-delay.conf
     =.  max-accepted-htlcs.oc              max-accepted-htlcs.conf
     =.  basepoints.oc                      basepoints.conf
+    ::  TODO: what should we do about upfront shutdown?
     =.  shutdown-script-pubkey.oc          0^0x0
-    =.  anchor-outputs.oc                  %.y
+    =.  anchor-outputs.oc                  anchor-outputs.conf
     ::
     =/  first-per-commitment-secret=hexb:bc
       %+  generate-from-seed:secret:bolt
@@ -222,7 +223,7 @@
     `state
   ::
       %send-payment
-    ?~  prov
+    ?~  prov  `state
     ?:  =(host.u.prov our.bowl) :: own provider
       `state
     `state
@@ -231,6 +232,7 @@
 ++  handle-message
   |=  =message:bolt
   |^  ^-  (quip card _state)
+  ~&  >  "got message: {<message>}"
   =^  cards  state
     ?-    -.message
     ::
@@ -322,8 +324,56 @@
     |=  =open-channel:msg:bolt
     ^-  (quip card _state)
     =+  open-channel
+    =+  conf=(make-local-config funding-sats push-msats %.n)
+    =|  rc=remote-config:bolt
+    =.  multisig-pubkey.rc                 funding-pubkey
+    =.  basepoints.rc                      basepoints
+    =.  to-self-delay.rc                   to-self-delay
+    =.  dust-limit-sats.rc                 dust-limit-sats
+    =.  max-htlc-value-in-flight-msats.rc  max-htlc-value-in-flight-msats
+    =.  max-accepted-htlcs.rc              max-accepted-htlcs
+    =.  initial-msats.rc                   (sub (mul funding-sats 1000) push-msats)
+    =.  reserve-sats.rc                    channel-reserve-sats
+    =.  htlc-minimum-msats.rc              htlc-minimum-msats
+    =.  next-per-commitment-point.rc       first-per-commitment-point
+    ::  TODO: upfront shutdown script
+    =.  upfront-shutdown-script.rc         0^0x0
+    ::
+    ~|  %incompatible-channel-configurations
+    ?>  (validate-channel-sides conf rc funding-sats %.n feerate-per-kw)
+    ::
     =|  ac=accept-channel:msg:bolt
-    :_  state
+    =.  temporary-channel-id.ac            temporary-channel-id
+    =.  dust-limit-sats.ac                 dust-limit-sats.conf
+    =.  max-htlc-value-in-flight-msats.ac  max-htlc-value-in-flight-msats.conf
+    =.  channel-reserve-sats.ac            channel-reserve-sats.conf
+    =.  htlc-minimum-msats.ac              htlc-minimum-msats.conf
+    =.  minimum-depth.ac                   3  ::  default value
+    =.  to-self-delay.ac                   to-self-delay.conf
+    =.  max-accepted-htlcs.ac              max-accepted-htlcs.conf
+    =.  funding-pubkey.ac                  multisig-pubkey.conf
+    =.  basepoints.ac                      basepoints.conf
+    ::  TODO: upfront shutdown script
+    =.  shutdown-script-pubkey.ac  0^0x0
+    =.  anchor-outputs.ac          anchor-outputs.conf
+    ::
+    =/  first-per-commitment-secret=hexb:bc
+      %+  generate-from-seed:secret:bolt
+        per-commitment-secret-seed.conf
+      first-index:secret:bolt
+    ::
+    =.  first-per-commitment-point.ac
+      %-  compute-commitment-point:secret:bolt
+        first-per-commitment-secret
+    ::
+    =|  lar=larva-chan:bolt
+    =.  initiator.lar  %.n
+    =.  our.lar        conf
+    =.  her.lar        rc
+    =.  oc.lar         `open-channel
+    =.  ac.lar         `ac
+    ::
+    :_  state(pends.chan (~(put by pends.chan) temporary-channel-id lar))
     ~[(send-message [%accept-channel ac] src.bowl)]
   ::
   ++  handle-accept-channel
@@ -333,8 +383,15 @@
     =/  c=(unit larva-chan:bolt)
       %-  ~(get by pends.chan)
         temporary-channel-id
-    ?~  c       `state
-    ?~  oc.u.c  `state
+    ?~  c
+      ~&  >>>  "%volt: %accept-channel for non-existent channel: {<temporary-channel-id>}"
+      `state
+    ?~  oc.u.c
+      ~&  >>>  "%volt: %accept-channel without %open-channel: {<temporary-channel-id>}"
+      `state
+    ?^  fc.u.c
+      ~&  >>>  "%volt: %accept-channel after %funding-created: {<temporary-channel-id>}"
+      `state
     ::
     ~|  "minimum depth too low {<minimum-depth>}"
     ?<  (lte minimum-depth 0)
@@ -620,6 +677,7 @@
     payment.basepoints          pub:(generate-keypair seed %payment-base)
     delayed-payment.basepoints  pub:(generate-keypair seed %delay-base)
     revocation.basepoints       pub:(generate-keypair seed %revocation-base)
+    anchor-outputs              %.y
   ==
   ::
   ++  generate-keypair

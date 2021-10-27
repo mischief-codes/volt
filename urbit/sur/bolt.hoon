@@ -80,6 +80,7 @@
       =reserve=sats:bc
       =htlc-minimum=msats
       upfront-shutdown-script=hexb:bc
+      anchor-outputs=?
   ==
 ::
 ++  local-config
