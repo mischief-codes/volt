@@ -194,7 +194,7 @@
     =.  max-htlc-value-in-flight-msats.oc  max-htlc-value-in-flight-msats.conf
     =.  channel-reserve-sats.oc            reserve-sats.conf
     =.  htlc-minimum-msats.oc              htlc-minimum-msats.conf
-    =.  feerate-per-kw.oc                  0
+    =.  feerate-per-kw.oc                  (current-feerate-per-kw)
     =.  to-self-delay.oc                   to-self-delay.conf
     =.  max-accepted-htlcs.oc              max-accepted-htlcs.conf
     =.  basepoints.oc                      basepoints.conf
@@ -660,4 +660,10 @@
   ?&  (validate-config -.local funding-sats)
       (validate-config -.remote funding-sats)
   ==
+::
+::  TODO: estimate fee based on network state, target ETA, desired confs
+++  current-feerate-per-kw  |.
+  %+  max
+    feerate-per-kw-min-relay:const:bolt
+  (div feerate-fallback:const:bolt 4)
 --
