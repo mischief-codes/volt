@@ -99,22 +99,22 @@
         ==
     ws=ws
     ::
-    ++  script-pubkey
-      %-  p2wsh:script
-      %+  funding-output:script
-        lpk
-      rpk
-    ::
     ++  outputs
       ^-  (list output:tx:bc)
       %-  sort-outputs:bip69
       :~
-        :*  script-pubkey=script-pubkey
-            value=amt
-        ==
+        (funding-output lpk rpk amt)
         chg
       ==
     --
+  ::  +funding-output:bolt-tx: generate script output for funding transaction
+  ::
+  ++  funding-output
+    |=  [=local=pubkey =remote=pubkey =funding=sats:bc]
+    ^-  output:tx:bc
+    :*  script-pubkey=(p2wsh:script (funding-output:script local-pubkey remote-pubkey))
+        value=funding-sats
+    ==
   ::  +commitment:bolt-tx: generate the tx data for the commitment state
   ::
   ::    See: https://github.com/lightningnetwork/lightning-rfc/blob/master/03-transactions.md#commitment-transaction-construction

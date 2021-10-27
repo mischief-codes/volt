@@ -300,9 +300,10 @@
   $%  [%set-provider provider=(unit ship)]
       [%set-btc-provider provider=(unit ship)]
       [%set-wallet who=(unit ship)]
-      [%open-channel who=ship =funding=sats:bc =push=msats]
+      [%open-channel who=ship funding-tx=data:tx:bc =funding=sats:bc =push=msats]
       [%close-channel =chan-id]
       [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
+      [%create-funding temporary-channel-id=hexb:bc psbt=@t]
   ==
 ::
 +$  action
@@ -311,5 +312,9 @@
       [%payment-receipt =payment=hash]
       [%send-payment to=ship =amt=msats]
       [%send-invoice to=ship =amt=msats memo=(unit cord)]
+  ==
+::
++$  update
+  $%  [%need-funding-signature temporary-channel-id=hexb:bc psbt=@t]
   ==
 --

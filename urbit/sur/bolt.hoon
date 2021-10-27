@@ -70,7 +70,8 @@
   ==
 ::
 ++  channel-config
-  $:  =basepoints
+  $:  =ship
+      =basepoints
       =multisig=pubkey
       to-self-delay=blocks
       =dust-limit=sats:bc
@@ -159,6 +160,7 @@
 ::   - used to build chan
 +$  larva-chan
   $:  initiator=?
+      funding-tx=data:tx:bc
       our=local-config
       her=remote-config
       oc=(unit open-channel:msg)

@@ -1,8 +1,8 @@
 ::  volt.hoon
 ::
-/-  *volt, bolt
-/-  btc=bitcoin, btc-provider
-/+  bolt, default-agent, dbug
+/-  *volt, bolt, btc-provider
+/+  default-agent, dbug
+/+  bolt, bl=btc, bc=bitcoin
 |%
 +$  card  card:agent:gall
 ::
@@ -21,8 +21,8 @@
       ::
       $=  walt
       $:  prov=(unit ship)
-          fund=(set utxo:btc)  :: funding outputs
-          resv=(set utxo:btc)  :: reserved outputs
+          ::  fund=(set utxo:btc)  :: funding outputs
+          ::  resv=(set utxo:btc)  :: reserved outputs
       ==
       ::
       $=  chain
@@ -133,9 +133,17 @@
     `this
   ==
 ::
+++  on-watch
+  |=  =path
+  ^-  (quip card _this)
+  ?+    path  (on-watch:def path)
+      [%all ~]
+    ?>  (team:title our.bowl src.bowl)
+    `this
+  ==
+::
 ++  on-arvo   on-arvo:def
 ++  on-peek   on-peek:def
-++  on-watch  on-watch:def
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
@@ -180,6 +188,8 @@
   ::
       %open-channel
     ?~  prov  `state
+    ?:  =(host.u.prov our.bowl) :: own provider wat do?
+      `state
     =+  +.command
     =+  tmp-id=(make-temp-id)
     =+  conf=(make-local-config funding-sats push-msats %.y)
@@ -198,6 +208,7 @@
     =.  to-self-delay.oc                   to-self-delay.conf
     =.  max-accepted-htlcs.oc              max-accepted-htlcs.conf
     =.  basepoints.oc                      basepoints.conf
+    ::
     ::  TODO: what should we do about upfront shutdown?
     =.  shutdown-script-pubkey.oc          0^0x0
     =.  anchor-outputs.oc                  anchor-outputs.conf
@@ -215,18 +226,38 @@
     =.  oc.lar         `oc
     =.  our.lar        conf
     =.  initiator.lar  %.y
+    =.  ship.her.lar   who
     ::
     :_  state(pends.chan (~(put by pends.chan) tmp-id lar))
     ~[(send-message [%open-channel oc] who)]
   ::
       %close-channel
+    ?~  prov  `state
+    ?:  =(host.u.prov our.bowl) :: own provider wat do?
+      `state
     `state
   ::
       %send-payment
     ?~  prov  `state
-    ?:  =(host.u.prov our.bowl) :: own provider
+    ?:  =(host.u.prov our.bowl) :: own provider wat do?
       `state
     `state
+  ::
+      %create-funding
+    ::  continue channel funding flow
+    =+  +.command
+    =/  c=(unit larva-chan:bolt)
+      (~(get by pends.chan) temporary-channel-id)
+    ?~  c
+      ~&  >>>  "%volt: no channel with id: {<temporary-channel-id>}"
+      `state
+    ?~  fc.u.c
+      ~&  >>>  "%volt: invalid channel state: {<temporary-channel-id>}"
+      `state
+    ::
+    ::  todo: create channel ID and move
+    :_  state(pends.chan (~(put by pends.chan) temporary-channel-id u.c))
+    ~[(send-message [%funding-created u.fc.u.c] ship.her.u.c)]
   ==
 ::
 ++  handle-message
@@ -332,7 +363,7 @@
     =.  dust-limit-sats.rc                 dust-limit-sats
     =.  max-htlc-value-in-flight-msats.rc  max-htlc-value-in-flight-msats
     =.  max-accepted-htlcs.rc              max-accepted-htlcs
-    =.  initial-msats.rc                   (sub (mul funding-sats 1000) push-msats)
+    =.  initial-msats.rc                   (sub (mul funding-sats 1.000) push-msats)
     =.  reserve-sats.rc                    channel-reserve-sats
     =.  htlc-minimum-msats.rc              htlc-minimum-msats
     =.  next-per-commitment-point.rc       first-per-commitment-point
@@ -346,7 +377,7 @@
     =.  temporary-channel-id.ac            temporary-channel-id
     =.  dust-limit-sats.ac                 dust-limit-sats.conf
     =.  max-htlc-value-in-flight-msats.ac  max-htlc-value-in-flight-msats.conf
-    =.  channel-reserve-sats.ac            channel-reserve-sats.conf
+    =.  channel-reserve-sats.ac            reserve-sats.conf
     =.  htlc-minimum-msats.ac              htlc-minimum-msats.conf
     =.  minimum-depth.ac                   3  ::  default value
     =.  to-self-delay.ac                   to-self-delay.conf
@@ -381,8 +412,7 @@
     ^-  (quip card _state)
     =+  accept-channel
     =/  c=(unit larva-chan:bolt)
-      %-  ~(get by pends.chan)
-        temporary-channel-id
+      (~(get by pends.chan) temporary-channel-id)
     ?~  c
       ~&  >>>  "%volt: %accept-channel for non-existent channel: {<temporary-channel-id>}"
       `state
@@ -390,8 +420,10 @@
       ~&  >>>  "%volt: %accept-channel without %open-channel: {<temporary-channel-id>}"
       `state
     ?^  fc.u.c
-      ~&  >>>  "%volt: %accept-channel after %funding-created: {<temporary-channel-id>}"
+      ~&  >>>  "volt: funding already created: {<temporary-channel-id>}"
       `state
+    ?.  initiator.u.c
+      ~|("initiator sent accept channel" !!)
     ::
     ~|  "minimum depth too low {<minimum-depth>}"
     ?<  (lte minimum-depth 0)
@@ -415,23 +447,39 @@
     ~|  %incompatible-channel-configurations
     ?>  (validate-channel-sides our.u.c rc funding-sats.u.oc.u.c %.y feerate-per-kw.u.oc.u.c)
     ::
-    ::  redeem script
-    ::  funding address
-    ::  funding output
-    ::  dummy output ??
-    ::  build funding and sign
-    ::  build remote commitment
+    =/  funding-output=output:tx:bc
+      %^    funding-output:bolt-tx:bolt
+          multisig-pubkey.our.u.c
+        multisig-pubkey.rc
+      funding-sats.u.oc.u.c
+    ::
+    =.  funding-tx.u.c
+      %_  funding-tx.u.c
+        os  (sort-outputs:bip69:bolt [funding-output os.funding-tx.u.c])
+      ==
+    ::
+    =+  psbt=(to-psbt funding-tx.u.c)
+    =+  funding-txid=(get-id:txu:bc funding-tx.u.c)
+    =+  funding-out-pos=(find [funding-output]~ os.funding-tx.u.c)
+    ?~  funding-out-pos
+      ~|(%invalid-funding-tx !!)
+    =/  multisig-privkey=@  prv:(generate-keypair seed.our.u.c %multisig)
     ::
     =|  fc=funding-created:msg:bolt
     =.  temporary-channel-id.fc  temporary-channel-id
-    =.  funding-outpoint.fc      [0^0x0 0 0]
-    =.  signature.fc             0^0x0
+    =.  funding-outpoint.fc      [funding-txid u.funding-out-pos funding-sats.u.oc.u.c]
+    =.  signature.fc             (sign-commitment dat.funding-txid multisig-privkey)
     ::
-    =.  her.u.c  rc
-    =.  ac.u.c   `accept-channel
-    =.  fc.u.c   `fc
-    :_  state(pends.chan (~(put by pends.chan) temporary-channel-id u.c))
-    ~[(send-message [%funding-created fc] src.bowl)]
+    =|  lar=larva-chan:bolt
+    =.  funding-tx.lar  funding-tx.u.c
+    =.  our.lar         our.u.c
+    =.  her.lar         rc
+    =.  oc.lar          oc.u.c
+    =.  ac.lar          `accept-channel
+    =.  fc.lar          `fc
+    ::
+    :_  state(pends.chan (~(put by pends.chan) temporary-channel-id lar))
+    ~[(give-update [%need-funding-signature temporary-channel-id psbt])]
   ::
   ++  handle-funding-created
     |=  =funding-created:msg:bolt
@@ -641,6 +689,11 @@
     ==
   ~
 ::
+++  give-update
+  |=  =update
+  ^-  card
+  [%give %fact ~[/all] %volt-update !>(update)]
+::
 ++  make-temp-id
   |.
   ^-  hexb:bc
@@ -648,9 +701,26 @@
   %-  ~(rad og eny.bowl)
   %-  bex  256
 ::
+++  generate-keypair
+  |=  [seed=hexb:bc =family:key:bolt]
+  (generate-keypair:bolt seed %main family 0)
+::
+::  TODO: estimate fee based on network state, target ETA, desired confs
+++  current-feerate-per-kw
+  |.
+  %+  max
+    feerate-per-kw-min-relay:const:bolt
+  (div feerate-fallback:const:bolt 4)
+::
+++  to-psbt
+  |=  tx=data:tx:bc
+  ^-  base64:psbt:bc
+  =+  raw-tx=(basic-encode:txu:bc tx)
+  (encode:pbt:bc %.y raw-tx 0^0x0 ~ ~)
+::
 ++  make-local-config
   |=  [=funding=sats:bc =push=msats initiator=?]
-  |^  ^-  local-config:bolt
+  ^-  local-config:bolt
   =+  seed=[wid=32 dat=(~(rad og eny.bowl) (bex 256))]
   =/  initial-msats=msats
     ?:  initiator
@@ -679,16 +749,6 @@
     revocation.basepoints       pub:(generate-keypair seed %revocation-base)
     anchor-outputs              %.y
   ==
-  ::
-  ++  generate-keypair
-    |=  [seed=hexb:bc =family:key:bolt]
-    (generate-keypair:bolt seed %main family 0)
-  --
-::
-++  reserve-funding
-  |=  =funding=sats:bc
-  ^-  (pair data:tx:bolt _state)
-  :-  *data:tx:bolt  state
 ::
 ++  validate-config
   |=  [config=channel-config:bolt =funding=sats:bc]
@@ -719,9 +779,14 @@
       (validate-config -.remote funding-sats)
   ==
 ::
-::  TODO: estimate fee based on network state, target ETA, desired confs
-++  current-feerate-per-kw  |.
-  %+  max
-    feerate-per-kw-min-relay:const:bolt
-  (div feerate-fallback:const:bolt 4)
+++  sign-commitment
+  =,  secp256k1:secp:crypto
+  |=  [txid=@ key=@]
+  ^-  hexb:bc
+  =+  [v=@ r=@ s=@]=(ecdsa-raw-sign txid key)
+  %-  cat:byt:bcu:bc
+  :~  [wid=32 dat=v]
+      [wid=32 dat=r]
+      [wid=1 dat=s]
+  ==
 --
