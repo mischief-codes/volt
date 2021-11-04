@@ -73,15 +73,16 @@
   ::
   ++  check-decode
     %+  expect-eq
-      !>  decoded-tx
+      !>  [decoded-tx ~[~[witness-part-1 witness-part-2]]]
       !>  %-  segwit-decode:bitcoin-txu:bolt
           raw-tx
   ::
   ++  check-encode
     %+  expect-eq
       !>  raw-tx
-      !>  %-  segwit-encode:bitcoin-txu:bolt
-          decoded-tx
+      !>  %+  segwit-encode:bitcoin-txu:bolt
+            decoded-tx
+          ~[~[witness-part-1 witness-part-2]]
   ::
   ++  decoded-inputs
     ^-  (list input:tx:bc)
@@ -105,8 +106,7 @@
     ==
   ::
   ++  decoded-tx
-    ^-  data:tx:bolt
-    :_  ws=~[~[witness-part-1 witness-part-2]]
+    ^-  data:tx:bc
     :*  is=decoded-inputs
         os=decoded-outputs
         locktime=0
@@ -181,15 +181,15 @@
   ++  check-funding-tx
     %+  expect-eq
       !>  funding-tx
-      !>  %-  segwit-encode:bitcoin-txu
+      !>  %+  segwit-encode:bitcoin-txu
           %:  funding-tx:bolt-tx:bolt
             lpk=local-funding-pubkey
             rpk=remote-funding-pubkey
             amt=10.000.000
             ins=funding-inputs
             chg=funding-change
-            ws=~
           ==
+          ~
   ::
   ++  privkey
     [33 0x6b.d078.650f.cee8.444e.4e09.8252.27b8.01a1.ca92.8deb.b750.eb36.e6d5.6124.bb20.e801]
@@ -439,8 +439,16 @@
     ::
     %+  expect-eq
       !>  output-commit-tx.test-vector
-      !>  %-  segwit-encode:bitcoin-txu:bolt
+      !>  %+  segwit-encode:bitcoin-txu:bolt
           %~  tx-data  commitment:bolt-tx:bolt
+          :*
+            c=c
+            keyring=keyring
+            to-local=to-local-msat.test-vector
+            to-remote=to-remote-msat.test-vector
+            our=%.y
+          ==
+          %~  witnesses  commitment:bolt-tx:bolt
           :*
             c=c
             keyring=keyring
@@ -899,35 +907,35 @@
   ++  check-zero-final-node
     %+  expect-eq
       !>  [32 0x2a4.0c85.b6f2.8da0.8dfd.be09.26c5.3fab.2de6.d28c.1030.1f8f.7c40.73d5.e42e.3148]
-      !>  %+  generate-from-seed:commitment-secret:bolt
+      !>  %+  generate-from-seed:secret:bolt
             [32 0x0]
           281.474.976.710.655
   ::
   ++  check-fs-final-node
     %+  expect-eq
       !>  [32 0x7cc8.54b5.4e3e.0dcd.b010.d7a3.fee4.64a9.687b.e6e8.db3b.e685.4c47.5621.e007.a5dc]
-      !>  %+  generate-from-seed:commitment-secret:bolt
+      !>  %+  generate-from-seed:secret:bolt
             [32 0xffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff]
           281.474.976.710.655
   ::
   ++  check-fs-alternate-bits-1
     %+  expect-eq
       !>  [32 0x56f4.008f.b007.ca9a.cf0e.15b0.54d5.c9fd.12ee.06ce.a347.914d.dbae.d70d.1c13.a528]
-      !>  %+  generate-from-seed:commitment-secret:bolt
+      !>  %+  generate-from-seed:secret:bolt
             [32 0xffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff]
           0xaaa.aaaa.aaaa
   ::
   ++  check-fs-alternate-bits-2
     %+  expect-eq
       !>  [32 0x9015.daae.b06d.ba4c.cc05.b91b.2f73.bd54.405f.2be9.f217.fbac.d3c5.ac2e.6232.7d31]
-      !>  %+  generate-from-seed:commitment-secret:bolt
+      !>  %+  generate-from-seed:secret:bolt
             [32 0xffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff]
           0x5555.5555.5555
   ::
   ++  check-last-nontrivial
     %+  expect-eq
       !>  [32 0x915c.7594.2a26.bb3a.433a.8ce2.cb04.27c2.9ec6.c177.5cfc.7832.8b57.f6ba.7bfe.aa9c]
-      !>  %+  generate-from-seed:commitment-secret:bolt
+      !>  %+  generate-from-seed:secret:bolt
             [32 0x101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101]
           1
   --

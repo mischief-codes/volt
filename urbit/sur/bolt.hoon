@@ -52,15 +52,6 @@
     ==
   +$  pair  [pub=point prv=@]
   --
-::  +tx: modifications to bitcoin tx types, to be merged back later
-::
-++  tx
-  |%
-  +$  data
-    $:  data:tx:bc
-        ws=(list witness)
-    ==
-  --
 ::
 +$  basepoints
   $:  revocation=point

@@ -88,16 +88,14 @@
             amt=sats:bc             ::  funding amount
             ins=(list input:tx:bc)  ::  funding inputs
             chg=output:tx:bc        ::  change output
-            ws=(list witness)       ::  input witnesses
         ==
-    |^  ^-  data:tx
-    :-  :*  is=ins
-            os=outputs
-            locktime=0
-            nversion=2
-            segwit=(some 1)
-        ==
-    ws=ws
+    |^  ^-  data:tx:bc
+    :*  is=ins
+        os=outputs
+        locktime=0
+        nversion=2
+        segwit=(some 1)
+    ==
     ::
     ++  outputs
       ^-  (list output:tx:bc)
@@ -107,7 +105,7 @@
         chg
       ==
     --
-  ::  +funding-output:bolt-tx: generate script output for funding transaction
+  ::  +funding-output:bolt-tx: generate output for funding transaction
   ::
   ++  funding-output
     |=  [=local=pubkey =remote=pubkey =funding=sats:bc]
@@ -422,15 +420,13 @@
       --
     ::
     ++  tx-data
-      ^-  data:tx
-      :-
+      ^-  data:tx:bc
       :*  is=inputs
           os=(sort-outputs:bip69-cltv outputs cltvs)
           locktime=locktime
           nversion=2
           segwit=(some 1)
       ==
-      ws=witnesses
     --
   ::
   ++  htlc-spend
@@ -440,15 +436,13 @@
             =commitment=outpoint
             timeout=?
         ==
-    |^  ^-  data:tx
-    :-
+    |^  ^-  data:tx:bc
     :*  is=~[input]
         os=~[output]
         locktime=?:(timeout cltv-expiry.h 0)
         nversion=2
         segwit=(some 1)
     ==
-    ws=~[witness]
     ::
     ++  input
       :*  txid=txid.commitment-outpoint
@@ -504,7 +498,7 @@
   ::
   ++  htlc-timeout
     |=  [c=chan h=htlc keyring=commitment-keyring =commitment=outpoint]
-    ^-  data:tx
+    ^-  data:tx:bc
     %:  htlc-spend
         c=c
         h=h
@@ -515,7 +509,7 @@
   ::
   ++  htlc-success
     |=  [c=chan h=htlc keyring=commitment-keyring =commitment=outpoint]
-    ^-  data:tx
+    ^-  data:tx:bc
     %:  htlc-spend
         c=c
         h=h
@@ -798,13 +792,13 @@
     --
   ::
   ++  segwit-encode
-    |=  =data:tx
+    |=  [=data:tx:bc witnesses=(list witness)]
     ^-  hexb:bc
     %-  cat:byt:bcu:bc
     %-  zing
     :~  ~[(flip:byt:bcu:bc 4^nversion.data)]
         ?:  ?&  ?=(^ segwit.data)
-                ?=(^ ws.data)
+                ?=(^ witnesses)
             ==
           :~  [wid=2 dat=0x1]
           ==
@@ -813,13 +807,13 @@
         (turn is.data input:en:txu:bc)
         ~[(en:csiz:bcu (lent os.data))]
         (turn os.data output:en:txu:bc)
-        (turn ws.data witness:en)
+        (turn witnesses witness:en)
         ~[(flip:byt:bcu 4^locktime.data)]
     ==
   ::
   ++  segwit-decode
     |=  b=hexb:bc
-    ^-  data:tx
+    ^-  (pair data:tx:bc (list witness))
     =^  nversion  b
       (nversion:de:txu:bc b)
     =^  segwit  b
@@ -835,17 +829,8 @@
       `b
     =/  locktime=@ud
       dat:(take:byt:bcu 4 (flip:byt:bcu b))
-    [[inputs outputs locktime nversion segwit] witnesses]
-  ::
-  ++  sign-tx
-    |=  [tx=data:tx shash=(set value:sighash) k=hexb:bc]
-    ^-  hexb:bc
-    0^0x0
-  ::
-  ++  to-tx-outs
-    |=  txs=(list output:tx)
-    %+  turn  txs
-    |=  tx=output:tx  -.tx
+    :-  [inputs outputs locktime nversion segwit]
+      witnesses
   --
 ::
 ++  bip69
