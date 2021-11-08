@@ -1,16 +1,15 @@
 ::  sur/volt.hoon
 ::
-/-  bc=bitcoin
-/+  bolt11=bolt-bolt11
+/-  bc=bitcoin, bolt
 |%
-+$  pubkey    hexb:bc
++$  pubkey    pubkey:bolt
 +$  txid      hexb:bc
 +$  hash      hexb:bc
 +$  preimage  hexb:bc
 ::
-+$  msats    @ud
-+$  chan-id  @ud
-+$  htlc-id  @ud
++$  msats    msats:bolt
++$  chan-id  id:bolt
++$  htlc-id  htlc-id:bolt
 ::
 +$  circuit-key
   $:  =chan-id
@@ -299,11 +298,10 @@
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%set-btc-provider provider=(unit ship)]
-      [%set-wallet who=(unit ship)]
-      [%open-channel who=ship funding-tx=data:tx:bc =funding=sats:bc =push=msats]
+      [%open-channel who=ship =network:bolt funding-tx=@t =funding=sats:bc =push=msats]
       [%close-channel =chan-id]
       [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
-      [%create-funding temporary-channel-id=hexb:bc psbt=@t]
+      [%create-funding temporary-channel-id=@ funding-tx=@t]
   ==
 ::
 +$  action
@@ -315,6 +313,8 @@
   ==
 ::
 +$  update
-  $%  [%need-funding-signature temporary-channel-id=hexb:bc psbt=@t]
+  $%  [%need-funding-signature temporary-channel-id=@ psbt=@t]
+      [%channel-state =chan-id =chan-state:bolt]
+      [%channel-closed =chan-id]
   ==
 --

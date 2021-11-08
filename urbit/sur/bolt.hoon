@@ -1,14 +1,15 @@
 ::  sur/bolt.hoon
 ::  Datatypes to implement Lightning BOLT RFCs.
 ::
-/-  bc=bitcoin
+/-  bc=bitcoin, psbt
 |%
-+$  id      @ud
-+$  blocks  @ud                               ::  number of blocks
-+$  msats   @ud                               ::  millisats
-+$  commitment-number  @ud
++$  id       @ud
++$  htlc-id  @ud
++$  blocks   @ud  ::  number of blocks
++$  msats    @ud  ::  millisats
++$  commitment-number  @sd
 ::
-+$  pubkey     hexb:bc
++$  pubkey     point
 +$  privkey    hexb:bc
 +$  signature  hexb:bc
 ::
@@ -50,20 +51,21 @@
         %delay-base
         %revocation-root
     ==
-  +$  pair  [pub=point prv=@]
+  +$  pair  [pub=pubkey prv=@]
   --
 ::
 +$  basepoints
-  $:  revocation=point
-      payment=point
-      delayed-payment=point
-      htlc=point
+  $:  revocation=pair:key
+      payment=pair:key
+      delayed-payment=pair:key
+      htlc=pair:key
   ==
 ::
 ++  channel-config
   $:  =ship
+      =network
       =basepoints
-      =multisig=pubkey
+      multisig-key=pair:key
       to-self-delay=blocks
       =dust-limit=sats:bc
       =max-htlc-value-in-flight=msats
@@ -80,7 +82,7 @@
       seed=hexb:bc
       funding-locked-received=?
       =current-commitment=signature
-      =current-htlc=signature
+      current-htlc-signatures=(list signature)
       per-commitment-secret-seed=hexb:bc
   ==
 ::
@@ -89,100 +91,95 @@
       =next-per-commitment=point
       =current-per-commitment=point
   ==
-::
-+$  htlc
-  $:  from=ship
-      =channel=id
-      =id
-      amount-msat=msats
-      payment-hash=hexb:bc
-      cltv-expiry=blocks
-      payment-preimage=(unit hexb:bc)
-      local-sig=(unit hexb:bc)
-      remote-sig=(unit hexb:bc)
-  ==
-::
-++  commitment-keyring
-  $:  local-htlc-key=pubkey
-      remote-htlc-key=pubkey
-      to-local-key=pubkey
-      to-remote-key=pubkey
-      revocation-key=pubkey
-  ==
-::
-+$  commit-state
-  $:
-      =commitment-number
-      ::  lexicographically ordered
-      ::  increasing CLTV order tiebreaker for identical HTLCs
-      ::
-      offered=(list htlc)
-      received=(list htlc)
-  ==
-::  pending offered HTLC that we're waiting for revoke_and_ack on
-::
-+$  htlc-pend
-  $:  =htlc
-      prior-txid=txid:bc
-      revocation-pubkey=pubkey
-  ==
-::
-+$  htlc-state
-  $:  next-offer=id
-      next-receive=id
-      offer=(unit htlc-pend)
-      receive=(unit htlc-pend)
-  ==
-::  +chlen: 1 of the 2 members of a channel
-::
-+$  chlen
-  $:  =ship
-      =funding=pubkey
-      =funding=signature
-      =shutdown-script=pubkey
-      =basepoints
-      per-commitment-point=point
-      next-per-commitment-point=point
-      =commit-state
-  ==
-::
 ::  +larva-chan: a channel in the larval state
 ::   - holds all the messages back and forth until finalized
 ::   - used to build chan
+::
 +$  larva-chan
   $:  initiator=?
-      funding-tx=data:tx:bc
+      funding-tx=psbt:psbt
       our=local-config
       her=remote-config
       oc=(unit open-channel:msg)
       ac=(unit accept-channel:msg)
-      fc=(unit funding-created:msg)
-      fs=(unit funding-signed:msg)
-      fl-funder=(unit funding-locked:msg)
-      fl-fundee=(unit funding-locked:msg)
   ==
-::  chan: channel state
+::
++$  fee-update
+  $:  rate=sats:bc
+      local-commitment-number=(unit commitment-number)
+      remote-commitment-number=(unit commitment-number)
+  ==
+::
++$  direction  ?(%sent %received)
++$  owner      ?(%local %remote)
++$  htlc-info  (map owner commitment-number)
+::
++$  htlc-state
+  $:  adds=(map htlc-id update-add-htlc:msg)
+      locked-in=(map htlc-id htlc-info)
+      settles=(map htlc-id htlc-info)
+      fails=(map htlc-id htlc-info)
+      fee-updates=(list fee-update)
+      revack-pending=$~(%.n ?)
+      =next=htlc-id
+      commitment-number=$~(-1 commitment-number)
+  ==
+::
++$  htlc
+  $:  update-add-htlc:msg
+      witness=hexb:bc
+  ==
+::  +revocation-store: BOLT-03 revocation storage
+::
++$  revocation-store
+  $~  :*  idx=(dec (bex 48))
+          buckets=*(map @u shachain-element)
+      ==
+  $:  idx=@ud
+      buckets=(map @u shachain-element)
+  ==
++$  shachain-element  [idx=@ud secret=hexb:bc]
+::  +chan-state: channel state
+::
++$  chan-state
+  $~  %preopening
+  $?  %preopening
+      %opening
+      %funded
+      %open
+      %shutdown
+      %closing
+      %force-closing
+      %closed
+      %redeemed
+  ==
+::  +chan: full channel representation
 ::
 +$  chan
   $:  =id
-      initiator=?
-      our=chlen
-      her=chlen
+      state=chan-state
       =funding=outpoint
-      =funding=sats:bc
-      dust-limit=sats:bc
-      max-htlc-value-in-flight=msats
-      channel-reserve=sats:bc
-      htlc-minimum=msats
-      feerate-per-kw=sats:bc
-      to-self-delay=blocks
-      cltv-expiry-delta=blocks
-      max-accepted-htlcs=@ud
-      anchor-outputs=?
-      revocations=(map txid:bc per-commitment-secret=privkey)
-      =htlc-state
+      ::
+      $=  constraints
+      $:  initiator=?
+          anchor-outputs=?
+          capacity=sats:bc
+          funding-tx-min-depth=blocks
+      ==
+      ::
+      $=  config
+      $:  our=local-config
+          her=remote-config
+      ==
+      ::
+      $=  htlcs
+      $:  our=htlc-state
+          her=htlc-state
+      ==
+      ::
+      revocations=revocation-store
   ==
-::  msg: BOLT spec messages between peers
+::  +msg: BOLT spec messages between peers
 ::    defined in RFC02
 ::
 ++  msg
@@ -191,7 +188,7 @@
   ::
   +$  open-channel
     $:  chain-hash=hexb:bc
-        temporary-channel-id=hexb:bc
+        temporary-channel-id=@
         =funding=sats:bc
         =push=msats
         =funding=pubkey
@@ -210,7 +207,7 @@
     ==
   ::
   +$  accept-channel
-    $:  temporary-channel-id=hexb:bc
+    $:  temporary-channel-id=@
         =dust-limit=sats:bc
         =max-htlc-value-in-flight=msats
         =channel-reserve=sats:bc
@@ -226,8 +223,9 @@
     ==
   ::
   +$  funding-created
-    $:  temporary-channel-id=hexb:bc
-        =funding=outpoint
+    $:  temporary-channel-id=@
+        funding-txid=hexb:bc
+        funding-idx=@u
         =signature
     ==
   ::
@@ -250,7 +248,7 @@
   ::
   +$  update-add-htlc
     $:  =channel=id
-        =id
+        =htlc-id
         =amount=msats
         payment-hash=hexb:bc
         cltv-expiry=blocks
@@ -265,7 +263,6 @@
   ::
   +$  revoke-and-ack
     $:  =channel=id
-        =id
         per-commitment-secret=hexb:bc
         next-per-commitment-point=point
     ==
@@ -274,7 +271,7 @@
   ::
   +$  shutdown
     $:  =channel=id
-        =script=pubkey
+        script-pubkey=hexb:bc
     ==
   ::
   +$  closing-signed
@@ -292,14 +289,17 @@
       [%funding-created funding-created:msg]
       [%funding-signed funding-signed:msg]
       [%funding-locked funding-locked:msg]
+    ::
       [%shutdown shutdown:msg]
       [%closing-signed closing-signed:msg]
+    ::
       [%update-add-htlc update-add-htlc:msg]
       [%commitment-signed commitment-signed:msg]
       [%revoke-and-ack revoke-and-ack:msg]
+    ::
       [%update-fulfill-htlc =channel=id =id preimage=hexb:bc]
       [%update-fail-htlc =channel=id =id reason=@t]
       [%update-fail-malformed-htlc =channel=id =id]
-      [%update-fee ~]
+      [%update-fee =channel=id feerate-per-kw=sats:bc]
   ==
 --

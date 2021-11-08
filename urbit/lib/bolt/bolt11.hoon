@@ -1,11 +1,13 @@
 ::  BOLT 11: Invoice Protocol for Lightning Payments
 ::  https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md
 ::
-/+  bc=bitcoin, bcu=bitcoin-utils
+/+  bc=bitcoin
 |%
 +$  network     ?(network:bc %signet %regtest)
 +$  multiplier  ?(%m %u %n %p)
 +$  amount      [@ud (unit multiplier)]
+::
+++  bcu         bcu:bc
 ::
 ++  prefixes
   ^-  (map network tape)

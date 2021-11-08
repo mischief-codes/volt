@@ -1,4 +1,5 @@
 ::  volt-provider.hoon
+::  LND daemon integration agent
 ::
 /-  volt
 /+  server, default-agent, dbug, libvolt=volt

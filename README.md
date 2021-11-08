@@ -6,13 +6,13 @@ Lightning on Urbit
 
 Follow the [LND install guide](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md) and install LND on your host.
 
-If you run a bitcoin fullnode, you must configure LND to with connectivity and credentials for the the bitcoin daemon's RPC server.
+If you run a bitcoin fullnode, you must configure LND with connectivity information and credentials for the the bitcoin daemon's RPC server.
 
 - For bitcoind, check the options [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#bitcoind-options) and [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#using-bitcoind-or-litecoind).
 
 - For btcd, check [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#btcd-options) and [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#using-btcd).
 
-As an alternative, you can use LND's embedded neutrino client and a connect to a node that supports `peerblockfilters`. While there are some security implications to doing so, it
+As an alternative, you can use LND's embedded neutrino client and a connect to a node that supports `peerblockfilters`. Note that there are some security implications to doing so.
 
 To set it up, In your lnd.conf, set the following:
 
