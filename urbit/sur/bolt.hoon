@@ -50,6 +50,7 @@
         %payment-base
         %delay-base
         %revocation-root
+        %node-key
     ==
   +$  pair  [pub=pubkey prv=@]
   --

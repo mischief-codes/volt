@@ -1066,19 +1066,15 @@
   ^-  id:bolt
   (~(rad og eny.bowl) (bex 256))
 ::
-++  generate-keypair
-  |=  [seed=hexb:bc =network:bolt =family:key:bolt]
-  (generate-keypair:bolt seed network family 0)
-::
 ++  generate-basepoints
   |=  [seed=hexb:bc =network:bolt]
   ^-  basepoints:bolt
   =|  =basepoints:bolt
   %=  basepoints
-    htlc             (generate-keypair seed network %htlc-base)
-    payment          (generate-keypair seed network %payment-base)
-    delayed-payment  (generate-keypair seed network %delay-base)
-    revocation       (generate-keypair seed network %revocation-base)
+    htlc             (generate-keypair:bolt seed network %htlc-base)
+    payment          (generate-keypair:bolt seed network %payment-base)
+    delayed-payment  (generate-keypair:bolt seed network %delay-base)
+    revocation       (generate-keypair:bolt seed network %revocation-base)
   ==
 ::  TODO: estimate fee based on network state, target ETA, desired confs
 ::
@@ -1121,7 +1117,7 @@
         funding-locked-received  %.n
         htlc-minimum-msats       1
         anchor-outputs           %.y
-        multisig-key             (generate-keypair seed network %multisig)
+        multisig-key             (generate-keypair:bolt seed network %multisig)
         basepoints               (generate-basepoints seed network)
     ::
         max-htlc-value-in-flight-msats
@@ -1140,7 +1136,7 @@
       dust-limit-sats:const:bolt
     ::
         per-commitment-secret-seed
-      32^prv:(generate-keypair seed network %revocation-root)
+      32^prv:(generate-keypair:bolt seed network %revocation-root)
     ==
   ?>  (validate-config -.local-config funding-sats)
   local-config

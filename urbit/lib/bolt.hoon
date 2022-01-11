@@ -1049,32 +1049,43 @@
     $(a (rsh [0 1] a), n +(n))
   --
 ::
+++  bip32-prime
+  ^-  @
+  0x8000.0000
+::
+++  encode-key-family
+  |=  =family:key
+  ^-  @
+  ?-  family
+    %multisig         (con 0 bip32-prime)
+    %revocation-base  (con 1 bip32-prime)
+    %htlc-base        (con 2 bip32-prime)
+    %payment-base     (con 3 bip32-prime)
+    %delay-base       (con 4 bip32-prime)
+    %revocation-root  (con 5 bip32-prime)
+    %node-key         6
+  ==
+::
+++  encode-coin-network
+  |=  =network
+  ^-  @
+  ?-  network
+    %main     0
+    %testnet  1
+    %regtest  2
+  ==
+::  +generate-keypair: make keypair from seed
+::
 ++  generate-keypair
-  |=  [seed=hexb:bc =network family=family:key =idx:bc]
-  |^  ^-  pair:key
-  [pub=pub:node prv=private-key:node]
-  ++  coin
-    ?-  network
-      %main     0
-      %testnet  1
-      %regtest  2
-    ==
-  ::
-  ++  fam
-    ?-  family
-      %multisig         0
-      %revocation-base  1
-      %htlc-base        2
-      %payment-base     3
-      %delay-base       4
-      %revocation-root  5
-    ==
-  ::
-  ++  purpose    1.337
-  ++  path       ~[purpose coin fam 0 idx]
-  ++  generator  (from-seed:bip32 seed)
-  ++  node       (derive-sequence:generator path)
-  --
+  |=  [seed=hexb:bc =network =family:key]
+  ^-  pair:key
+  =+  %-  derive-sequence:(from-seed:bip32 seed)
+      :~  1.337
+          (encode-coin-network network)
+          (encode-key-family family)
+          0  0
+      ==
+  [pub=pub prv=prv]
 ::  +extract-signature: parse DER-format signature or fail
 ::
 ++  extract-signature
