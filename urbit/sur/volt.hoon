@@ -298,10 +298,10 @@
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%set-btc-provider provider=(unit ship)]
-      [%open-channel who=ship =network:bolt funding-tx=@t =funding=sats:bc =push=msats]
+      [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
       [%close-channel =chan-id]
       [%send-payment to=ship =amt=msats fee-limit=(unit sats:bc)]
-      [%create-funding temporary-channel-id=@ funding-tx=@t]
+      [%create-funding temporary-channel-id=@ psbt=@t]
   ==
 ::
 +$  action
@@ -313,7 +313,7 @@
   ==
 ::
 +$  update
-  $%  [%need-funding-signature temporary-channel-id=@ psbt=@t]
+  $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
       [%channel-state =chan-id =chan-state:bolt]
       [%channel-closed =chan-id]
   ==

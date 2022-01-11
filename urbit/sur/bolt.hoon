@@ -97,7 +97,6 @@
 ::
 +$  larva-chan
   $:  initiator=?
-      funding-tx=psbt:psbt
       our=local-config
       her=remote-config
       oc=(unit open-channel:msg)

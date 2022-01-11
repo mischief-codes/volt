@@ -68,11 +68,6 @@
   ^-  msats
   (mul a 1.000)
 ::
-++  make-channel-id
-  |=  [funding-txid=hexb:bc funding-output-index=@ud]
-  ^-  id
-  (mix dat.funding-txid funding-output-index)
-::
 ++  bech32-encode
   |=  [=network =hexb:bc]
   ^-  (unit cord)
@@ -89,6 +84,23 @@
   |=  =cord
   ^-  hexb:bc
   (from-address:bech32:bolt11 cord)
+::
+++  make-channel-id
+  |=  [funding-txid=hexb:bc funding-output-index=@ud]
+  ^-  id
+  (mix dat.funding-txid funding-output-index)
+::
+++  make-funding-address
+  |=  [=network =local-funding=pubkey =remote-funding=pubkey]
+  ^-  address:bc
+  :-  %bech32
+  %-  need
+  %+  bech32-encode  network
+  %-  sha256:bcu:bc
+  %-  en:btc-script
+  %+  funding-output:script
+    local-funding-pubkey
+  remote-funding-pubkey
 ::
 ++  fee-by-weight
   |=  [feerate-per-kw=@ud weight=@ud]
@@ -1267,14 +1279,9 @@
     (~(next-feerate htlcs c) owner)
   ::
   ++  funding-address
-    =,  secp256k1:secp:crypto
     ^-  address:bc
-    :-  %bech32
-    %-  need
-    %+  bech32-encode  network.our.config.c
-    %-  sha256:bcu:bc
-    %-  en:btc-script
-    %+  funding-output:script
+    %^    make-funding-address
+        network.our.config.c
       pub.multisig-key.our.config.c
     pub.multisig-key.her.config.c
   ::

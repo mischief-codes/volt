@@ -24,9 +24,9 @@
       ::
       $=  chan
       $:  larv=(map id:bolt larva-chan:bolt)
-          fund=(map id:bolt tx:tx:psbt)
+          fund=(map id:bolt psbt:psbt)
           live=(map id:bolt chan:bolt)
-          wach=(map byts id:bolt)
+          wach=(map hexb:bc id:bolt)
       ==
       ::
       preimages=(map hexb:bc hexb:bc)
@@ -198,13 +198,6 @@
       ~|  "%volt: funding-sats too low {<funding-sats>} < {<min-funding-sats:const:bolt>}"
         !!
     ::
-    =+  ^=  funding-psbt
-        ^-  (unit psbt:psbt)
-        (from-base64:create:psbt funding-tx)
-    ?~  funding-psbt
-      ~|  "%volt: invalid funding transaction"
-        !!
-    ::
     =+  tmp-id=(make-temp-id)
     =+  feerate=(current-feerate-per-kw)
     ::
@@ -251,7 +244,6 @@
         ship.her    who
         our         local-config
         oc          `oc
-        funding-tx  u.funding-psbt
       ==
     ::
     :_  state(larv.chan (~(put by larv.chan) tmp-id lar))
@@ -279,11 +271,10 @@
     ~|  %invalid-funding-tx
     ::
     =+  ^=  funding-tx
-        ^-  (unit tx:tx:psbt)
-        %+  bind
-          (de:base16:mimes:html funding-tx.command)
-        decode-tx:psbt
+        ^-  (unit psbt:psbt)
+        (from-base64:create:psbt psbt.command)
     ?>  ?=(^ funding-tx)
+    ::  TODO: check tx is complete
     ::
     =+  ^=  funding-output
         ^-  output:psbt
@@ -306,7 +297,8 @@
         $(outs (tail outs), i +(i))
     ?>  ?=(^ funding-out-pos)
     ::
-    =+  funding-txid=(txid:psbt u.funding-tx)
+    =+  funding-txid=(txid:psbt (extract-unsigned:psbt u.funding-tx))
+    %-  (slog leaf+"funding-txid={<funding-txid>}" ~)
     ::
     =+  ^=  channel-id
         ^-  id:bolt
@@ -605,32 +597,24 @@
       ~|  "%volt: reserve-sats.local-config < dust-limit-sats.remote-config"
         !!
     ::
-    =+  ^=  funding-output
-        ^-  output:psbt
-        %^    funding-output:tx:bolt
-            pub.multisig-key.our.u.c
-          funding-pubkey.msg
-        funding-sats.u.oc.u.c
+    =+  ^=  funding-address
+        ^-  address:bc
+        %^    make-funding-address:bolt
+            network.our.u.c
+          pub.multisig-key.our.u.c
+        funding-pubkey.msg
     ::
-    =+  ^=  funding-tx
-        ^-  psbt:psbt
-        %-  ~(add-output update:psbt funding-tx.u.c)
-          funding-output
+    %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
+    %-  (slog leaf+"funding-address={<funding-address>}" ~)
     ::
-    =+  ^=  funding-tx-cord
-        ^-  cord
-        ~(to-base64 create:psbt funding-tx)
-    ::
-    %-  (slog leaf+"channel-id={<temporary-channel-id.msg>} funding-tx={<funding-tx-cord>}" ~)
     :_  %=    state
             larv.chan
         %+  ~(put by larv.chan)  temporary-channel-id.msg
         %=  u.c
           her         remote-config
           ac          `msg
-          funding-tx  funding-tx
         ==  ==
-    ~[(give-update [%need-funding-signature temporary-channel-id.msg funding-tx-cord])]
+    ~[(give-update [%need-funding-signature temporary-channel-id.msg funding-address])]
   ::
   ++  handle-funding-created
     |=  msg=funding-created:msg:bolt
@@ -737,7 +721,9 @@
                        script-pubkey.funding-output
                      channel-id.msg
         ==
-    ~[(poke-btc-provider [%broadcast-tx (encode-tx:psbt funding-tx)])]
+    =-  ~[(poke-btc-provider [%broadcast-tx -])]
+    %-  encode-tx:psbt
+      (extract-unsigned:psbt funding-tx)
   ::
   ++  handle-funding-locked
     |=  msg=funding-locked:msg:bolt
