@@ -69,8 +69,27 @@
 ++  valid-amount
   |=  amt=(unit amount)
   ?|  =(amt ~)
-    ?&(=(+.amt %p) =((mod -.amt 10) 0))
-    %.y
+      ?&(=(+.amt %p) =((mod -.amt 10) 0))
+      %.y
+  ==
+::  sats = 10^-8
+::  msat = 10^-11
+::  mbtc = 10^-3  -> 11-3  =  8
+::  ubtc = 10^-6  -> 11-6  =  5
+::  nbtc = 10^-9  -> 11-9  =  2
+::  pbtc = 10^-12 -> 11-12 = -1
+::
+++  amount-to-msats
+  |=  =amount
+  ^-  @ud
+  =/  [q=@ud mult=(unit multiplier)]
+    amount
+  ?~  mult  (mul 100.000.000.000 q)
+  ?-  u.mult
+    %m  (mul q 100.000.000)
+    %u  (mul q 100.000)
+    %n  (mul q 100)
+    %p  (div q 10)
   ==
 ::
 ++  to-hexb

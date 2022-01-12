@@ -1384,6 +1384,7 @@
   ++  balance
     |=  [whose=owner ctx-owner=owner cn=commitment-number]
     ^-  msats
+    ~&  >>>  whose
     =+  initial=initial-msats:(config-for whose)
     (~(balance htlcs c) whose ctx-owner cn initial)
   ::  +balance-minus-outgoing-htlcs: channel balance less unremoved htlcs
@@ -1485,6 +1486,21 @@
     ~|  %cannot-add-htlc
     ?>  (can-add-htlc %local amount-msats.h)
     (~(send htlcs c) h)
+  ::  +add-next-htlc: create and add a new local htlc
+  ::
+  ++  add-next-htlc
+    |=  [=amount=msats payment-hash=hexb:bc cltv-expiry=blocks]
+    ^-  (pair update-add-htlc:msg chan)
+    =|  h=update-add-htlc:msg
+    =.  h
+      %=  h
+        channel-id    id.c
+        htlc-id       (~(next-id htlcs c) %local)
+        amount-msats  amount-msats
+        payment-hash  payment-hash
+        cltv-expiry   cltv-expiry
+      ==
+    (add-htlc h)
   ::  +receive-htlc: add a new remote htlc to the channel
   ::
   ++  receive-htlc
@@ -2163,11 +2179,19 @@
       htlcs=commitment-htlcs
       fees-per-participant=onchain-fees
     ==
+    ++  received-htlcs
+      ^-  (list update-add-htlc:msg)
+      (~(by-direction htlcs c) owner %received commitment-number)
+    ::
+    ++  offered-htlcs
+      ^-  (list update-add-htlc:msg)
+      (~(by-direction htlcs c) owner %sent commitment-number)
+    ::
     ++  local-msats
       ^-  msats
       %+  sub
         (balance owner owner commitment-number)
-      (htlc-sum received-htlcs)
+      (htlc-sum offered-htlcs)
     ::
     ++  remote-msats
       ^-  msats
@@ -2189,14 +2213,6 @@
         anchor=anchor-outputs.constraints.c
         round=%.n
       ==
-    ::
-    ++  received-htlcs
-      ^-  (list update-add-htlc:msg)
-      (~(by-direction htlcs c) owner %received commitment-number)
-    ::
-    ++  offered-htlcs
-      ^-  (list update-add-htlc:msg)
-      (~(by-direction htlcs c) owner %sent commitment-number)
     ::
     ++  commitment-htlcs
       ^-  (list htlc)
@@ -2430,43 +2446,34 @@
             =initial=msats
         ==
     |^  ^-  msats
+    =+  ^=  sent-msats
+        ^-  msats
+        %+  total-msats
+          whose
+        settles:(for-owner whose)
+    ::
+    =+  ^=  recd-msats
+        ^-  msats
+        %+  total-msats
+          (invert-owner whose)
+        settles:(for-owner (invert-owner whose))
+    ~&  >>  initial-msats
+    ~&  >>  recd-msats
+    ~&  >>  sent-msats
     (sub (add initial-msats recd-msats) sent-msats)
-    ++  sent
-      ^-  (map htlc-id htlc-info)
-      settles:(for-owner whose)
     ::
-    ++  recd
-      ^-  (map htlc-id htlc-info)
-      settles:(for-owner (invert-owner whose))
-    ::
-    ++  sent-msats
+    ++  total-msats
+      |=  [whose=owner htlcs=(map htlc-id htlc-info)]
       ^-  msats
       %+  roll
-      %+  turn  ~(tap in ~(key by sent))
+        %+  turn  ~(tap in ~(key by htlcs))
         |=  =htlc-id
-        =/  =htlc-info
-          (~(got by sent) htlc-id)
+        =+  htlc-info=(~(got by htlcs) htlc-id)
+        =*  htlc-cn  (~(got by htlc-info) commit-owner)
         ?:  ?&  (~(has by htlc-info) commit-owner)
-                (lte (~(got by htlc-info) commit-owner) cn)
+                !=((cmp:si htlc-cn cn) --1)
             ==
-            =/  htlc=update-add-htlc:msg
-              (~(got by adds:(for-owner whose)) htlc-id)
-            amount-msats.htlc
-          0
-      add
-    ::
-    ++  recd-msats
-      ^-  msats
-      %+  roll
-      %+  turn  ~(tap in ~(key by recd))
-        |=  =htlc-id
-        =/  =htlc-info
-          (~(got by recd) htlc-id)
-        ?:  ?&  (~(has by htlc-info) commit-owner)
-                (lte (~(got by htlc-info) commit-owner) cn)
-            ==
-          =/  htlc=update-add-htlc:msg
-            (~(got by adds:(for-owner (invert-owner whose))) htlc-id)
+          =+  htlc=(~(got by adds:(for-owner whose)) htlc-id)
           amount-msats.htlc
         0
       add
@@ -2520,6 +2527,67 @@
         ==
       ?&(not-settled not-failed)
     %.n
+  ::
+  ++  is-irrevocably-added
+    |=  [whose=(unit owner) proposer=owner =htlc-id]
+    |^  ^-  ?
+    ?~  whose  ?&(local remote)
+    ?-  u.whose
+      %local   local
+      %remote  remote
+    ==
+    ++  local   (added-in %local)
+    ++  remote  (added-in %remote)
+    ++  added-in
+      |=  whose=owner
+      ^-  ?
+      ?:  (gte htlc-id (next-id proposer))  %.n
+      =+  ^=  settle-cn
+        ^-  (unit commitment-number)
+        ?.  (~(has by settles:(for-owner proposer)) htlc-id)  ~
+        %.  whose
+        %~  get  by
+        %-  ~(got by settles:(for-owner proposer))
+          htlc-id
+      =+  ^=  fail-cn
+        ^-  (unit commitment-number)
+        ?.  (~(has by fails:(for-owner proposer)) htlc-id)  ~
+        %.  whose
+        %~  get  by
+        %-  ~(got by fails:(for-owner proposer))
+          htlc-id
+      =+  ^=  remove-cn
+        ^-  (unit commitment-number)
+        (clap settle-cn fail-cn head)
+      ?~  remove-cn  %.n
+      %+  lte
+        u.remove-cn
+      (oldest-unrevoked-cn whose)
+    --
+  ::
+  ++  is-irrevocably-removed
+    |=  [whose=(unit owner) proposer=owner =htlc-id]
+    |^  ^-  ?
+    ?~  whose  ?&(local remote)
+    ?-  u.whose
+      %local   local
+      %remote  remote
+    ==
+    ++  local   (removed-in %local)
+    ++  remote  (removed-in %remote)
+    ++  removed-in
+      |=  whose=owner
+      ^-  ?
+      ?:  (gte htlc-id (next-id proposer))  %.n
+      =+  proposers=(for-owner proposer)
+      =+  owners=(for-owner whose)
+      =+  ctns=(~(get by locked-in.proposers) htlc-id)
+      ?~  ctns  %.n
+      ?.  (~(has by u.ctns) whose)  %.n
+      %+  lte
+        (~(got by u.ctns) whose)
+      (oldest-unrevoked-cn whose)
+    --
   ::
   ++  by-direction
     |=  [subject=owner dir=direction cn=commitment-number]

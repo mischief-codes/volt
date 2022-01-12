@@ -1041,7 +1041,7 @@
         basepoints                      local-basepoints
         pub.multisig-key                local-funding-pubkey
         prv.multisig-key
-          prv:(generate-keypair:bolt local-seed %main %multisig 0)
+          prv:(generate-keypair:bolt local-seed %main %multisig)
         to-self-delay                   local-csv
         dust-limit-sats                 local-dust-limit-sats
         max-htlc-value-in-flight-msats  (mul (sats-to-msats:bolt 100.000.000) 5)
@@ -1049,7 +1049,7 @@
         initial-msats                   local-amount
         reserve-sats                    0
         per-commitment-secret-seed
-          32^prv:(generate-keypair:bolt local-seed %main %revocation-root 0)
+          32^prv:(generate-keypair:bolt local-seed %main %revocation-root)
         funding-locked-received         %.y
         htlc-minimum-msats              1
         upfront-shutdown-script         0^0x0
@@ -1116,15 +1116,15 @@
     ::
     =+  feerate=(fall initial-feerate 6.000)
     =^  alice-seed  rng  (rads:rng (bex 256))
-    =+  alice-revocation-root=(generate-keypair:bolt 32^alice-seed %main %revocation-root 0)
-    =+  alice-multisig=(generate-keypair:bolt 32^alice-seed %main %multisig 0)
+    =+  alice-revocation-root=(generate-keypair:bolt 32^alice-seed %main %revocation-root)
+    =+  alice-multisig=(generate-keypair:bolt 32^alice-seed %main %multisig)
     =+  alice-pubkey=pub.alice-multisig
     =+  ^=  alice-basepoints
         ^-  basepoints
-        :*  revocation=(generate-keypair:bolt 32^alice-seed %main %revocation-base 0)
-            payment=(generate-keypair:bolt 32^alice-seed %main %payment-base 0)
-            delayed-payment=(generate-keypair:bolt 32^alice-seed %main %delay-base 0)
-            htlc=(generate-keypair:bolt 32^alice-seed %main %htlc-base 0)
+        :*  revocation=(generate-keypair:bolt 32^alice-seed %main %revocation-base)
+            payment=(generate-keypair:bolt 32^alice-seed %main %payment-base)
+            delayed-payment=(generate-keypair:bolt 32^alice-seed %main %delay-base)
+            htlc=(generate-keypair:bolt 32^alice-seed %main %htlc-base)
         ==
     =+  ^=  alice-first
         ^-  point
@@ -1135,15 +1135,15 @@
         ~
     ::
     =^  bob-seed  rng  (rads:rng (bex 256))
-    =+  bob-revocation-root=(generate-keypair:bolt 32^bob-seed %main %revocation-root 0)
-    =+  bob-multisig=(generate-keypair:bolt 32^bob-seed %main %multisig 0)
+    =+  bob-revocation-root=(generate-keypair:bolt 32^bob-seed %main %revocation-root)
+    =+  bob-multisig=(generate-keypair:bolt 32^bob-seed %main %multisig)
     =+  bob-pubkey=pub.bob-multisig
     =+  ^=  bob-basepoints
         ^-  basepoints
-        :*  revocation=(generate-keypair:bolt 32^bob-seed %main %revocation-base 0)
-            payment=(generate-keypair:bolt 32^bob-seed %main %payment-base 0)
-            delayed-payment=(generate-keypair:bolt 32^bob-seed %main %delay-base 0)
-            htlc=(generate-keypair:bolt 32^bob-seed %main %htlc-base 0)
+        :*  revocation=(generate-keypair:bolt 32^bob-seed %main %revocation-base)
+            payment=(generate-keypair:bolt 32^bob-seed %main %payment-base)
+            delayed-payment=(generate-keypair:bolt 32^bob-seed %main %delay-base)
+            htlc=(generate-keypair:bolt 32^bob-seed %main %htlc-base)
         ==
     =+  ^=  bob-first
         ^-  point
