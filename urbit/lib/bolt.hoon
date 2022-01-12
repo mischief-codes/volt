@@ -1384,7 +1384,6 @@
   ++  balance
     |=  [whose=owner ctx-owner=owner cn=commitment-number]
     ^-  msats
-    ~&  >>>  whose
     =+  initial=initial-msats:(config-for whose)
     (~(balance htlcs c) whose ctx-owner cn initial)
   ::  +balance-minus-outgoing-htlcs: channel balance less unremoved htlcs
@@ -2457,9 +2456,6 @@
         %+  total-msats
           (invert-owner whose)
         settles:(for-owner (invert-owner whose))
-    ~&  >>  initial-msats
-    ~&  >>  recd-msats
-    ~&  >>  sent-msats
     (sub (add initial-msats recd-msats) sent-msats)
     ::
     ++  total-msats

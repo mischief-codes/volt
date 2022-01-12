@@ -331,6 +331,7 @@
             pub.multisig-key.our.u.c
           pub.multisig-key.her.u.c
         funding-sats.u.oc.u.c
+    ::
     =+  ^=  funding-out-pos
         ^-  (unit @u)
         =+  outs=vout.u.funding-tx
@@ -344,13 +345,16 @@
           (some i)
         $(outs (tail outs), i +(i))
     ?>  ?=(^ funding-out-pos)
+    ::
     =+  funding-txid=(txid:^psbt (extract-unsigned:^psbt u.funding-tx))
     %-  (slog leaf+"funding-txid={<funding-txid>}" ~)
+    ::
     =+  ^=  channel-id
         ^-  id:bolt
         %+  make-channel-id:bolt
           funding-txid
         u.funding-out-pos
+    ::
     =+  ^=  channel
         ^-  chan:bolt
         %:  new:channel:bolt
@@ -366,6 +370,7 @@
         ==
     =^  [sig=signature:bolt htlc-sigs=(list signature:bolt)]  channel
       ~(sign-next-commitment channel:bolt channel)
+    ::
     =|  =funding-created:msg:bolt
     =.  funding-created
       %=  funding-created
@@ -817,6 +822,7 @@
     :_  %=  state
           larv.chan  (~(del by larv.chan) temporary-channel-id.msg)
           live.chan  (~(put by live.chan) channel-id channel)
+          peer.chan  (~(put by peer.chan) src.bowl channel-id)
           wach.chan  %+  ~(put by wach.chan)
                        script-pubkey.funding-output
                      channel-id
@@ -857,6 +863,7 @@
     ::
     :_  %=  state
           live.chan  (~(put by live.chan) channel-id.msg channel)
+          peer.chan  (~(put by peer.chan) src.bowl channel-id.msg)
           fund.chan  (~(del by fund.chan) channel-id.msg)
           wach.chan  %+  ~(put by wach.chan)
                        script-pubkey.funding-output
