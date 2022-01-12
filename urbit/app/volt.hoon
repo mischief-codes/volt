@@ -15,26 +15,26 @@
 ::
 +$  state-0
   $:  %0
-      keys=(map hexb:bc ship)                           ::  map from pubkey to ship
-      pres=(map hexb:bc hexb:bc)                        ::  map from hashes to preimages
-      hist=(list payment)                               ::  payment history
-      $=  prov                                          ::  provider state
-        $:  volt=(unit provider-state)                  ::    volt provider
-            info=node-info                              ::    provider lnd info
-            btcp=(unit provider-state)                  ::    bitcoin provider
-        ==                                              ::
-      $=  chan                                          ::  channel state
-        $:  larv=(map id:bolt larva-chan:bolt)          ::    larva channels
-            fund=(map id:bolt psbt:psbt)                ::    funding transactions
-            live=(map id:bolt chan:bolt)                ::    live channels
-            peer=(map ship (set id:bolt))               ::    by peer
-            wach=(map hexb:bc id:bolt)                  ::    by funding address
-        ==                                              ::
-      $=  chain                                         ::  blockchain state
-        $:  block=@ud                                   ::    current height
-            fees=(unit sats:bc)                         ::    feerate
-            time=@da                                    ::    timestamp
-  ==    ==
+      keys=(map hexb:bc ship)                         ::  map from pubkey to ship
+      pres=(map hexb:bc hexb:bc)                      ::  map from hashes to preimages
+      hist=(list payment)                             ::  payment history
+      $=  prov                                        ::  provider state
+      $:  volt=(unit provider-state)                  ::    volt provider
+          info=node-info                              ::    provider lnd info
+          btcp=(unit provider-state)                  ::    bitcoin provider
+      ==                                              ::
+      $=  chan                                        ::  channel state
+      $:  larv=(map id:bolt larva-chan:bolt)          ::    larva channels
+          fund=(map id:bolt psbt:psbt)                ::    funding transactions
+          live=(map id:bolt chan:bolt)                ::    live channels
+          peer=(map ship (set id:bolt))               ::    by peer
+          wach=(map hexb:bc id:bolt)                  ::    by funding address
+      ==                                              ::
+      $=  chain                                       ::  blockchain state
+      $:  block=@ud                                   ::    current height
+          fees=(unit sats:bc)                         ::    feerate
+          time=@da                                    ::    timestamp
+  ==  ==
 --
 ::
 %-  agent:dbug
