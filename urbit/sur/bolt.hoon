@@ -7,7 +7,7 @@
 +$  htlc-id  @ud
 +$  blocks   @ud  ::  number of blocks
 +$  msats    @ud  ::  millisats
-+$  commitment-number  @sd
++$  commitment-number  @
 ::
 +$  pubkey     point
 +$  privkey    hexb:bc
@@ -17,6 +17,9 @@
 +$  point     point:secp:crypto
 +$  outpoint  [=txid:bc pos=@ud =sats:bc]
 +$  witness   (list hexb:bc)
+::
++$  owner      ?(%remote %local)
++$  direction  ?(%sent %received)
 ::  +const: protocol constants
 ::
 ++  const
@@ -92,6 +95,91 @@
       =next-per-commitment=point
       =current-per-commitment=point
   ==
+::  +commitment: view of commitment state
+::
++$  commitment
+  $:  height=commitment-number
+      =owner
+      $=  our
+      $:  msg-idx=@ud
+          htlc-idx=@ud
+          balance=msats
+      ==
+      $=  her
+      $:  msg-idex=@ud
+          htlc-idx=@ud
+          balance=msats
+      ==
+      tx=psbt:psbt
+      =signature
+      fee=sats:bc
+      fee-per-kw=sats:bc
+      dust-limit=sats:bc
+  ==
+::  +update: event that updates a commitment
+::
++$  update
+  $%  [%add-htlc add-htlc-update]
+      [%settle-htlc settle-htlc-update]
+      [%fail-htlc fail-htlc-update]
+      [%fail-malformed-htlc fail-malformed-htlc-update]
+      [%fee-update fee-update]
+  ==
++$  update-shared-fields
+  $:  index=@
+      ::  commitment number which included this update
+      ::  determines whether an HTLC is fully 'locked-in'
+      $=  add-height
+      $:  our=commitment-number
+          her=commitment-number
+      ==
+      ::  commitment number which removed the parent update
+      ::  updates can be removed once these heights are below
+      ::  both commitment chains
+      $=  rem-height
+      $:  our=commitment-number
+          her=commitment-number
+      ==
+  ==
++$  update-parent-fields
+  $:  parent=htlc-id
+      payment-hash=hexb:bc
+      =amount=msats
+  ==
++$  add-htlc-update
+  $:  update-shared-fields
+      =htlc-id
+      payment-hash=hexb:bc
+      timeout=blocks
+      =amount=msats
+  ==
++$  settle-htlc-update
+  $:  update-shared-fields
+      update-parent-fields
+      preimage=hexb:bc
+  ==
++$  fail-htlc-update
+  $:  update-shared-fields
+      update-parent-fields
+      reason=@t
+  ==
++$  fail-malformed-htlc-update
+  $:  update-shared-fields
+      update-parent-fields
+  ==
++$  fee-update
+  $:  update-shared-fields
+      fee-rate=sats:bc
+  ==
+::  +update-log: append-only sequence of commitment updates
+::
++$  update-log
+  $:  list=(list update)
+      update-index=(map @ update)
+      update-count=@
+      htlc-index=(map htlc-id update)
+      htlc-count=htlc-id
+  ==
 ::  +larva-chan: a channel in the larval state
 ::   - holds all the messages back and forth until finalized
 ::   - used to build chan
@@ -102,32 +190,6 @@
       her=remote-config
       oc=(unit open-channel:msg)
       ac=(unit accept-channel:msg)
-  ==
-::
-+$  fee-update
-  $:  rate=sats:bc
-      local-commitment-number=(unit commitment-number)
-      remote-commitment-number=(unit commitment-number)
-  ==
-::
-+$  direction  ?(%sent %received)
-+$  owner      ?(%local %remote)
-+$  htlc-info  (map owner commitment-number)
-::
-+$  htlc-state
-  $:  adds=(map htlc-id update-add-htlc:msg)
-      locked-in=(map htlc-id htlc-info)
-      settles=(map htlc-id htlc-info)
-      fails=(map htlc-id htlc-info)
-      fee-updates=(list fee-update)
-      revack-pending=$~(%.n ?)
-      =next=htlc-id
-      commitment-number=$~(-1 commitment-number)
-  ==
-::
-+$  htlc
-  $:  update-add-htlc:msg
-      witness=hexb:bc
   ==
 ::  +revocation-store: BOLT-03 revocation storage
 ::
@@ -159,25 +221,30 @@
   $:  =id
       state=chan-state
       =funding=outpoint
-      ::
       $=  constraints
       $:  initiator=?
           anchor-outputs=?
           capacity=sats:bc
           funding-tx-min-depth=blocks
       ==
-      ::
       $=  config
       $:  our=local-config
           her=remote-config
       ==
-      ::
-      $=  htlcs
-      $:  our=htlc-state
-          her=htlc-state
+      $=  commitments
+      $:  our=(list commitment)
+          her=(list commitment)
       ==
-      ::
+      $=  updates
+      $:  our=update-log
+          her=update-log
+      ==
       revocations=revocation-store
+  ==
+::
++$  htlc
+  $:  update-add-htlc:msg
+      witness=hexb:bc
   ==
 ::  +msg: BOLT spec messages between peers
 ::    defined in RFC02
@@ -240,11 +307,6 @@
     ==
   ::
   ::  htlc messages
-  ::
-  +$  add-signed-htlc
-    $:  add=update-add-htlc
-        sign=commitment-signed
-    ==
   ::
   +$  update-add-htlc
     $:  =channel=id
