@@ -1,6 +1,6 @@
 /-  *bolt
 /+  bc=bitcoin, bolt11=bolt-bolt11
-/+  bip32, der, psbt
+/+  der, psbt
 |%
 ++  bcu  bcu:bc
 ++  mainnet-hash
@@ -85,44 +85,6 @@
   %+  roll  hs
   |=  [h=update-add-htlc:msg sum=msats]
   (add sum amount-msats.h)
-::
-++  bip32-prime
-  ^-  @
-  0x8000.0000
-::
-++  encode-key-family
-  |=  =family:key
-  ^-  @
-  ?-  family
-    %multisig         (con 0 bip32-prime)
-    %revocation-base  (con 1 bip32-prime)
-    %htlc-base        (con 2 bip32-prime)
-    %payment-base     (con 3 bip32-prime)
-    %delay-base       (con 4 bip32-prime)
-    %revocation-root  (con 5 bip32-prime)
-    %node-key         6
-  ==
-::
-++  encode-coin-network
-  |=  =network
-  ^-  @
-  ?-  network
-    %main     0
-    %testnet  1
-    %regtest  2
-  ==
-::  +generate-keypair: make keypair from seed
-::
-++  generate-keypair
-  |=  [seed=hexb:bc =network =family:key]
-  ^-  pair:key
-  =+  %-  derive-sequence:(from-seed:bip32 seed)
-      :~  1.337
-          (encode-coin-network network)
-          (encode-key-family family)
-          0  0
-      ==
-  [pub=pub prv=prv]
 ::  +extract-signature: parse DER-format signature or fail
 ::
 ++  extract-signature
@@ -158,14 +120,4 @@
       dat.hash
     (extract-signature byts)
   pubkey
-::  +sign-commitment: sign commitment transaction using local private key
-::
-++  sign-commitment
-    |=  [tx=psbt:psbt =local-config =remote-config]
-    ^-  signature
-    =+  privkey=32^prv.multisig-key.local-config
-    =+  keys=(malt ~[[pub.multisig-key.local-config privkey]])
-    =.  tx  (~(all sign:psbt tx) keys)
-    %-  ~(got by partial-sigs:(snag 0 inputs.tx))
-      pub.multisig-key.local-config
 --
