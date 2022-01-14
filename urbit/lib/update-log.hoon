@@ -46,7 +46,13 @@
   =+  index=(find ~[entry] list.log)
   ?~  index  log
   %=  log
-    list        (oust [u.index 1] list.log)
-    htlc-index  (~(del by htlc-index.log) htlc-id)
+    list            (oust [u.index 1] list.log)
+    htlc-index      (~(del by htlc-index.log) htlc-id)
+    modified-htlcs  (~(del in modified-htlcs.log) htlc-id)
   ==
+::
+++  mark-htlc-as-modified
+  |=  =htlc-id
+  ^-  update-log
+  log(modified-htlcs (~(put in modified-htlcs.log) htlc-id))
 --
