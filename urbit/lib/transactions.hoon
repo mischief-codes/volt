@@ -1,6 +1,6 @@
 /-  *bolt
 /+  *utilities, bip69-cltv
-/+  btc-script=bolt-script, script=scripts
+/+  btc-script=bolt-script, script
 |%
 ++  anchor-size           330
 ++  anchor-output-weight  3
@@ -9,6 +9,27 @@
 ++  htlc-success-weight   703
 ++  htlc-timeout-weight   663
 ++  htlc-output-weight    172
+::
+++  commitment-number-blinding-factor
+  =,  secp256k1:secp:crypto
+  |=  [oc=point ac=point]
+  ^-  hexb:bc
+  %+  drop:byt:bcu  26
+  %-  sha256:bcu
+  %-  cat:byt:bcu
+  :~  33^(compress-point oc)
+      33^(compress-point ac)
+  ==
+::
+++  obscure-commitment-number
+  |=  [cn=commitment-number oc=point ac=point]
+  ^-  @ud
+  (mix dat:(commitment-number-blinding-factor oc ac) cn)
+::
+++  unobscure-commitment-number
+  |=  [a=@ oc=point ac=point]
+  ^-  commitment-number
+  (mix dat:(commitment-number-blinding-factor oc ac) a)
 ::
 ++  received-htlc-trim-threshold
   |=  [=dust-limit=sats:bc feerate=sats:bc anchor=?]
@@ -51,14 +72,13 @@
       ==
   (lth (msats-to-sats amount-msats) threshold)
 ::
-++  commitment-fee
+++  calculate-commitment-fee
   |=  $:  num-htlcs=@ud
           feerate=sats:bc
-          is-local-initiator=?
           anchors=?
           round=?
       ==
-  ^-  (map owner sats:bc)
+  ^-  sats:bc
   =+  ^=  overall
       %+  add
         commitment-tx-weight
@@ -70,36 +90,28 @@
     (add fee 660)
   =?  fee  round
     (mul (div fee 1.000) 1.000)
+  fee
+::
+++  commitment-fee
+  |=  $:  num-htlcs=@ud
+          feerate=sats:bc
+          is-local-initiator=?
+          anchors=?
+          round=?
+      ==
+  ^-  (map owner sats:bc)
+  =+  ^=  fee
+    %:  calculate-commitment-fee
+      num-htlcs=num-htlcs
+      feerate=feerate
+      anchors=anchors
+      round=round
+    ==
   %-  malt
   %-  limo
   :~  [%local ?:(is-local-initiator fee 0)]
       [%remote ?.(is-local-initiator fee 0)]
   ==
-::
-++  commitment-number-blinding-factor
-  =,  secp256k1:secp:crypto
-  |=  [oc=point ac=point]
-  ^-  hexb:bc
-  %+  drop:byt:bcu  26
-  %-  sha256:bcu
-  %-  cat:byt:bcu
-  :~  33^(compress-point oc)
-      33^(compress-point ac)
-  ==
-::
-++  obscure-commitment-number
-  |=  [cn=commitment-number oc=point ac=point]
-  ^-  @ud
-  %+  mix
-    dat:(commitment-number-blinding-factor oc ac)
-  (abs:si cn)
-::
-++  unobscure-commitment-number
-  |=  [a=@ud oc=point ac=point]
-  ^-  commitment-number
-  %+  mix
-    (sun:si dat:(commitment-number-blinding-factor oc ac))
-  a
 ::  +tx:funding-output: generate multisig output
 ::
 ++  funding-output
@@ -226,8 +238,8 @@
         ~[0]
       ~
       ::
-      %+  turn    htlcs
-      |=  h=^htlc  cltv-expiry.h
+      %+  turn     htlcs
+      |=  h=^htlc  timeout.h
       ::
       %+  turn    anchor-outputs
       |=  =out:tx:psbt  0
@@ -338,7 +350,7 @@
   ^-  out:tx:psbt
   =|  =out:tx:psbt
   %=  out
-    script-pubkey  witness.h
+    script-pubkey  script-pubkey.h
     value          (msats-to-sats amount-msats.h)
   ==
 ::  +tx:anchor-output: output for anchor
