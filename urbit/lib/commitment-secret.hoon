@@ -1,11 +1,10 @@
 /-  *bolt
-/+  bc=bitcoin
 =,  secp256k1:secp:crypto
 |%
-+$  index  @u
-+$  seed   hexb:bc
-+$  commit-secret  hexb:bc
-++  first-index  (dec (bex 48))
++$  index          @
++$  seed           byts
++$  commit-secret  byts
+++  first-index    (dec (bex 48))
 ::
 ++  compute-commitment-point
   |=  =commit-secret
