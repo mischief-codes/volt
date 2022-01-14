@@ -1,11 +1,51 @@
 /-  *bolt
-/+  bc=bitcoin
+/+  bc=bitcoin, bip32
 =,  secp256k1:secp:crypto
 |%
 ++  bcu  bcu:bc
+::
+++  bip32-prime
+  ^-  @
+  0x8000.0000
+::
+++  encode-key-family
+  |=  =family:key
+  ^-  @
+  ?-  family
+    %multisig         (con 0 bip32-prime)
+    %revocation-base  (con 1 bip32-prime)
+    %htlc-base        (con 2 bip32-prime)
+    %payment-base     (con 3 bip32-prime)
+    %delay-base       (con 4 bip32-prime)
+    %revocation-root  (con 5 bip32-prime)
+    %node-key         6
+  ==
+::
+++  encode-coin-network
+  |=  =network
+  ^-  @
+  ?-  network
+    %main     0
+    %testnet  1
+    %regtest  2
+  ==
+::  +generate-keypair: make keypair from seed
+::
+++  generate-keypair
+  |=  [seed=hexb:bc =network =family:key]
+  ^-  pair:key
+  =+  %-  derive-sequence:(from-seed:bip32 seed)
+      :~  1.337
+          (encode-coin-network network)
+          (encode-key-family family)
+          0  0
+      ==
+  [pub=pub prv=prv]
+::
 ++  point-hash
   |=  [a=point b=point]
-  ^-  hexb:bc
+  ^-  @
+  %-  tail
   %-  sha256:bcu
   %-  cat:byt:bcu
   :~  33^(compress-point a)
@@ -17,7 +57,7 @@
   %+  add-points
     %+  mul-point-scalar
       g:t
-    dat:(point-hash a b)
+    (point-hash a b)
   c
 ::
 ++  derive-pubkey
@@ -29,21 +69,20 @@
   base
 ::
 ++  derive-privkey
-  |=  [base=point =per-commitment=point secret=hexb:bc]
+  |=  [base=point =per-commitment=point secret=@]
   ^-  privkey
-  :-  32
   %+  mod
     %+  add
-      dat:(point-hash per-commitment-point base)
-    dat.secret
+      (point-hash per-commitment-point base)
+    secret
   n:t
 ::
 ++  derive-revocation-pubkey
   |=  [base=point =per-commitment=point]
   |^  ^-  pubkey
   %+  add-points
-    (mul-point-scalar base dat:r)
-  (mul-point-scalar per-commitment-point dat:c)
+    (mul-point-scalar base r)
+  (mul-point-scalar per-commitment-point c)
   ::
   ++  r  (point-hash base per-commitment-point)
   ++  c  (point-hash per-commitment-point base)
@@ -51,16 +90,15 @@
 ::
 ++  derive-revocation-privkey
   |=  $:  revocation-basepoint=point
-          revocation-basepoint-secret=hexb:bc
+          revocation-basepoint-secret=@
           per-commitment-point=point
-          per-commitment-secret=hexb:bc
+          per-commitment-secret=@
       ==
   |^  ^-  privkey
-  :-  32
   %+  mod
     %+  add
-      (mul dat.revocation-basepoint-secret dat:r)
-    (mul dat.per-commitment-secret dat:c)
+      (mul revocation-basepoint-secret r)
+    (mul per-commitment-secret c)
   n:t
   ++  r  (point-hash revocation-basepoint per-commitment-point)
   ++  c  (point-hash per-commitment-point revocation-basepoint)
