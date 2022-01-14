@@ -4,6 +4,19 @@
 /+  *test, script, psbt
 /+  bc=bitcoin, tx=transactions
 |%
+++  test-obscure-commitment-number
+  =,  secp256k1:secp:crypto
+  =/  oc=point
+    %-  decompress-point
+    0x3.4f35.5bdc.b7cc.0af7.28ef.3cce.b961.5d90.684b.b5b2.ca5f.859a.b0f0.b704.0758.71aa
+  =/  ac=point
+    %-  decompress-point
+    0x3.2c0b.7cf9.5324.a07d.0539.8b24.0174.dc0c.2be4.44d9.6b15.9aa6.c7f7.b1e6.6868.0991
+  =/  cn=commitment-number  42
+  %+  expect-eq
+    !>(`@ux`(mix 0x2bb0.3852.1914 cn))
+    !>(`@ux`(obscure-commitment-number:tx cn oc ac))
+::
 ++  test-funding-tx
   =,  secp256k1:secp:crypto
   =,  tx
