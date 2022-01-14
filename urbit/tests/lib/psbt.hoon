@@ -184,4 +184,93 @@
       ::
       !>  (~(one sign tx) 0 privkey ~)
   --
+::
+++  test-segwit
+  |^
+  ;:  weld
+    check-decode
+    check-encode
+  ==
+  ::
+  ++  check-decode
+    %+  expect-eq
+      !>  decoded-tx
+      !>  (decode-tx raw-tx)
+  ::
+  ++  check-encode
+    %+  expect-eq
+      !>  raw-tx
+      !>  (encode-tx decoded-tx)
+  ::
+  ++  decoded-inputs
+    ^-  (list in:tx)
+    :~  :*  prevout=[txid=input-txid idx=0]
+            script-sig=~
+            nsequence=0
+            script-witness=`~[witness-part-1 witness-part-2]
+        ==
+    ==
+  ::
+  ++  decoded-outputs
+    ^-  (list out:tx)
+    :~  :*  value=25.000
+            script-pubkey=output1-script-pubkey
+        ==
+        :*  value=9.999.967.363
+            script-pubkey=output2-script-pubkey
+        ==
+    ==
+  ::
+  ++  decoded-tx
+    ^-  tx:tx
+    :*  vin=decoded-inputs
+        vout=decoded-outputs
+        nversion=2
+        nlocktime=0
+    ==
+  ::
+  ++  input-txid
+    ^-  hexb:bc
+    :-  32
+    0x6371.37c2.8d8f.a677.e75a.851f.a93a.7323.57f4.32ea.e311.6075.9eb2.774a.45d6.e8ca
+  ::
+  ++  output1-script-pubkey
+    ^-  hexb:bc
+    :-  34
+    0x20.e7b0.b352.33c8.214a.a0e9.885f.9392.e5f1.e967.3a3b.9160.5a1c.1b29.5b45.4430.cc83
+  ::
+  ++  output2-script-pubkey
+    ^-  hexb:bc
+    :-  22
+    0x14.503c.901b.fb25.268d.74a0.b4a4.0387.8215.4b8f.ad6a
+  ::
+  ++  witness-part-1
+    ^-  hexb:bc
+    :-  72
+    0x3045.0221.0081.82e7.a153.8235.4a50.3913.85f2.
+    9214.9f02.0e3f.b422.0f45.0e13.8d9b.32cf.999f.
+    2002.203f.6135.1531.335b.3965.a166.d2b3.d47b.
+    a909.ae1b.2c0c.5821.f293.40eb.31b4.6c06.2301
+  ::
+  ++  witness-part-2
+    ^-  hexb:bc
+    :-  33
+    0x2.7dc3.13f1.aaa7.723f.2cab.b5fc.9a85.3d60.8b2e.ce4b.3eb3.ba1a.cb23.a742.9c15.fcc8
+  ::
+  ++  raw-tx
+    ^-  hexb:bc
+    :-  235
+    0x2.0000.0000.0101.cae8.d645.4a77.b29e.7560.11e3.
+    ea32.f457.2373.3aa9.1f85.5ae7.77a6.8f8d.c237.7163.
+    0000.0000.0000.0000.0002.a861.0000.0000.0000.2200.
+    20e7.b0b3.5233.c821.4aa0.e988.5f93.92e5.f1e9.673a.
+    3b91.605a.1c1b.295b.4544.30cc.8383.640b.5402.0000.
+    0016.0014.503c.901b.fb25.268d.74a0.b4a4.0387.8215.
+    4b8f.ad6a.0248.3045.0221.0081.82e7.a153.8235.4a50.
+    3913.85f2.9214.9f02.0e3f.b422.0f45.0e13.8d9b.32cf.
+    999f.2002.203f.6135.1531.335b.3965.a166.d2b3.d47b.
+    a909.ae1b.2c0c.5821.f293.40eb.31b4.6c06.2301.2102.
+    7dc3.13f1.aaa7.723f.2cab.b5fc.9a85.3d60.8b2e.ce4b.
+    3eb3.ba1a.cb23.a742.9c15.fcc8.0000.0000
+  --
 --
