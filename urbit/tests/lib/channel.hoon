@@ -4,6 +4,92 @@
 /+  *utilities, channel, psbt
 /+  keys=key-generation, secret=commitment-secret
 |%
+::
+++  next-local-commitment
+  |=  c=chan
+  ^-  commitment
+  =+  previous=(~(oldest-unrevoked-commitment channel c) %remote)
+  ?~  previous  !!
+  =+  local-index=msg-idx.our.u.previous
+  =+  local-htlc-index=htlc-idx.our.u.previous
+  =+  next-height=+(height.commitments.c)
+  =+  secret-and-point=(secret-and-point:channel %local next-height)
+  ?>  ?=([%& *] secret-and-point)
+  =/  [secret=(unit hexb:bc) point=point]  +.secret-and-point
+  =+  keys=(derive-commitment-keys:channel %local point)
+  =+  ^=  commitment-and-state
+  %:  ~(next-commitment channel c)
+    whose=%local
+    our-index=local-index
+    our-htlc-index=local-htlc-index
+    her-index=update-count.her.updates.c
+    her-htlc-index=htlc-count.her.updates.c
+    keys=keys
+  ==
+  ?>  ?=([%& *] commitment-and-state)
+  +<.commitment-and-state
+::
+++  next-remote-commitment
+  |=  c=chan
+  ^-  commitment
+  =+  previous=(~(oldest-unrevoked-commitment channel c) %local)
+  ?~  previous  !!
+  =+  remote-index=msg-idx.her.u.previous
+  =+  remote-htlc-index=htlc-idx.her.u.previous
+  =+  commitment-point=next-per-commitment-point.her.config.c
+  =+  keys=(derive-commitment-keys:channel %remote commitment-point)
+  =+  ^=  commitment-and-state
+  %:  ~(next-commitment channel c)
+    whose=%remote
+    our-index=update-count.our.updates.c
+    our-htlc-index=htlc-count.our.updates.c
+    her-index=remote-index
+    her-htlc-index=remote-htlc-index
+    keys=keys
+  ==
+  ?>  ?=([%& *] commitment-and-state)
+  +<.commitment-and-state
+::
+++  next-commitment-state
+  |=  [c=chan whose=owner]
+  ^-  commitment
+  ?-  whose
+    %local   (next-local-commitment c)
+    %remote  (next-remote-commitment c)
+  ==
+::
+++  next-commitment
+  |=  [c=chan whose=owner]
+  ^-  psbt:psbt
+  tx:(next-commitment-state c whose)
+::
+++  latest-commitment
+  |=  [c=chan whose=owner]
+  ^-  psbt:psbt
+  =+  latest=(~(latest-commitment channel c) whose)
+  ?~  latest  !!
+  tx.u.latest
+::
+++  oldest-unrevoked-commitment
+  |=  [c=chan whose=owner]
+  ^-  psbt:psbt
+  tx:(need (~(oldest-unrevoked-commitment channel c) whose))
+::
+++  latest-feerate
+  |=  [c=chan whose=owner]
+  ^-  sats:bc
+  fee-per-kw:(need (~(latest-commitment channel c) whose))
+::
+++  next-feerate
+  |=  [c=chan whose=owner]
+  ^-  sats:bc
+  fee-per-kw:(next-commitment-state c whose)
+::
+++  oldest-unrevoked-feerate
+  |=  [c=chan whose=owner]
+  ^-  sats:bc
+  fee-per-kw:(need (~(oldest-unrevoked-commitment channel c) whose))
+::
 ++  make-channel
   |=  $:  initiator=?
           anchor=?
@@ -26,35 +112,33 @@
   :*
     id=chanid
     state=%open
-    funding-output=funding-outpoint:tx-test
+    funding-output=funding-outpoint
     constraints=constraints
     config=[our=local-cfg her=remote-cfg]
-    updates=[our=local-update-log her=remote-update-log]
+    commitments=[our=~ her=~ height=0]
+    updates=[our=*update-log her=*update-log]
+    sent-msats=0
+    recd-msats=0
     revocations=*revocation-store
   ==
+  ++  funding-outpoint
+    |^  ^-  outpoint
+    :*  txid=funding-txid
+        pos=funding-output-index
+        sats=funding-amount
+    ==
+    ++  funding-amount  100.000.000
+    ++  funding-output-index  0
+    ++  funding-txid
+      ^-  hexb:bc
+      :-  32
+      0x8984.484a.580b.825b.9972.d7ad.b150.50b3.ab62.4ccd.7319.46b3.eedd.b92f.4e7e.f6be
+    --
+  ::
   ++  chanid
-    %+  make-channel-id
-      txid:funding-outpoint:tx-test
-    pos:funding-outpoint:tx-test
-  ::
-  ++  initial-fee-update
-    ^-  fee-update
-    =|  =fee-update
-    =.  fee-rate.fee-update
-      ?~  initial-feerate
-        6.000
-      u.initial-feerate
-    fee-update
-  ::
-  ++  local-htlc-state
-    ^-  update-log
-    =|  lug=update-log
-    (~(append-update log lug) initial-fee-update)
-  ::
-  ++  remote-htlc-state
-    ^-  update-log
-    =|  lug=update-log
-    (~(append-update log lug) initial-fee-update)
+    %+  make-channel-id:channel
+      txid:funding-outpoint
+    pos:funding-outpoint
   ::
   ++  local-cfg
     ^-  local-config
@@ -103,7 +187,8 @@
   ++  constraints
     :*  initiator=initiator
         anchor-outputs=anchor
-        capacity=sats:funding-outpoint:tx-test
+        capacity=sats:funding-outpoint
+        initial-feerate=?~(initial-feerate 6.000 u.initial-feerate)
         funding-tx-min-depth=3
     ==
   --
@@ -144,11 +229,7 @@
   =+  alice-pubkey=pub.alice-multisig
   =+  ^=  alice-basepoints
       ^-  basepoints
-      :*  revocation=(generate-keypair:keys 32^alice-seed %main %revocation-base)
-          payment=(generate-keypair:keys 32^alice-seed %main %payment-base)
-          delayed-payment=(generate-keypair:keys 32^alice-seed %main %delay-base)
-          htlc=(generate-keypair:keys 32^alice-seed %main %htlc-base)
-      ==
+      (generate-basepoints:keys 32^alice-seed %main)
   =+  ^=  alice-first
       ^-  point
       %-  compute-commitment-point:secret
@@ -163,11 +244,7 @@
   =+  bob-pubkey=pub.bob-multisig
   =+  ^=  bob-basepoints
       ^-  basepoints
-      :*  revocation=(generate-keypair:keys 32^bob-seed %main %revocation-base)
-          payment=(generate-keypair:keys 32^bob-seed %main %payment-base)
-          delayed-payment=(generate-keypair:keys 32^bob-seed %main %delay-base)
-          htlc=(generate-keypair:keys 32^bob-seed %main %htlc-base)
-      ==
+      (generate-basepoints:keys 32^bob-seed %main)
   =+  ^=  bob-first
       ^-  point
       %-  compute-commitment-point:secret
@@ -191,7 +268,7 @@
         local-amount=local-amount
         remote-amount=remote-amount
         first-per-commitment-point=*point
-        next-per-commitment-point=bob-first
+        next-per-commitment-point=*point
         local-seed=32^alice-seed
         initial-feerate=`feerate
       ==
@@ -211,52 +288,35 @@
         local-amount=remote-amount
         remote-amount=local-amount
         first-per-commitment-point=*point
-        next-per-commitment-point=alice-first
+        next-per-commitment-point=*point
         local-seed=32^bob-seed
         initial-feerate=`feerate
       ==
+  ::  simulating funding-created/funding-signed:
   ::
-  =+  alice-outputs=outputs:(~(latest-commitment channel alice) %local)
-  =+  bob-outputs=outputs:(~(next-commitment channel bob) %remote)
-  ?>  =(alice-outputs bob-outputs)
+  =^  sig-from-alice  alice
+    (~(sign-first-commitment channel alice) bob-first)
+  =^  sig-from-bob  bob
+    (~(sign-first-commitment channel bob) alice-first)
   ::
-  =^  [sig-from-bob=hexb:bc a-htlc-sigs=(list hexb:bc)]  bob
-    ~(sign-next-commitment channel bob)
-  =^  [sig-from-alice=hexb:bc b-htlc-sigs=(list hexb:bc)]  alice
-    ~(sign-next-commitment channel alice)
+  =.  alice  (~(receive-first-commitment channel alice) sig-from-bob)
+  =.  bob    (~(receive-first-commitment channel bob) sig-from-alice)
+  ::  simulating funding-locked:
   ::
-  ?>  =(0 (lent a-htlc-sigs))
-  ?>  =(0 (lent b-htlc-sigs))
-  ::
-  =.  alice
-    %+  ~(open-with-first-commitment-point channel alice)
-      bob-first
-    sig-from-bob
-  ::
-  =.  bob
-    %+  ~(open-with-first-commitment-point channel bob)
-      alice-first
-    sig-from-alice
-  ::
-  =+  ^=  alice-second
-      %-  compute-commitment-point:secret
-      %^    generate-from-seed:secret
-          32^prv.alice-revocation-root
-        (dec first-index:secret)
-      ~
-  ::
-  =+  ^=  bob-second
-      %-  compute-commitment-point:secret
-      %^    generate-from-seed:secret
-          32^prv.bob-revocation-root
-        (dec first-index:secret)
-      ~
-  ::
-  =.  alice
-    alice(next-per-commitment-point.her.config bob-second)
-  ::
-  =.  bob
-    bob(next-per-commitment-point.her.config alice-second)
+  =/  alice-second=point
+    %-  compute-commitment-point:secret
+    %^    generate-from-seed:secret
+        32^prv.alice-revocation-root
+      (dec first-index:secret)
+    ~
+  =/  bob-second=point
+    %-  compute-commitment-point:secret
+    %^    generate-from-seed:secret
+        32^prv.bob-revocation-root
+      (dec first-index:secret)
+    ~
+  =.  alice  alice(next-per-commitment-point.her.config bob-second)
+  =.  bob    bob(next-per-commitment-point.her.config alice-second)
   ::
   [alice=alice bob=bob]
 ::  +test-channel: test channel operations
@@ -269,7 +329,7 @@
       ^-  update-add-htlc:msg
       =|  h=update-add-htlc:msg
       %=  h
-        htlc-id       next-htlc-id.our.htlcs.alice
+        htlc-id       htlc-count.our.updates.alice
         payment-hash  payment-hash
         amount-msats  (sats-to-msats 100.000.000)
         cltv-expiry   5
@@ -293,7 +353,7 @@
   ++  check-concurrent-reversed-payment
     =/  htlc-2=update-add-htlc:msg
       %=  htlc
-        htlc-id       next-htlc-id.our.htlcs.bob
+        htlc-id       htlc-count.our.updates.bob
         payment-hash  (sha256:bcu:bc 32^(fil 3 32 0x2))
         amount-msats  (add amount-msats.htlc 1.000)
       ==
@@ -307,58 +367,57 @@
       (~(receive-new-commitment channel alice-2) bob-sigs)
     =/  [alice-rev=revoke-and-ack:msg alice-4=chan]
       ~(revoke-current-commitment channel alice-3)
+    =/  bob-4=chan
+      (~(receive-revocation channel bob-3) alice-rev)
     ;:  weld
-    ::  alice added the HTLC:
-    ::
-      %+  expect-eq
-        !>  2
-        !>  (lent outputs:(~(latest-commitment channel alice-2) %local))
-    ::
-        %+  expect-eq
-        !>  3
-        !>  (lent outputs:(~(next-commitment channel alice-2) %local))
-    ::
+      %+  category  "alice added the HTLC"
+      ;:  weld
         %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(latest-commitment channel alice-2) %remote))
-    ::
+        !>  (lent outputs:(latest-commitment alice-2 %local))
+      ::
         %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(next-commitment channel alice-2) %remote))
-    ::  alice received bob's signatures:
-    ::
-        %+  expect-eq
-        !>  3
-        !>  (lent outputs:(~(latest-commitment channel alice-3) %local))
-    ::
-        %+  expect-eq
-        !>  3
-        !>  (lent outputs:(~(next-commitment channel alice-3) %local))
-    ::
+        !>  (lent outputs:(next-commitment alice-2 %local))
+      ::
         %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(latest-commitment channel alice-3) %remote))
-    ::
+        !>  (lent outputs:(latest-commitment alice-2 %remote))
+      ::
         %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(next-commitment channel alice-3) %remote))
-    ::  alice revoked current commitment:
+        !>  (lent outputs:(next-commitment alice-2 %remote))
+      ==
     ::
+      %+  category  "alice received bob's signatures"
+      ;:  weld
         %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(latest-commitment channel alice-4) %local))
-    ::
-        %+  expect-eq
-        !>  3
-        !>  (lent outputs:(~(next-commitment channel alice-4) %local))
-    ::
+        !>  (lent outputs:(latest-commitment alice-3 %local))
+      ::
         %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(latest-commitment channel alice-4) %remote))
+        !>  (lent outputs:(latest-commitment alice-3 %remote))
+      ::
+        %+  expect-eq
+        !>  3
+        !>  (lent outputs:(next-commitment alice-3 %remote))
+      ==
     ::
+      %+  category  "alice revoked current commitment"
+      ;:  weld
+        %+  expect-eq
+        !>  3
+        !>  (lent outputs:(latest-commitment alice-4 %local))
+      ::
+        %+  expect-eq
+        !>  2
+        !>  (lent outputs:(latest-commitment alice-4 %remote))
+      ::
         %+  expect-eq
         !>  4
-        !>  (lent outputs:(~(next-commitment channel alice-4) %remote))
+        !>  (lent outputs:(next-commitment alice-4 %remote))
+      ==
     ==
   ::
   ++  check-simple-add-settle-workflow
@@ -371,13 +430,13 @@
     ::
     =+  ^=  local-outs
         ^-  (list output:psbt)
-        %+  sort  outputs:(~(latest-commitment channel alice) %local)
+        %+  sort  outputs:(latest-commitment alice %local)
         |=  [a=output:psbt b=output:psbt]
         (lte wid.script-pubkey.a wid.script-pubkey.b)
     ::
     =+  ^=  remote-outs
         ^-  (list output:psbt)
-        %+  sort  outputs:(~(latest-commitment channel alice) %remote)
+        %+  sort  outputs:(latest-commitment alice %remote)
         |=  [a=output:psbt b=output:psbt]
         (lte wid.script-pubkey.a wid.script-pubkey.b)
     ::  Next alice commits this change by sending a signature message. Since
@@ -488,101 +547,42 @@
     ::
       %-  expect
         !>  %-  ~(signature-fits channel alice)
-            (~(latest-commitment channel alice) %local)
-    ::
-      %-  expect
-        !>  ?=  ^
-          (~(included-htlcs channel alice) %remote %received `--1 ~)
+            (latest-commitment alice %local)
     ::
       %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice) %remote %received `--0 ~)
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  (~(included-htlcs channel alice) %remote %received `--1 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob) %remote %sent `--0 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob) %remote %sent `--1 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice) %remote %sent `--0 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice) %remote %sent `--1 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob) %remote %received `--0 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob) %remote %received `--1 ~)
-    ::
-      %+  expect-eq
-        !>  --0
+        !>  0
         !>  (~(oldest-unrevoked-commitment-number channel alice) %local)
     ::
       %-  expect
         !>  %-  ~(signature-fits channel alice)
-            (~(latest-commitment channel alice) %local)
+            (latest-commitment alice %local)
     ::
       %+  expect-eq
         !>  1
         !>  (lent alice-htlc-sigs)
       %-  expect
         !>  %-  ~(signature-fits channel alice-2)
-            (~(latest-commitment channel alice-2) %local)
-      %+  expect-eq
-        !>  outputs:(~(latest-commitment channel alice-2) %remote)
-        !>  outputs:(~(next-commitment channel bob) %local)
+            (latest-commitment alice-2 %local)
     ::
       %-  expect
         !>  %-  ~(signature-fits channel bob-2)
-            (~(latest-commitment channel bob-2) %local)
+            (latest-commitment bob-2 %local)
 
       %-  expect
         !>  %-  ~(signature-fits channel bob-2)
-            (~(latest-commitment channel bob-2) %local)
+            (latest-commitment bob-2 %local)
     ::
       %+  expect-eq
-        !>  --0
+        !>  0
         !>  (~(oldest-unrevoked-commitment-number channel bob-2) %remote)
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  (~(included-htlcs channel bob-2) %local %received `--1 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice-2) %remote %received `--0 ~)
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  (~(included-htlcs channel alice-2) %remote %received `--1 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice-2) %remote %sent `--0 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice-2) %remote %sent `--1 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob-2) %remote %received `--0 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob-2) %remote %received `--1 ~)
     ::
       %-  expect
         !>  %-  ~(signature-fits channel bob-3)
-            (~(latest-commitment channel bob-3) %local)
+            (latest-commitment bob-3 %local)
     ::
       %-  expect
         !>  %-  ~(signature-fits channel bob-4)
-            (~(latest-commitment channel bob-4) %local)
+            (latest-commitment bob-4 %local)
     ::
       %+  expect-eq
         !>  1
@@ -590,52 +590,49 @@
     ::
       %-  expect
         !>  %-  ~(signature-fits channel alice-2)
-            (~(latest-commitment channel alice-2) %local)
+            (latest-commitment alice-2 %local)
     ::
       %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(latest-commitment channel alice-2) %local))
+        !>  (lent outputs:(latest-commitment alice-2 %local))
       %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(next-commitment channel alice-2) %local))
+        !>  (lent outputs:(next-commitment alice-2 %local))
       %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(oldest-unrevoked-commitment channel alice-2) %remote))
+        !>  (lent outputs:(oldest-unrevoked-commitment alice-2 %remote))
       %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(latest-commitment channel alice-2) %remote))
+        !>  (lent outputs:(latest-commitment alice-2 %remote))
     ::
       %-  expect
         !>  %-  ~(signature-fits channel alice-3)
-            (~(latest-commitment channel alice-3) %local)
+            (latest-commitment alice-3 %local)
     ::
       %+  expect-eq
         !>  2
-        !>  (lent outputs:(~(latest-commitment channel alice-3) %local))
+        !>  (lent outputs:(latest-commitment alice-3 %local))
       %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(latest-commitment channel alice-3) %remote))
+        !>  (lent outputs:(latest-commitment alice-3 %remote))
       %+  expect-eq
         !>  2
         !>  (lent outputs:~(force-close-tx channel alice-3))
     ::
       %+  expect-eq
         !>  1
-        !>  (lent ~(val by adds.our.htlcs.alice-3))
-      %+  expect-eq
-        !>  outputs:(~(next-commitment channel alice-3) %local)
-        !>  outputs:(~(latest-commitment channel bob-4) %remote)
+        !>  (lent (skim list.our.updates.alice-3 |=(u=update ?=([%add-htlc *] u))))
     ::
       %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(latest-commitment channel alice-4) %remote))
+        !>  (lent outputs:(latest-commitment alice-4 %remote))
       %+  expect-eq
         !>  3
         !>  (lent outputs:~(force-close-tx channel alice-4))
     ::
       %+  expect-eq
         !>  1
-        !>  (lent ~(val by adds.our.htlcs.alice-4))
+        !>  (lent (skim list.our.updates.alice-4 |=(u=update ?=([%add-htlc *] u))))
     ::
       %-  expect
         !>  !=(tx0 tx1)
@@ -646,33 +643,33 @@
     ::
       %-  expect
         !>  %-  ~(signature-fits channel bob-4)
-            (~(latest-commitment channel bob-4) %local)
+            (latest-commitment bob-4 %local)
     ::
       %+  expect-eq
         !>  0
-        !>  (~(total-msats channel alice-5) %sent)
+        !>  sent-msats.alice-5
       %+  expect-eq
         !>  0
-        !>  (~(total-msats channel alice-5) %received)
+        !>  recd-msats.alice-5
       %+  expect-eq
         !>  0
-        !>  (~(total-msats channel bob-5) %sent)
+        !>  sent-msats.bob-5
       %+  expect-eq
         !>  0
-        !>  (~(total-msats channel bob-5) %received)
+        !>  recd-msats.bob-5
       %+  expect-eq
-        !>  --1
-        !>  (~(oldest-unrevoked-commitment-number channel bob-5) %local)
+        !>  1
+        !>  height.commitments.bob-5
       %+  expect-eq
-        !>  --1
-        !>  (~(oldest-unrevoked-commitment-number channel alice-5) %local)
+        !>  1
+        !>  height.commitments.alice-5
     ::
       %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(next-commitment channel alice-5) %local))
+        !>  (lent outputs:(latest-commitment alice-5 %local))
       %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(next-commitment channel bob-5) %local))
+        !>  (lent outputs:(latest-commitment bob-5 %local))
     ::
     ::  check output values
     ::
@@ -684,125 +681,77 @@
         !>  0
         !>  (lent bob-htlc-sigs-2)
     ::
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  %:  ~(by-direction htlcs alice-6)
-              %remote
-              %received
-              (~(oldest-unrevoked-commitment-number channel alice-6) %remote)
-            ==
-    ::
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  %:  ~(included-htlcs channe alice-6)
-              owner=%remote
-              direction=%received
-              cn=`(~(oldest-unrevoked-commitment-number channel alice-6) %remote)
-              feerate=~
-            ==
-    ::
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  (~(included-htlcs channel alice-6) %remote %received `--1 ~)
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  (~(included-htlcs channel alice-6) %remote %received `--2 ~)
-    ::
-      %+  expect-eq
-        !>  ~[htlc]
-        !>  (~(included-htlcs channel bob-7) %remote %sent `--1 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob-7) %remote %sent `--2 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice-6) %remote %sent `--1 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel alice-6) %remote %sent `--2 ~)
-    ::
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob-7) %remote %received `--1 ~)
-      %+  expect-eq
-        !>  ~
-        !>  (~(included-htlcs channel bob-7) %remote %received `--2 ~)
-    ::
-      %+  expect-eq
-        !>  outputs:(~(latest-commitment channel bob-7) %remote)
-        !>  outputs:(~(next-commitment channel alice-6) %local)
-    ::
       %-  expect
         !>  !=(tx3 tx4)
     ::
       %+  expect-eq
         !>  500.000.000.000
-        !>  %:  ~(balance channel alice-7)
-              %local
-              %local
-              (~(oldest-unrevoked-commitment-number channel alice-7) %local)
-            ==
-      %+  expect-eq
-        !>  --1
-        !>  (~(oldest-unrevoked-commitment-number channel alice-7) %local)
-      %+  expect-eq
-        !>  0
-        !>  (lent (~(included-htlcs channel alice-7) %local %received `--2 ~))
+        !>  balance.our:(need (~(latest-commitment channel alice-7) %local))
     ::
       %+  expect-eq
         !>  ~
         !>  alice-htlc-sigs-2
       %+  expect-eq
         !>  3
-        !>  (lent outputs:(~(latest-commitment channel bob-6) %local))
+        !>  (lent outputs:(latest-commitment bob-6 %local))
     ::
-      %+  expect-eq
-        !>  one-bitcoin-in-msats
-        !>  (~(total-msats channel alice-10) %sent)
-      %+  expect-eq
-        !>  0
-        !>  (~(total-msats channel alice-10) %received)
-      %+  expect-eq
-        !>  one-bitcoin-in-msats
-        !>  (~(total-msats channel bob-10) %received)
-      %+  expect-eq
-        !>  0
-        !>  (~(total-msats channel bob-10) %sent)
-      %+  expect-eq
-        !>  --2
-        !>  (~(latest-commitment-number channel bob-10) %local)
-      %+  expect-eq
-        !>  --2
-        !>  (~(latest-commitment-number channel alice-10) %local)
+      %+  category  "1 BTC should be sent by Alice, 1 received by Bob"
+      ;:  weld
+        %+  expect-eq
+          !>  one-bitcoin-in-msats
+          !>  sent-msats.alice-10
+        %+  expect-eq
+          !>  0
+          !>  recd-msats.alice-10
+        %+  expect-eq
+          !>  one-bitcoin-in-msats
+          !>  recd-msats.bob-10
+        %+  expect-eq
+          !>  0
+          !>  sent-msats.bob-10
+        %+  expect-eq
+          !>  2
+          !>  height.commitments.bob-10
+        %+  expect-eq
+          !>  2
+          !>  height.commitments.alice-10
+      ==
     ::
-    ::  TODO: check fee invariance?
+      %+  category  "logs should be cleared on both sides"
+      ~&  >>  updates.alice-9
+      ~&  >>  %:  compact-logs:channel
+                our.updates.alice-9
+                her.updates.alice-9
+                height:(need (~(oldest-unrevoked-commitment channel alice-9) %local))
+                +(height:(need (~(oldest-unrevoked-commitment channel alice-9) %remote)))
+              ==
+      ;:  weld
+        %+  expect-eq
+          !>  0
+          !>  (lent list.our.updates.alice-10)
+        %+  expect-eq
+          !>  0
+          !>  (lent list.her.updates.alice-10)
+        %-  expect
+          !>  !=(0 update-count.our.updates.alice-10)
+        %-  expect
+          !>  !=(0 update-count.her.updates.alice-10)
+      ==
     ==
   ::
   ++  alice-to-bob-fee-update
     |=  [alice=chan bob=chan feerate=(unit sats:bc)]
     ^-  [fee=sats:bc alice=chan bob=chan]
     =+  fee=(fall feerate 111)
-    =/  aoldctx=(list output:psbt)
-      outputs:(~(next-commitment channel alice) %remote)
-    =.  alice  (~(update-fee channel alice) fee %.y)
-    =/  anewctx=(list output:psbt)
-      outputs:(~(next-commitment channel alice) %remote)
-    =/  boldctx=(list output:psbt)
-      outputs:(~(next-commitment channel bob) %local)
-    =.  bob  (~(update-fee channel bob) fee %.n)
-    =/  bnewctx=(list output:psbt)
-      outputs:(~(next-commitment channel bob) %local)
-    ?>  !=(aoldctx anewctx)
-    ?>  !=(boldctx bnewctx)
-    ?>  =(anewctx bnewctx)
+    =.  alice  (~(update-fee channel alice) fee)
+    =.  bob  (~(receive-fee-update channel bob) fee)
     [fee=fee alice=alice bob=bob]
   ::
   ++  check-update-fee-sender-commits
     =/  alice=chan  alice
     =/  bob=chan    bob
     =/  old-feerate=sats:bc
-      (~(next-feerate channel alice) %local)
+      (next-feerate alice %local)
     =/  [fee=sats:bc alice=chan bob=chan]
       (alice-to-bob-fee-update alice bob ~)
     =/  [[alice-sig=signature alice-htlc-sigs=(list signature)] alice-2=chan]
@@ -824,29 +773,29 @@
     ;:  weld
       %+  expect-eq
         !>  old-feerate
-        !>  (~(next-feerate channel alice) %local)
+        !>  (next-feerate alice %local)
       %-  expect
-        !>  !=(fee (~(oldest-unrevoked-feerate channel bob-2) %local))
+        !>  !=(fee (oldest-unrevoked-feerate bob-2 %local))
       %+  expect-eq
         !>  fee
-        !>  (~(latest-feerate channel bob-2) %local)
+        !>  (latest-feerate bob-2 %local)
       %+  expect-eq
         !>  fee
-        !>  (~(oldest-unrevoked-feerate channel bob-3) %local)
+        !>  (oldest-unrevoked-feerate bob-3 %local)
       %-  expect
-        !>  !=(fee (~(oldest-unrevoked-feerate channel alice-4) %local))
+        !>  !=(fee (oldest-unrevoked-feerate alice-4 %local))
       %+  expect-eq
         !>  fee
-        !>  (~(latest-feerate channel alice-4) %local)
+        !>  (latest-feerate alice-4 %local)
       %+  expect-eq
         !>  fee
-        !>  (~(oldest-unrevoked-feerate channel alice-5) %local)
+        !>  (oldest-unrevoked-feerate alice-5 %local)
       %+  expect-eq
         !>  fee
-        !>  (~(oldest-unrevoked-feerate channel bob-5) %local)
+        !>  (oldest-unrevoked-feerate bob-5 %local)
       %+  expect-eq
         !>  fee
-        !>  (~(latest-feerate channel bob-5) %local)
+        !>  (latest-feerate bob-5 %local)
     ==
   ::
   ++  check-update-fee-receiver-commits
@@ -880,29 +829,29 @@
       (~(receive-revocation channel bob-3) alice-rev)
     ;:  weld
       %-  expect
-        !>  !=(fee (~(oldest-unrevoked-feerate channel bob) %local))
+        !>  !=(fee (oldest-unrevoked-feerate bob %local))
       %+  expect-eq
         !>  fee
-        !>  (~(latest-feerate channel bob) %local)
+        !>  (latest-feerate bob %local)
       %+  expect-eq
         !>  fee
-        !>  (~(oldest-unrevoked-feerate channel bob-2) %local)
+        !>  (oldest-unrevoked-feerate bob-2 %local)
     ::
       %-  expect
-        !>  !=(fee (~(oldest-unrevoked-feerate channel alice) %local))
+        !>  !=(fee (oldest-unrevoked-feerate alice %local))
       %+  expect-eq
         !>  fee
-        !>  (~(latest-feerate channel alice) %local)
+        !>  (latest-feerate alice %local)
       %+  expect-eq
         !>  fee
-        !>  (~(oldest-unrevoked-feerate channel alice-2) %local)
+        !>  (oldest-unrevoked-feerate alice-2 %local)
     ::
       %+  expect-eq
         !>  fee
-        !>  (~(oldest-unrevoked-feerate channel bob-4) %local)
+        !>  (oldest-unrevoked-feerate bob-4 %local)
       %+  expect-eq
         !>  fee
-        !>  (~(latest-feerate channel bob-4) %local)
+        !>  (latest-feerate bob-4 %local)
     ==
   ::
   ++  force-state-transition

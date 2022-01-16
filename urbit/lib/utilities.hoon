@@ -1,6 +1,6 @@
 /-  *bolt
 /+  bc=bitcoin, bolt11=bolt-bolt11
-/+  der, psbt
+/+  der, psbt, ring
 |%
 ++  bcu  bcu:bc
 ++  mainnet-hash
@@ -79,12 +79,26 @@
   ^-  sats:bc
   (div (mul weight feerate-per-kw) 1.000)
 ::
-++  htlc-sum
-  |=  hs=(list update-add-htlc:msg)
-  ^-  msats
-  %+  roll  hs
-  |=  [h=update-add-htlc:msg sum=msats]
-  (add sum amount-msats.h)
+++  commitment-number-blinding-factor
+  =,  secp256k1:secp:crypto
+  |=  [oc=point ac=point]
+  ^-  hexb:bc
+  %+  drop:byt:bcu  26
+  %-  sha256:bcu
+  %-  cat:byt:bcu
+  :~  33^(compress-point oc)
+      33^(compress-point ac)
+  ==
+::
+++  obscure-commitment-number
+  |=  [cn=commitment-number oc=point ac=point]
+  ^-  @ud
+  (mix dat:(commitment-number-blinding-factor oc ac) cn)
+::
+++  unobscure-commitment-number
+  |=  [a=@ oc=point ac=point]
+  ^-  commitment-number
+  (mix dat:(commitment-number-blinding-factor oc ac) a)
 ::  +extract-signature: parse DER-format signature or fail
 ::
 ++  extract-signature
@@ -120,4 +134,28 @@
       dat.hash
     (extract-signature byts)
   pubkey
+::  +validate-config: validate channel config against some constants
+::
+++  validate-config
+  |=  [config=channel-config =funding=sats:bc]
+  ^-  ?
+  ?&  ?!  (lth funding-sats min-funding-sats:const)
+      ?!  (gth funding-sats max-funding-sats:const)
+      ?&  (lte 0 initial-msats.config)
+          (lte initial-msats.config (sats-to-msats funding-sats))
+      ==
+      ?!  (lth reserve-sats.config dust-limit-sats.config)
+  ==
+::  +scry-peer-pubkey: lookup latest ship pubkey from jael
+::
+++  scry-peer-pubkey
+  |=  who=@p
+  ^-  (unit pubkey)
+  =/  peer-life=(unit @ud)
+    .^((unit @ud) %j /=lyfe=/(scot %p who))
+  ?~  peer-life  ~
+  =/  peer-deed=[life pass (unit @ux)]
+    .^([life pass (unit @ux)] %j /=deed=/(scot %p who)/(scot %d u.peer-life))
+  %-  some
+  (get-public-key-from-pass:detail:ring +<.peer-deed)
 --

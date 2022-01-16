@@ -1,6 +1,11 @@
 ::  update-log.hoon: update-log manipulation
+::
 /-  *bolt
 |_  log=update-log
+::
+++  entries
+  ^-  (list update)
+  list.log
 ::
 ++  append-update
   |=  =update
@@ -43,7 +48,7 @@
   ^-  update-log
   =+  entry=(~(get by htlc-index.log) htlc-id)
   ?~  entry  log
-  =+  index=(find ~[entry] list.log)
+  =+  index=(find ~[u.entry] list.log)
   ?~  index  log
   %=  log
     list            (oust [u.index 1] list.log)

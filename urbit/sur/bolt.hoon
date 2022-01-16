@@ -10,7 +10,7 @@
 +$  commitment-number  @
 ::
 +$  pubkey     point
-+$  privkey    hexb:bc
++$  privkey    @
 +$  signature  hexb:bc
 ::
 +$  network   ?(network:bc %regtest)
@@ -55,7 +55,7 @@
         %revocation-root
         %node-key
     ==
-  +$  pair  [pub=pubkey prv=@]
+  +$  pair  [pub=pubkey prv=privkey]
   --
 ::
 +$  basepoints
@@ -95,6 +95,18 @@
       =next-per-commitment=point
       =current-per-commitment=point
   ==
+::  +commitment-keys: public keys for commitment, from pov of owner
+::
++$  commitment-keys
+  $:  =commitment=point
+      =this-htlc=pubkey
+      =that-htlc=pubkey
+      =that-revocation=pubkey
+      =payment=pubkey
+      =delayed=pubkey
+      funder-payment-basepoint=point
+      fundee-payment-basepoint=point
+  ==
 ::  +commitment: view of commitment state
 ::
 +$  commitment
@@ -106,7 +118,7 @@
           balance=msats
       ==
       $=  her
-      $:  msg-idex=@ud
+      $:  msg-idx=@ud
           htlc-idx=@ud
           balance=msats
       ==
@@ -115,6 +127,11 @@
       fee=sats:bc
       fee-per-kw=sats:bc
       dust-limit=sats:bc
+      cltvs=(list blocks)
+      sent-htlcs=(list add-htlc-update)
+      recd-htlcs=(list add-htlc-update)
+      sent-htlc-index=(map @ add-htlc-update)
+      recd-htlc-index=(map @ add-htlc-update)
   ==
 ::  +update: event that updates a commitment
 ::
@@ -152,6 +169,7 @@
       payment-hash=hexb:bc
       timeout=blocks
       =amount=msats
+      output-index=@
   ==
 +$  settle-htlc-update
   $:  update-shared-fields
@@ -179,6 +197,7 @@
       update-count=@
       htlc-index=(map htlc-id update)
       htlc-count=htlc-id
+      modified-htlcs=(set htlc-id)
   ==
 ::  +larva-chan: a channel in the larval state
 ::   - holds all the messages back and forth until finalized
@@ -225,6 +244,7 @@
       $:  initiator=?
           anchor-outputs=?
           capacity=sats:bc
+          initial-feerate=sats:bc
           funding-tx-min-depth=blocks
       ==
       $=  config
@@ -234,17 +254,21 @@
       $=  commitments
       $:  our=(list commitment)
           her=(list commitment)
+          height=@
       ==
       $=  updates
       $:  our=update-log
           her=update-log
       ==
+      =sent=msats
+      =recd=msats
       revocations=revocation-store
   ==
+::  +htlc: added-htlc with script-pubkey for commitment generation
 ::
 +$  htlc
-  $:  update-add-htlc:msg
-      witness=hexb:bc
+  $:  add-htlc-update
+      script-pubkey=hexb:bc
   ==
 ::  +msg: BOLT spec messages between peers
 ::    defined in RFC02

@@ -10,27 +10,6 @@
 ++  htlc-timeout-weight   663
 ++  htlc-output-weight    172
 ::
-++  commitment-number-blinding-factor
-  =,  secp256k1:secp:crypto
-  |=  [oc=point ac=point]
-  ^-  hexb:bc
-  %+  drop:byt:bcu  26
-  %-  sha256:bcu
-  %-  cat:byt:bcu
-  :~  33^(compress-point oc)
-      33^(compress-point ac)
-  ==
-::
-++  obscure-commitment-number
-  |=  [cn=commitment-number oc=point ac=point]
-  ^-  @ud
-  (mix dat:(commitment-number-blinding-factor oc ac) cn)
-::
-++  unobscure-commitment-number
-  |=  [a=@ oc=point ac=point]
-  ^-  commitment-number
-  (mix dat:(commitment-number-blinding-factor oc ac) a)
-::
 ++  received-htlc-trim-threshold
   |=  [=dust-limit=sats:bc feerate=sats:bc anchor=?]
   ^-  sats:bc
@@ -112,7 +91,7 @@
   :~  [%local ?:(is-local-initiator fee 0)]
       [%remote ?.(is-local-initiator fee 0)]
   ==
-::  +tx:funding-output: generate multisig output
+::  +funding-output: generate multisig output
 ::
 ++  funding-output
   |=  [=local=pubkey =remote=pubkey =funding=sats:bc]
@@ -129,7 +108,7 @@
       local-pubkey
     remote-pubkey
   --
-::  +tx:funding-input: generate spend from multisig output
+::  +funding-input: generate spend from multisig output
 ::
 ++  funding-input
     =,  secp256k1:secp:crypto
@@ -158,7 +137,8 @@
       local-funding-pubkey
     remote-funding-pubkey
   --
-::  +tx:commitment-outputs: outputs for commitment tx
+::  +commitment-outputs: outputs for commitment tx
+::    also returns the sorted cltvs
 ::
 ++  commitment-outputs
   |=  $:  fees-per-participant=(map owner sats:bc)
@@ -172,10 +152,11 @@
           =dust-limit=sats:bc
           anchor=?
       ==
-  |^  ^-  (list output:psbt)
-  %+  turn  (sort-outputs:bip69-cltv outputs cltvs)
-  |=  =out:tx:psbt
-  (from-output:txout:psbt out)
+  |^
+  ^-  (list output:psbt)
+  %+  turn
+    (sort-outputs:bip69-cltv outputs cltvs)
+  from-output:txout:psbt
   ++  local-fee
     ^-  sats:bc
     (~(gut by fees-per-participant) %local 0)
@@ -259,7 +240,7 @@
       anchor-outputs
     ==
   --
-::  +tx:commitment: generate commitment transaction
+::  +commitment: generate commitment transaction and cltvs
 ::
 ++  commitment
   |=  $:  =commitment-number
@@ -279,7 +260,8 @@
           htlcs=(list ^htlc)
           fees-per-participant=(map owner sats:bc)
       ==
-  |^  ^-  psbt:psbt
+  |^
+  ^-  psbt:psbt
   =|  =psbt:psbt
   %=  psbt
     inputs     ~[input]
@@ -343,7 +325,7 @@
       (remote-output:script remote-payment-pubkey)
     (p2wpkh:script remote-payment-pubkey)
   --
-::  +tx:htlc-output: output for htlc
+::  +htlc-output: output for htlc
 ::
 ++  htlc-output
   |=  h=^htlc
@@ -353,7 +335,7 @@
     script-pubkey  script-pubkey.h
     value          (msats-to-sats amount-msats.h)
   ==
-::  +tx:anchor-output: output for anchor
+::  +anchor-output: output for anchor
 ::
 ++  anchor-output
   |=  =pubkey
@@ -368,11 +350,11 @@
     script-pubkey  script-pubkey
     value          anchor-size
   ==
-::  +tx:htlc: generate HTLC transaction for commitment
+::  +htlc: generate HTLC transaction for commitment
 ::
 ++  htlc
   |=  $:  =direction
-          htlc=update-add-htlc:msg
+          htlc=add-htlc-update
           =commitment=outpoint
           =delayed=pubkey
           =other-revocation=pubkey
@@ -387,7 +369,7 @@
   %=  tx
     inputs     [input]~
     outputs    [output]~
-    nlocktime  cltv-expiry.htlc
+    nlocktime  timeout.htlc
     nversion   2
   ==
   ++  weight
@@ -438,7 +420,7 @@
       remote-htlc-pubkey=other-htlc-pubkey
       remote-revocation-pubkey=other-revocation-pubkey
       payment-hash=payment-hash.htlc
-      cltv-expiry=`cltv-expiry.htlc
+      cltv-expiry=`timeout.htlc
       confirmed-spend=anchor-outputs
     ==
   --

@@ -41,6 +41,18 @@
           0  0
       ==
   [pub=pub prv=prv]
+::  +generate-basepoints: generate basepoints from seed
+::
+++  generate-basepoints
+  |=  [seed=hexb:bc =network]
+  ^-  basepoints
+  =|  =basepoints
+  %=  basepoints
+    htlc             (generate-keypair seed network %htlc-base)
+    payment          (generate-keypair seed network %payment-base)
+    delayed-payment  (generate-keypair seed network %delay-base)
+    revocation       (generate-keypair seed network %revocation-base)
+  ==
 ::
 ++  point-hash
   |=  [a=point b=point]
