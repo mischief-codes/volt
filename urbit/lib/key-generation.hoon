@@ -32,9 +32,9 @@
 ::  +generate-keypair: make keypair from seed
 ::
 ++  generate-keypair
-  |=  [seed=hexb:bc =network =family:key]
+  |=  [seed=@ =network =family:key]
   ^-  pair:key
-  =+  %-  derive-sequence:(from-seed:bip32 seed)
+  =+  %-  derive-sequence:(from-seed:bip32 32^seed)
       :~  1.337
           (encode-coin-network network)
           (encode-key-family family)
@@ -44,7 +44,7 @@
 ::  +generate-basepoints: generate basepoints from seed
 ::
 ++  generate-basepoints
-  |=  [seed=hexb:bc =network]
+  |=  [seed=@ =network]
   ^-  basepoints
   =|  =basepoints
   %=  basepoints

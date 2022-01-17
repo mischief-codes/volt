@@ -9,7 +9,7 @@
   (dec (bex 48))
 ::
 ++  add-next
-  |=  hash=hexb:bc
+  |=  hash=@
   ^-  revocation-store
   =+  element=[idx=idx.r secret=hash]
   =+  bucket=(count-trailing-zeros idx.r)
@@ -28,7 +28,7 @@
 ::
 ++  retrieve
   |=  idx=@u
-  ^-  hexb:bc
+  ^-  @
   ?>  (lte idx start-index)
   ~|  %unable-to-derive-secret
   =+  i=0

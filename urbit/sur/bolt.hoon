@@ -83,11 +83,11 @@
 ::
 ++  local-config
   $:  channel-config
-      seed=hexb:bc
+      seed=@
       funding-locked-received=?
       =current-commitment=signature
       current-htlc-signatures=(list signature)
-      per-commitment-secret-seed=hexb:bc
+      per-commitment-secret-seed=@
   ==
 ::
 ++  remote-config
@@ -215,12 +215,12 @@
 ::
 +$  revocation-store
   $~  :*  idx=(dec (bex 48))
-          buckets=*(map @u shachain-element)
+          buckets=*(map @ shachain-element)
       ==
-  $:  idx=@ud
-      buckets=(map @u shachain-element)
+  $:  idx=@
+      buckets=(map @ shachain-element)
   ==
-+$  shachain-element  [idx=@ud secret=hexb:bc]
++$  shachain-element  [idx=@ secret=@]
 ::  +chan-state: channel state
 ::
 +$  chan-state
@@ -350,7 +350,7 @@
   ::
   +$  revoke-and-ack
     $:  =channel=id
-        per-commitment-secret=hexb:bc
+        per-commitment-secret=@
         next-per-commitment-point=point
     ==
   ::

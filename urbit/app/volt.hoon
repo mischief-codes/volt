@@ -260,11 +260,9 @@
         !!
     =+  tmp-id=(make-temp-id)
     =+  feerate=(current-feerate-per-kw)
-    =+  ^=  local-config
-      ^-  local-config:bolt
+    =/  local-config=local-config:bolt
       (make-local-config network funding-sats push-msats %.y)
-    =+  ^=  first-per-commitment-secret
-      ^-  hexb:bc
+    =/  first-per-commitment-secret=@
       %^    generate-from-seed:secret
           per-commitment-secret-seed.local-config
         first-index:secret
@@ -649,7 +647,7 @@
         !!
     ::
     =+  ^=  first-per-commitment-secret
-      ^-  hexb:bc
+      ^-  @
       %^    generate-from-seed:secret
           per-commitment-secret-seed.local-config
         first-index:secret
@@ -1231,8 +1229,8 @@
   ::  TODO: really need cryptographic random
   ::
   =+  ^=  seed
-    ^-  hexb:bc
-    32^(~(rad og eny.bowl) (bex 256))
+    ^-  @
+    (~(rad og eny.bowl) (bex 256))
   ::
   =|  =local-config:bolt
   =.  local-config
@@ -1265,7 +1263,7 @@
       dust-limit-sats:const:bolt
     ::
         per-commitment-secret-seed
-      32^prv:(generate-keypair:^keys seed network %revocation-root)
+      prv:(generate-keypair:^keys seed network %revocation-root)
     ==
   ?>  (validate-config:bolt -.local-config funding-sats)
   local-config

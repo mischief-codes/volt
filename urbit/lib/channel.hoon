@@ -467,7 +467,7 @@
 ::
 ++  secret-and-point
   |=  [whose=owner height=@]
-  ^-  (each [secret=(unit hexb:bc) point=point] evaluation-error)
+  ^-  (each [secret=(unit @) point=point] evaluation-error)
   ?-    whose
       %remote
     =/  offset=@s
@@ -486,7 +486,7 @@
       :*  secret=~
           point=current-per-commitment-point.conf
       ==
-    =/  secr=hexb:bc
+    =/  secr=@
       %-  ~(retrieve revocation revocations.c)
         (sub first-index:secret height)
     :*  secret=`secr
@@ -494,7 +494,7 @@
     ==
       %local
     =+  conf=our.config.c
-    =/  secr=hexb:bc
+    =/  secr=@
       %^    generate-from-seed:secret
           per-commitment-secret-seed.conf
         (sub first-index:secret height)
@@ -1019,7 +1019,7 @@
   ^-  chan
   =+  secret-and-point=(secret-and-point %local 0)
   ?>  ?=([%& *] secret-and-point)
-  =/  [secret=(unit hexb:bc) point=point]  +.secret-and-point
+  =/  [secret=(unit @) point=point]  +.secret-and-point
   =+  keys=(derive-commitment-keys %local point)
   =+  commitment=(first-commitment %local keys)
   =.  commitment
@@ -1104,7 +1104,7 @@
   =+  next-height=+(height.commitments.c)
   =+  secret-and-point=(secret-and-point %local next-height)
   ?>  ?=([%& *] secret-and-point)
-  =/  [secret=(unit hexb:bc) point=point]  +.secret-and-point
+  =/  [secret=(unit @) point=point]  +.secret-and-point
   =+  keys=(derive-commitment-keys %local point)
   =+  ^=  commitment-and-state
     %:  next-commitment
@@ -1153,8 +1153,8 @@
   =+  next=(secret-and-point %local (add height.commitments.c 2))
   ?>  ?=([%& *] last)
   ?>  ?=([%& *] next)
-  =/  [last-secret=(unit hexb:bc) =last=point]  +.last
-  =/  [next-secret=(unit hexb:bc) =next=point]  +.next
+  =/  [last-secret=(unit @) =last=point]  +.last
+  =/  [next-secret=(unit @) =next=point]  +.next
   =.  result
     %=  result
       channel-id                 id.c
@@ -1178,7 +1178,7 @@
   ?~  remote-commit  !!
   =+  cur-point=current-per-commitment-point.her.config.c
   =/  derived-point=point
-    (priv-to-pub dat.per-commitment-secret.revoke-and-ack)
+    (priv-to-pub per-commitment-secret.revoke-and-ack)
   ~|  %revoked-secret-not-for-current-point
   ?>  =(cur-point derived-point)
   =/  [our-log=update-log her-log=update-log]

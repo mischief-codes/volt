@@ -2,8 +2,8 @@
 =,  secp256k1:secp:crypto
 |%
 +$  index          @
-+$  seed           byts
-+$  commit-secret  byts
++$  seed           @
++$  commit-secret  @
 ++  first-index    (dec (bex 48))
 ::
 ++  compute-commitment-point
@@ -11,12 +11,12 @@
   ^-  point
   %+  mul-point-scalar
     g.domain.curve
-  dat:commit-secret
+  commit-secret
 ::
 ++  generate-from-seed
   |=  [=seed i=index bits=(unit @ud)]
   |^  ^-  commit-secret
-  =/  p=@    dat.seed
+  =/  p=@    seed
   =/  b=@ud  (fall bits 48)
   |-
   =.  b  (dec b)
@@ -24,10 +24,7 @@
     %+  shay  32
     %+  flip-bit  b  p
   ?:  =(0 b)
-    :*
-      wid=32
-      dat=(swp 3 p)
-    ==
+    (swp 3 p)
   $(b b, p p)
   ::
   ++  test-bit

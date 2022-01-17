@@ -15,7 +15,7 @@
   =+  next-height=+(height.commitments.c)
   =+  secret-and-point=(secret-and-point:channel %local next-height)
   ?>  ?=([%& *] secret-and-point)
-  =/  [secret=(unit hexb:bc) point=point]  +.secret-and-point
+  =/  [secret=(unit @) point=point]  +.secret-and-point
   =+  keys=(derive-commitment-keys:channel %local point)
   =+  ^=  commitment-and-state
   %:  ~(next-commitment channel c)
@@ -105,7 +105,7 @@
           remote-amount=msats
           =first-per-commitment=point
           =next-per-commitment=point
-          local-seed=hexb:bc
+          local-seed=@
           initial-feerate=(unit sats:bc)
       ==
   |^  ^-  chan
@@ -156,7 +156,7 @@
       initial-msats                   local-amount
       reserve-sats                    0
       per-commitment-secret-seed
-        32^prv:(generate-keypair:keys local-seed %main %revocation-root)
+        prv:(generate-keypair:keys local-seed %main %revocation-root)
       funding-locked-received         %.y
       htlc-minimum-msats              1
       upfront-shutdown-script         0^0x0
@@ -224,32 +224,32 @@
   ::
   =+  feerate=(fall initial-feerate 6.000)
   =^  alice-seed  rng  (rads:rng (bex 256))
-  =+  alice-revocation-root=(generate-keypair:keys 32^alice-seed %main %revocation-root)
-  =+  alice-multisig=(generate-keypair:keys 32^alice-seed %main %multisig)
+  =+  alice-revocation-root=(generate-keypair:keys alice-seed %main %revocation-root)
+  =+  alice-multisig=(generate-keypair:keys alice-seed %main %multisig)
   =+  alice-pubkey=pub.alice-multisig
   =+  ^=  alice-basepoints
       ^-  basepoints
-      (generate-basepoints:keys 32^alice-seed %main)
+      (generate-basepoints:keys alice-seed %main)
   =+  ^=  alice-first
       ^-  point
       %-  compute-commitment-point:secret
       %^    generate-from-seed:secret
-          32^prv.alice-revocation-root
+          prv.alice-revocation-root
         first-index:secret
       ~
   ::
   =^  bob-seed  rng  (rads:rng (bex 256))
-  =+  bob-revocation-root=(generate-keypair:keys 32^bob-seed %main %revocation-root)
-  =+  bob-multisig=(generate-keypair:keys 32^bob-seed %main %multisig)
+  =+  bob-revocation-root=(generate-keypair:keys bob-seed %main %revocation-root)
+  =+  bob-multisig=(generate-keypair:keys bob-seed %main %multisig)
   =+  bob-pubkey=pub.bob-multisig
   =+  ^=  bob-basepoints
       ^-  basepoints
-      (generate-basepoints:keys 32^bob-seed %main)
+      (generate-basepoints:keys bob-seed %main)
   =+  ^=  bob-first
       ^-  point
       %-  compute-commitment-point:secret
       %^    generate-from-seed:secret
-          32^prv.bob-revocation-root
+          prv.bob-revocation-root
         first-index:secret
       ~
   ::
@@ -269,7 +269,7 @@
         remote-amount=remote-amount
         first-per-commitment-point=*point
         next-per-commitment-point=*point
-        local-seed=32^alice-seed
+        local-seed=alice-seed
         initial-feerate=`feerate
       ==
   ::
@@ -289,7 +289,7 @@
         remote-amount=local-amount
         first-per-commitment-point=*point
         next-per-commitment-point=*point
-        local-seed=32^bob-seed
+        local-seed=bob-seed
         initial-feerate=`feerate
       ==
   ::  simulating funding-created/funding-signed:
@@ -306,13 +306,13 @@
   =/  alice-second=point
     %-  compute-commitment-point:secret
     %^    generate-from-seed:secret
-        32^prv.alice-revocation-root
+        prv.alice-revocation-root
       (dec first-index:secret)
     ~
   =/  bob-second=point
     %-  compute-commitment-point:secret
     %^    generate-from-seed:secret
-        32^prv.bob-revocation-root
+        prv.bob-revocation-root
       (dec first-index:secret)
     ~
   =.  alice  alice(next-per-commitment-point.her.config bob-second)
