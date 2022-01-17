@@ -4,6 +4,13 @@
 /+  *utilities, channel, psbt
 /+  keys=key-generation, secret=commitment-secret
 |%
+++  one-bitcoin-in-sats
+  ^-  sats:bc
+  100.000.000
+::
+++  one-bitcoin-in-msats
+  ^-  msats
+  (sats-to-msats one-bitcoin-in-sats)
 ::
 ++  next-local-commitment
   |=  c=chan
@@ -127,7 +134,7 @@
         pos=funding-output-index
         sats=funding-amount
     ==
-    ++  funding-amount  100.000.000
+    ++  funding-amount  one-bitcoin-in-sats
     ++  funding-output-index  0
     ++  funding-txid
       ^-  hexb:bc
@@ -211,7 +218,7 @@
         %+  add
           u.local-msats
         u.remote-msats
-      (mul 100.000.000 10)
+      (mul one-bitcoin-in-sats 10)
   =+  funding-outpoint=[txid=32^funding-txid pos=0 sats=funding-sats]
   ::
   =+  ^=  local-amount
@@ -319,21 +326,26 @@
   =.  bob    bob(next-per-commitment-point.her.config alice-second)
   ::
   [alice=alice bob=bob]
+::  +make-htlc: utility for generating test htlcs
+::
+++  make-htlc
+  |=  [id=htlc-id =amount=msats]
+  ^-  [htlc=update-add-htlc:msg preimage=hexb:bc]
+  =+  preimage=32^(fil 3 32 id)
+  =+  payment-hash=(sha256:bcu:bc preimage)
+  =|  htlc=update-add-htlc:msg
+  :_  preimage
+  %=  htlc
+    htlc-id       id
+    payment-hash  payment-hash
+    amount-msats  amount-msats
+    cltv-expiry   5
+  ==
 ::  +test-channel: test channel operations
 ::
 ++  test-channel
   =+  (make-test-channels ~ ~ ~ `@uvJ`42)
-  =+  preimage=32^(fil 3 32 0x1)
-  =+  payment-hash=(sha256:bcu:bc preimage)
-  =+  ^=  htlc
-      ^-  update-add-htlc:msg
-      =|  h=update-add-htlc:msg
-      %=  h
-        htlc-id       htlc-count.our.updates.alice
-        payment-hash  payment-hash
-        amount-msats  (sats-to-msats 100.000.000)
-        cltv-expiry   5
-      ==
+  =+  (make-htlc htlc-count.our.updates.alice (sats-to-msats 100.000.000))
   =^  alice-htlc  alice  (~(add-htlc channel alice) htlc)
   =^  bob-htlc    bob    (~(receive-htlc channel bob) htlc)
   |^
@@ -426,7 +438,6 @@
     =/  htlc=update-add-htlc:msg        htlc
     =/  bob-htlc=update-add-htlc:msg    bob-htlc
     =/  alice-htlc=update-add-htlc:msg  alice-htlc
-    =/  one-bitcoin-in-msats=msats      (sats-to-msats 100.000.000)
     ::
     =+  ^=  local-outs
         ^-  (list output:psbt)
@@ -846,18 +857,62 @@
         !>  fee
         !>  (latest-feerate bob-4 %local)
     ==
-  ::
-  ++  force-state-transition
-    |=  [a=chan b=chan]
-    ^-  [a=chan b=chan]
-    =^  a-sigs  a  ~(sign-next-commitment channel a)
-    =.  b  (~(receive-new-commitment channel b) a-sigs)
-    =^  b-rev   b  ~(revoke-current-commitment channel b)
-    =^  b-sigs  b  ~(sign-next-commitment channel b)
-    =.  a  (~(receive-revocation channel a) b-rev)
-    =.  a  (~(receive-new-commitment channel a) b-sigs)
-    =^  a-rev  a  ~(revoke-current-commitment channel a)
-    =.  b  (~(receive-revocation channel b) a-rev)
-    [a=a b=b]
   --
+::
+++  force-state-transition
+  |=  [a=chan b=chan]
+  ^-  [a=chan b=chan]
+  =^  a-sigs  a  ~(sign-next-commitment channel a)
+  =.  b  (~(receive-new-commitment channel b) a-sigs)
+  =^  b-rev   b  ~(revoke-current-commitment channel b)
+  =^  b-sigs  b  ~(sign-next-commitment channel b)
+  =.  a  (~(receive-revocation channel a) b-rev)
+  =.  a  (~(receive-new-commitment channel a) b-sigs)
+  =^  a-rev  a  ~(revoke-current-commitment channel a)
+  =.  b  (~(receive-revocation channel b) a-rev)
+  [a=a b=b]
+::
+++  test-invalid-commit-sig
+  =+  (make-test-channels ~ ~ ~ `@uvJ`42)
+  =+  (make-htlc 0 100.000)
+  =^  alice-htlc  alice
+    (~(add-htlc channel alice) htlc)
+  =^  bob-htlc  bob
+    (~(receive-htlc channel bob) alice-htlc)
+  =^  alice-sigs  alice
+    ~(sign-next-commitment channel alice)
+  =/  [alice-sig=signature alice-htlc-sigs=(list signature)]
+    alice-sigs
+  =.  dat.alice-sig  (mix dat.alice-sig 88)
+  %-  expect-fail
+    |.  (~(receive-new-commitment channel bob) alice-sig alice-htlc-sigs)
+::
+++  test-can-pay
+  =+  (make-test-channels ~ ~ ~ `@uvJ`42)
+  =+  capacity=(mul one-bitcoin-in-sats 10)
+  ;:  weld
+    %-  expect
+    !>  (~(can-pay channel alice) 0)
+  ::
+    %-  expect
+    !>  (~(can-pay channel bob) 0)
+  ::
+    %-  expect
+    !>  %-  ~(can-pay channel alice)
+        %-  sats-to-msats
+          (div capacity 4)
+  ::
+    %-  expect
+    !>  %-  ~(can-pay channel bob)
+        %-  sats-to-msats
+          (div capacity 4)
+  ::
+    %+  expect-eq
+    !>  %.n
+    !>  (~(can-pay channel alice) (sats-to-msats capacity))
+  ::
+    %+  expect-eq
+    !>  %.n
+    !>  (~(can-pay channel bob) (sats-to-msats capacity))
+  ==
 --

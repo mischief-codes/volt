@@ -1234,29 +1234,33 @@
 ++  can-add-htlc
   |=  [whose=owner update=add-htlc-update]
   ^-  ?
-  =+  log=(~(append-htlc log (updates-for whose)) [%add-htlc update])
   ::  try appending the htlc to the appropriate log
-  =+  ^=  test=chan
-    %=  c
-      our.updates  ?:(=(whose %local) log our.updates.c)
-      her.updates  ?:(=(whose %local) her.updates.c log)
+  =/  test=chan
+    %=    c
+        our.updates
+      ?:  =(whose %local)
+        (~(append-htlc log our.updates.c) [%add-htlc update])
+      our.updates.c
+    ::
+        her.updates
+      ?.  =(whose %local)
+        (~(append-htlc log her.updates.c) [%add-htlc update])
+      her.updates.c
     ==
-  =+  latest=(latest-commitment %local)
-  ?~  latest  !!
-  =+  local-index=update-count.our.updates.c
-  =+  remote-index=update-count.her.updates.c
   ::  verify that the next commitment can be evaluated for each side
+  =+  latest=(oldest-unrevoked-commitment %local)
+  ?~  latest  !!
   =+  ^=  result
     %^    ~(evaluate-next-commitment +> test)
-        whose
-      local-index
+        %remote
+      update-count.our.updates.test
     msg-idx.her.u.latest
   ?:  ?=([%| *] result)  %.n
   =+  ^=  result
     %^    ~(evaluate-next-commitment +> test)
-        whose
-      local-index
-    remote-index
+        %local
+      update-count.our.updates.test
+    update-count.her.updates.test
   ?=([%& *] result)
 ::  +add-htlc: add a new local htlc to the channel
 ::
