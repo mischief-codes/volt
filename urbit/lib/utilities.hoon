@@ -1,5 +1,5 @@
 /-  *bolt
-/+  bc=bitcoin, bolt11=bolt-bolt11
+/+  bc=bitcoin, bolt11
 /+  der, psbt, ring
 |%
 ++  bcu  bcu:bc

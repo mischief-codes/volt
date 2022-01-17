@@ -1,6 +1,6 @@
 /-  *bolt
 /+  *utilities, bip69-cltv
-/+  btc-script=bolt-script, script
+/+  btc-script, script
 |%
 ++  anchor-size           330
 ++  anchor-output-weight  3

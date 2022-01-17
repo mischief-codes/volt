@@ -3,9 +3,9 @@
 ::
 /-  *volt, btc-provider
 /+  default-agent, dbug
-/+  bc=bitcoin
-/+  revocation=revocation-store, bolt11=bolt-bolt11
-/+  keys=key-generation, secret=commitment-secret, tx=transactions
+/+  bc=bitcoin, bolt11
+/+  revocation=revocation-store, tx=transactions
+/+  keys=key-generation, secret=commitment-secret
 /+  bolt=utilities, channel, psbt, ring
 |%
 +$  card  card:agent:gall

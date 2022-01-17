@@ -1,5 +1,5 @@
 /-  *bolt
-/+  bc=bitcoin, btc-script=bolt-script
+/+  bc=bitcoin, btc-script
 |%
 ++  bcu  bcu:bc
 ++  compress-point  compress-point:secp256k1:secp:crypto

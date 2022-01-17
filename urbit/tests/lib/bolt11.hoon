@@ -1,5 +1,5 @@
 /-  btc=bitcoin
-/+  *test, bolt11=bolt-bolt11
+/+  *test, bolt11
 =,  btc
 |%
 ::

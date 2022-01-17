@@ -12,7 +12,7 @@
 ::
 /-  *bolt
 /+  *utilities, psbt, script, commitment-chain
-/+  bc=bitcoin, btc-script=bolt-script
+/+  bc=bitcoin, btc-script
 /+  tx=transactions, keys=key-generation
 /+  secret=commitment-secret, log=update-log
 /+  revocation=revocation-store
