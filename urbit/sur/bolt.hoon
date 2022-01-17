@@ -124,6 +124,7 @@
       ==
       tx=psbt:psbt
       =signature
+      htlc-signatures=(list signature)
       fee=sats:bc
       fee-per-kw=sats:bc
       dust-limit=sats:bc

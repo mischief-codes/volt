@@ -60,8 +60,7 @@
   ==
 ::
 ++  new
-  |=  $:  =id
-          =local-config
+  |=  $:  =local-config
           =remote-config
           =funding=outpoint
           initial-feerate=sats:bc
@@ -72,8 +71,9 @@
       ==
   |^  ^-  chan
   =|  channel=chan
+  =+  id=(make-channel-id txid.funding-outpoint pos.funding-outpoint)
   %=  channel
-    id  id
+    id                id
     funding-outpoint  funding-outpoint
     constraints       constraints
     our.config        local-config
@@ -843,12 +843,10 @@
       fee-rate     initial-feerate.constraints.c
     ==
   =.  state  (add-commitment-weight-and-fee state)
-  =/  commitment-tx=psbt:psbt
-    (make-commitment-tx state keys)
   %=  commitment
     height       0
     owner        whose
-    tx           commitment-tx
+    tx           (make-commitment-tx state keys)
     fee          fee.state
     fee-per-kw   fee-rate.state
     dust-limit   dust-limit-sats:(config-for whose)
@@ -868,15 +866,11 @@
   =+  result=(evaluate-next-commitment whose our-index her-index)
   ?:  ?=([%| *] result)  result
   =/  state=evaluation-state  +.result
-  =/  commitment-tx=psbt:psbt
-    (make-commitment-tx state keys)
-  :-  %&
-  :_  state
-  %+  index-htlcs
+  =.  commitment
     %=  commitment
       height      height.state
       owner       whose
-      tx          commitment-tx
+      tx          (make-commitment-tx state keys)
       fee         fee.state
       fee-per-kw  fee-rate.state
       dust-limit  dust-limit-sats:(config-for whose)
@@ -890,7 +884,8 @@
                   htlc-idx=her-htlc-index
                   balance=her-balance.state
     ==        ==
-  keys
+  =.  commitment  (index-htlcs commitment keys)
+  [%& commitment state]
 ::  +sign-commitment: sign commitment transaction using local private key
 ::
 ++  sign-commitment
@@ -1027,7 +1022,11 @@
   =/  [secret=(unit hexb:bc) point=point]  +.secret-and-point
   =+  keys=(derive-commitment-keys %local point)
   =+  commitment=(first-commitment %local keys)
-  =.  signature.commitment  sig
+  =.  commitment
+    %=  commitment
+      signature       sig
+      htlc-signatures  ~
+    ==
   ~|  %invalid-commitment-signature
   ?>  (check-commitment-signature tx.commitment sig pub.multisig-key.her.config.c)
   %=    c
@@ -1072,12 +1071,16 @@
     prv.htlc.basepoints.our.config.c
   =+  new-logs=(apply-pending-lock-ins state)
   =+  sig=(sign-commitment tx.commitment our.config.c)
-  =.  signature.commitment  sig
   =/  htlc-sigs=(list signature)
     %:  sign-htlcs
       commitment=commitment
       privkey=htlc-privkey
       keys=keys
+    ==
+  =.  commitment
+    %=  commitment
+      signature        sig
+      htlc-signatures  htlc-sigs
     ==
   :-  [sig htlc-sigs]
   %=  c
@@ -1115,7 +1118,11 @@
   ?>  ?=([%& *] commitment-and-state)
   =/  commitment=commitment   +<.commitment-and-state
   =/  state=evaluation-state  +>.commitment-and-state
-  =.  signature.commitment  sig
+  =.  commitment
+    %=  commitment
+      signature        sig
+      htlc-signatures  htlc-sigs
+    ==
   ?.  (check-commitment-signature tx.commitment sig pub.multisig-key.her.config.c)
     ~|(%invalid-commitment-signature !!)
   ?.  (check-htlc-signatures commitment htlc-sigs that-htlc-pubkey.keys keys)
@@ -1374,7 +1381,7 @@
   ==
 ::  +receive-update-fee: process a remote feerate update
 ::
-++  receive-fee-update
+++  receive-update-fee
   |=  feerate=sats:bc
   ^-  chan
   ?:  initiator.constraints.c
@@ -1555,4 +1562,59 @@
     (cat:byt:bcu:bc ~[current-commitment-signature.local-config 1^0x1])
   ?.  (is-complete:psbt tx)  ~|(%incomplete-force-close-tx !!)
   tx
+::
+::
+++  has-expiring-htlcs
+  |=  block=@
+  ^-  ?
+  ::  TODO
+  %.n
+::
+++  update-onchain-state
+  |=  [=utxo:bc block=@]
+  ^-  chan
+  ::  TODO: revisit this, handle spending utxos
+  ?.  =(state.c %opening)  c
+  =+  confs=(sub block height.utxo)
+  ?:  (gte confs funding-tx-min-depth)
+    (set-state %funded)
+  c
+::
+++  can-pay
+  |=  =amount=msats
+  ^-  ?
+  =|  update=add-htlc-update
+  =.  update
+    %=  update
+      index         update-count.our.updates.c
+      htlc-id       htlc-count.our.updates.c
+      amount-msats  amount-msats
+    ==
+  (can-add-htlc %local update)
+::
+++  can-receive
+  |=  =amount=msats
+  ^-  ?
+  =|  update=add-htlc-update
+  =.  update
+    %=  update
+      index         update-count.our.updates.c
+      htlc-id       htlc-count.our.updates.c
+      amount-msats  amount-msats
+    ==
+  (can-add-htlc %remote update)
+::
+++  has-pending-changes
+  |=  who=owner
+  ^-  ?
+  ~|(%unimplemented !!)
+::
+++  has-unacked-commitment
+  |=  who=owner
+  ^-  ?
+  %~  has-unacked-commitment  commitment-chain
+  ?-  who
+    %local   our.commitments.c
+    %remote  her.commitments.c
+  ==
 --

@@ -3,8 +3,10 @@
 ::
 /-  *volt, btc-provider
 /+  default-agent, dbug
-/+  bc=bitcoin, bolt11=bolt-bolt11
-/+  psbt, bolt, ring
+/+  bc=bitcoin
+/+  revocation=revocation-store, bolt11=bolt-bolt11
+/+  keys=key-generation, secret=commitment-secret, tx=transactions
+/+  bolt=utilities, channel, psbt, ring
 |%
 +$  card  card:agent:gall
 +$  versioned-state
@@ -15,25 +17,25 @@
 ::
 +$  state-0
   $:  %0
-      keys=(map hexb:bc ship)                         ::  map from pubkey to ship
-      pres=(map hexb:bc hexb:bc)                      ::  map from hashes to preimages
-      hist=(list payment)                             ::  payment history
-      $=  prov                                        ::  provider state
-      $:  volt=(unit provider-state)                  ::    volt provider
-          info=node-info                              ::    provider lnd info
-          btcp=(unit provider-state)                  ::    bitcoin provider
-      ==                                              ::
-      $=  chan                                        ::  channel state
-      $:  larv=(map id:bolt larva-chan:bolt)          ::    larva channels
-          fund=(map id:bolt psbt:psbt)                ::    funding transactions
-          live=(map id:bolt chan:bolt)                ::    live channels
-          peer=(map ship (set id:bolt))               ::    by peer
-          wach=(map hexb:bc id:bolt)                  ::    by funding address
-      ==                                              ::
-      $=  chain                                       ::  blockchain state
-      $:  block=@ud                                   ::    current height
-          fees=(unit sats:bc)                         ::    feerate
-          time=@da                                    ::    timestamp
+      keys=(map hexb:bc ship)                 ::  map from pubkey to ship
+      pres=(map hexb:bc hexb:bc)              ::  map from hashes to preimages
+      hist=(list payment)                     ::  payment history
+      $=  prov                                ::  provider state
+      $:  volt=(unit provider-state)          ::    volt provider
+          info=node-info                      ::    provider lnd info
+          btcp=(unit provider-state)          ::    bitcoin provider
+      ==                                      ::
+      $=  chan                                ::  channel state
+      $:  larv=(map id:bolt larva-chan:bolt)  ::    larva channels
+          fund=(map id:bolt psbt:psbt)        ::    funding transactions
+          live=(map id:bolt chan:bolt)        ::    live channels
+          peer=(map ship (set id:bolt))       ::    by peer
+          wach=(map hexb:bc id:bolt)          ::    by funding address
+      ==                                      ::
+      $=  chain                               ::  blockchain state
+      $:  block=@ud                           ::    current height
+          fees=(unit sats:bc)                 ::    feerate
+          time=@da                            ::    timestamp
   ==  ==
 --
 ::
@@ -170,7 +172,7 @@
         `this
       ==
     (on-arvo:def wire sign-arvo)
-(on-arvo:def wire sign-arvo)
+  (on-arvo:def wire sign-arvo)
 ::
 ++  on-peek   on-peek:def
 ++  on-leave  on-leave:def
@@ -259,14 +261,14 @@
     =+  tmp-id=(make-temp-id)
     =+  feerate=(current-feerate-per-kw)
     =+  ^=  local-config
-        ^-  local-config:bolt
-        (make-local-config network funding-sats push-msats %.y)
+      ^-  local-config:bolt
+      (make-local-config network funding-sats push-msats %.y)
     =+  ^=  first-per-commitment-secret
-        ^-  hexb:bc
-        %^    generate-from-seed:secret:bolt
-            per-commitment-secret-seed.local-config
-          first-index:secret:bolt
-        ~
+      ^-  hexb:bc
+      %^    generate-from-seed:secret
+          per-commitment-secret-seed.local-config
+        first-index:secret
+      ~
     =|  oc=open-channel:msg:bolt
     =.  oc
       %=  oc
@@ -287,7 +289,7 @@
         pub.payment.basepoints          pub.payment.basepoints.local-config
         pub.delayed-payment.basepoints  pub.delayed-payment.basepoints.local-config
         anchor-outputs                  anchor-outputs.local-config
-        first-per-commitment-point      %-  compute-commitment-point:secret:bolt
+        first-per-commitment-point      %-  compute-commitment-point:secret
                                              first-per-commitment-secret
         shutdown-script-pubkey          upfront-shutdown-script.local-config
       ==
@@ -319,57 +321,48 @@
       ~&  >>>  "%volt: invalid channel state: {<temporary-channel-id>}"
       `state
     ~|  %invalid-funding-tx
-    =+  ^=  funding-tx
-        ^-  (unit psbt:^psbt)
-        (from-base64:create:^psbt psbt)
+    =/  funding-tx=(unit psbt:^psbt)
+      (from-base64:create:^psbt psbt)
     ?>  ?=(^ funding-tx)
     ::  TODO: check tx is complete
     ::
-    =+  ^=  funding-output
-        ^-  output:^psbt
-        %^    funding-output:tx:bolt
-            pub.multisig-key.our.u.c
-          pub.multisig-key.her.u.c
-        funding-sats.u.oc.u.c
+    =/  funding-output=output:^psbt
+      %^    funding-output:tx
+          pub.multisig-key.our.u.c
+        pub.multisig-key.her.u.c
+      funding-sats.u.oc.u.c
     ::
-    =+  ^=  funding-out-pos
-        ^-  (unit @u)
-        =+  outs=vout.u.funding-tx
-        =+  i=0
-        |-
-        ?~  outs  ~
-        =+  out=(head outs)
-        ?:  ?&  =(value.out value.funding-output)
-                =(script-pubkey.out script-pubkey.funding-output)
-            ==
-          (some i)
-        $(outs (tail outs), i +(i))
+    =/  funding-out-pos=(unit @u)
+      =+  outs=vout.u.funding-tx
+      =+  i=0
+      |-
+      ?~  outs  ~
+      =+  out=(head outs)
+      ?:  ?&  =(value.out value.funding-output)
+              =(script-pubkey.out script-pubkey.funding-output)
+          ==
+        (some i)
+      $(outs (tail outs), i +(i))
     ?>  ?=(^ funding-out-pos)
     ::
     =+  funding-txid=(txid:^psbt (extract-unsigned:^psbt u.funding-tx))
     %-  (slog leaf+"funding-txid={<funding-txid>}" ~)
     ::
-    =+  ^=  channel-id
-        ^-  id:bolt
-        %+  make-channel-id:bolt
-          funding-txid
-        u.funding-out-pos
-    ::
-    =+  ^=  channel
-        ^-  chan:bolt
-        %:  new:channel:bolt
-          id=channel-id
-          local-channel-config=our.u.c
-          remote-channel-config=her.u.c
-          funding-outpoint=[funding-txid u.funding-out-pos funding-sats.u.oc.u.c]
-          initial-feerate=feerate-per-kw.u.oc.u.c
-          initiator=initiator.u.c
-          anchor-outputs=anchor-outputs.our.u.c
-          capacity=funding-sats.u.oc.u.c
-          funding-tx-min-depth=minimum-depth.u.ac.u.c
-        ==
-    =^  [sig=signature:bolt htlc-sigs=(list signature:bolt)]  channel
-      ~(sign-next-commitment channel:bolt channel)
+    =+  ^=  new-channel
+      ^-  chan:bolt
+      %:  new:channel
+        local-channel-config=our.u.c
+        remote-channel-config=her.u.c
+        funding-outpoint=[funding-txid u.funding-out-pos funding-sats.u.oc.u.c]
+        initial-feerate=feerate-per-kw.u.oc.u.c
+        initiator=initiator.u.c
+        anchor-outputs=anchor-outputs.our.u.c
+        capacity=funding-sats.u.oc.u.c
+        funding-tx-min-depth=minimum-depth.u.ac.u.c
+      ==
+    =^  sig  new-channel
+      %-  ~(sign-first-commitment channel new-channel)
+        first-per-commitment-point.u.ac.u.c
     ::
     =|  =funding-created:msg:bolt
     =.  funding-created
@@ -381,19 +374,19 @@
       ==
     :_  %=  state
           larv.chan  (~(del by larv.chan) temporary-channel-id)
-          live.chan  (~(put by live.chan) channel-id channel)
-          fund.chan  (~(put by fund.chan) channel-id u.funding-tx)
+          live.chan  (~(put by live.chan) id.new-channel new-channel)
+          fund.chan  (~(put by fund.chan) id.new-channel u.funding-tx)
         ==
     ~[(send-message [%funding-created funding-created] ship.her.u.c)]
   ::
   ++  close-channel
     |=  =chan-id
     ^-  (quip card _state)
-    =+  channel=(~(get by live.chan) chan-id)
-    ?~  channel  `state
-    =^  cards  u.channel  (send-shutdown u.channel)
+    =+  c=(~(get by live.chan) chan-id)
+    ?~  c  `state
+    =^  cards  u.c  (send-shutdown u.c)
     :-  cards
-    state(live.chan (~(put by live.chan) chan-id u.channel))
+    state(live.chan (~(put by live.chan) chan-id u.c))
   ::
   ++  send-shutdown
     |=  channel=chan:bolt
@@ -403,9 +396,9 @@
     ~[(send-message [%shutdown id.channel 0^0x0] ship.her.config.channel)]
   ::
   ++  can-send-shutdown
-    |=  channel=chan:bolt
+    |=  c=chan:bolt
     ^-  ?
-    ?:  (~(has-pending-changes channel:bolt channel) %remote)
+    ?:  (~(has-pending-changes channel c) %remote)
       ::  if there are updates pending on the receiving node's commitment transaction:
       ::    MUST NOT send a shutdown.
       %.n
@@ -449,10 +442,10 @@
     ^-  (unit chan:bolt)
     %+  roll  ~(tap in ids)
     |=  [=id:bolt acc=(unit chan:bolt)]
-    =+  channel=(~(get by live.chan) id)
-    ?~  channel  acc
-    ?:  (~(can-pay channel:bolt u.channel) amount-msats)
-      `u.channel
+    =+  c=(~(get by live.chan) id)
+    ?~  c  acc
+    ?:  (~(can-pay channel u.c) amount-msats)
+      `u.c
     acc
   ::
   ++  forward-invoice-to-provider
@@ -465,23 +458,36 @@
     ?~  provider-channels
       ~&  >>>  "%volt: no channel with provider"
       `state
-    =+  channel=(find-channel-with-capacity u.provider-channels amount-msats)
-    ?~  channel
+    =+  c=(find-channel-with-capacity u.provider-channels amount-msats)
+    ?~  c
       ~&  >>>  "%volt: insufficient capacity with provider"
       `state
+    =+  final-cltv=(add block.chain min-final-cltv-expiry:const:bolt)
+    =|  update=update-add-htlc:msg:bolt
+    =.  update
+      %=  update
+        channel-id    id.u.c
+        payment-hash  payment-hash.invoice
+        amount-msats  amount-msats
+        cltv-expiry   final-cltv
+      ==
+    =^  htlc  u.c  (~(add-htlc channel u.c) update)
+    :_  state(live.chan (~(put by live.chan) id.u.c u.c))
     ~|(%unimplemented !!)
   ::
   ++  pay-channel
-    |=  [channel=chan:bolt =amount=msats payment-hash=hexb:bc]
+    |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc]
     ^-  (quip card _state)
-    =+  final-cltv=(add block.chain min-final-cltv-expiry:const:bolt)
-    =^  htlc  channel
-      %^    ~(add-next-htlc channel:bolt channel)
-          amount-msats
-        payment-hash
-      final-cltv
-    :_  state(live.chan (~(put by live.chan) id.channel channel))
-    ~[(send-message [%update-add-htlc htlc] ship.her.config.channel)]
+    =|  update=update-add-htlc:msg:bolt
+    =.  update
+      %=  update
+        payment-hash  payment-hash
+        amount-msats  amount-msats
+        cltv-expiry   (add block.chain min-final-cltv-expiry:const:bolt)
+      ==
+    =^  htlc  c  (~(add-htlc channel c) update)
+    :_  state(live.chan (~(put by live.chan) id.c c))
+    ~[(send-message [%update-add-htlc htlc] ship.her.config.c)]
   --
 ::
 ++  handle-message
@@ -591,8 +597,8 @@
     =+  network=(chain-hash-network:bolt chain-hash)
     ::
     =+  ^=  local-config
-        ^-  local-config:bolt
-        (make-local-config network funding-sats push-msats %.n)
+      ^-  local-config:bolt
+      (make-local-config network funding-sats push-msats %.n)
     ::
     =|  =remote-config:bolt
     =.  remote-config
@@ -614,20 +620,20 @@
       ==
     ::
     ~|  %incompatible-channel-configurations
-    ?>  (validate-config -.remote-config funding-sats)
+    ?>  (validate-config:bolt -.remote-config funding-sats)
     ::  The receiving node MUST fail the channel if:
     ::      the funder's amount for the initial commitment transaction is not
     ::      sufficient for full fee payment.
     ::
     =+  ^=  commit-fees
-        %.  %remote
-        %~  got  by
-        %:  commitment-fee:bolt
-          num-htlcs=0
-          feerate=feerate-per-kw
-          is-local-initiator=%.n
-          anchors=%.y
-          round=%.n
+      %.  %remote
+      %~  got  by
+      %:  commitment-fee:tx
+        num-htlcs=0
+        feerate=feerate-per-kw
+        is-local-initiator=%.n
+        anchors=%.y
+        round=%.n
         ==
     ?:  (lth initial-msats.remote-config commit-fees)
       ~|("%volt: funder's amount is insufficient for full fee payment" !!)
@@ -643,11 +649,11 @@
         !!
     ::
     =+  ^=  first-per-commitment-secret
-        ^-  hexb:bc
-        %^    generate-from-seed:secret:bolt
-            per-commitment-secret-seed.local-config
-          first-index:secret:bolt
-        ~
+      ^-  hexb:bc
+      %^    generate-from-seed:secret
+          per-commitment-secret-seed.local-config
+        first-index:secret
+      ~
     ::
     =|  =accept-channel:msg:bolt
     =.  accept-channel
@@ -668,7 +674,7 @@
         basepoints                      basepoints.local-config
         shutdown-script-pubkey          upfront-shutdown-script.local-config
         anchor-outputs                  anchor-outputs.local-config
-        first-per-commitment-point      %-  compute-commitment-point:secret:bolt
+        first-per-commitment-point      %-  compute-commitment-point:secret
                                           first-per-commitment-secret
       ==
     ::
@@ -682,9 +688,7 @@
         ac         `accept-channel
       ==
     ::
-    :_  %=  state
-          larv.chan  (~(put by larv.chan) temporary-channel-id lar)
-        ==
+    :_  state(larv.chan (~(put by larv.chan) temporary-channel-id lar))
     :~  (send-message [%accept-channel accept-channel] src.bowl)
         (watch-pubkey src.bowl)
     ==
@@ -731,7 +735,7 @@
       ==
     ::
     ~|  %incompatible-channel-configurations
-    ?>  (validate-config -.remote-config funding-sats.u.oc.u.c)
+    ?>  (validate-config:bolt -.remote-config funding-sats.u.oc.u.c)
     ::  if channel_reserve_satoshis is less than dust_limit_satoshis, MUST reject the channel
     ::
     ?:  (lth reserve-sats.remote-config dust-limit-sats.our.u.c)
@@ -744,11 +748,11 @@
         !!
     ::
     =+  ^=  funding-address
-        ^-  address:bc
-        %^    make-funding-address:bolt
-            network.our.u.c
-          pub.multisig-key.our.u.c
-        funding-pubkey.msg
+      ^-  address:bc
+      %^    make-funding-address:channel
+          network.our.u.c
+        pub.multisig-key.our.u.c
+      funding-pubkey.msg
     ::
     %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
     %-  (slog leaf+"funding-address={<funding-address>}" ~)
@@ -779,55 +783,49 @@
       `state
     ?>  =(ship.her.u.c src.bowl)
     ::
-    =+  ^=  channel-id
-        ^-  id:bolt
-        %+  make-channel-id:bolt
-          funding-txid.msg
-        funding-idx.msg
+    =/  funding-output=output:psbt
+      %^    funding-output:tx
+          pub.multisig-key.our.u.c
+        pub.multisig-key.her.u.c
+      funding-sats.u.oc.u.c
     ::
-    =+  ^=  funding-output
-        ^-  output:psbt
-        %^    funding-output:tx:bolt
-            pub.multisig-key.our.u.c
-          pub.multisig-key.her.u.c
-        funding-sats.u.oc.u.c
+    =/  new-channel=chan:bolt
+      %:  new:channel
+        local-channel-config=our.u.c
+        remote-channel-config=her.u.c
+        funding-outpoint=[funding-txid.msg funding-idx.msg funding-sats.u.oc.u.c]
+        initial-feerate=feerate-per-kw.u.oc.u.c
+        initiator=initiator.u.c
+        anchor-outputs=anchor-outputs.our.u.c
+        capacity=funding-sats.u.oc.u.c
+        funding-tx-min-depth=minimum-depth.u.ac.u.c
+      ==
     ::
-    =+  ^=  channel
-        ^-  chan:bolt
-        %:  new:channel:bolt
-          id=channel-id
-          local-channel-config=our.u.c
-          remote-channel-config=her.u.c
-          funding-outpoint=[funding-txid.msg funding-idx.msg funding-sats.u.oc.u.c]
-          initial-feerate=feerate-per-kw.u.oc.u.c
-          initiator=initiator.u.c
-          anchor-outputs=anchor-outputs.our.u.c
-          capacity=funding-sats.u.oc.u.c
-          funding-tx-min-depth=minimum-depth.u.ac.u.c
-        ==
-    ::
-    =.  channel
-      (~(receive-new-commitment channel:bolt channel) signature.msg ~)
-    =^  sigs  channel
-      ~(sign-next-commitment channel:bolt channel)
-    =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
-      sigs
-    =.  channel
-      %+  ~(open-with-first-commitment-point channel:bolt channel)
+    =.  new-channel
+      %-  ~(receive-first-commitment channel new-channel)
+        signature.msg
+    =^  sig  new-channel
+      %-  ~(sign-first-commitment channel new-channel)
         first-per-commitment-point.u.oc.u.c
-      signature.msg
-    =.  channel
-      (~(set-state channel:bolt channel) %opening)
+    =.  new-channel  (~(set-state channel new-channel) %opening)
     ::
-    :_  %=  state
-          larv.chan  (~(del by larv.chan) temporary-channel-id.msg)
-          live.chan  (~(put by live.chan) channel-id channel)
-          peer.chan  (~(put by peer.chan) src.bowl channel-id)
-          wach.chan  %+  ~(put by wach.chan)
-                       script-pubkey.funding-output
-                     channel-id
-        ==
-    ~[(send-message [%funding-signed channel-id sig] src.bowl)]
+    :_
+      %=    state
+          larv.chan
+        (~(del by larv.chan) temporary-channel-id.msg)
+      ::
+          live.chan
+        (~(put by live.chan) id.new-channel new-channel)
+      ::
+          peer.chan
+        %+  ~(jab by peer.chan)  src.bowl
+        |=  s=(set id:bolt)
+        (~(put in s) id.new-channel)
+      ::
+          wach.chan
+        (~(put by wach.chan) script-pubkey.funding-output id.new-channel)
+      ==
+    ~[(send-message [%funding-signed id.new-channel sig] src.bowl)]
   ::
   ++  handle-funding-signed
     |=  msg=funding-signed:msg:bolt
@@ -839,60 +837,56 @@
     ?.  (~(has by fund.chan) channel-id.msg)
       ~&  >>>  "%volt: no funding tx with id: {<channel-id.msg>}"
       `state
-    ::
-    =+  channel=(~(got by live.chan) channel-id.msg)
-    ?>  =(ship.her.config.channel src.bowl)
+    =+  c=(~(got by live.chan) channel-id.msg)
+    ?>  =(ship.her.config.c src.bowl)
     =+  funding-tx=(~(got by fund.chan) channel-id.msg)
     =+  ^=  funding-output
-        ^-  output:psbt
-        %^    funding-output:tx:bolt
-            pub.multisig-key.our.config.channel
-          pub.multisig-key.her.config.channel
-        sats.funding-outpoint.channel
-    ::
-    =.  channel
-      %+  ~(receive-new-commitment channel:bolt channel)
-        remote-sig
-      ~
-    =.  channel
-      %+  ~(open-with-first-commitment-point channel:bolt channel)
-        next-per-commitment-point.her.config.channel
-      remote-sig
-    =.  channel
-      (~(set-state channel:bolt channel) %opening)
-    ::
-    :_  %=  state
-          live.chan  (~(put by live.chan) channel-id.msg channel)
-          peer.chan  (~(put by peer.chan) src.bowl channel-id.msg)
-          fund.chan  (~(del by fund.chan) channel-id.msg)
-          wach.chan  %+  ~(put by wach.chan)
-                       script-pubkey.funding-output
-                     channel-id.msg
-        ==
+      ^-  output:psbt
+      %^    funding-output:tx
+          pub.multisig-key.our.config.c
+        pub.multisig-key.her.config.c
+      sats.funding-outpoint.c
+    =.  c  (~(receive-first-commitment channel c) remote-sig)
+    =.  c  (~(set-state channel c) %opening)
+    :_
+      %=    state
+          live.chan
+        (~(put by live.chan) channel-id.msg c)
+      ::
+          peer.chan
+        %+  ~(jab by peer.chan)  src.bowl
+        |=  s=(set id:bolt)
+        (~(put in s) channel-id.msg)
+      ::
+          fund.chan
+        (~(del by fund.chan) channel-id.msg)
+      ::
+          wach.chan
+        (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
+      ==
     =-  ~[(poke-btc-provider [%broadcast-tx -])]
-    %-  encode-tx:psbt
-      (extract-unsigned:psbt funding-tx)
+    (encode-tx:psbt (extract-unsigned:psbt funding-tx))
   ::
   ++  handle-funding-locked
     |=  msg=funding-locked:msg:bolt
     ^-  (quip card _state)
-    =+  channel=(~(get by live.chan) channel-id.msg)
-    ?~  channel  `state
-    ?:  funding-locked-received.our.config.u.channel
+    =+  c=(~(get by live.chan) channel-id.msg)
+    ?~  c  `state
+    ?:  funding-locked-received.our.config.u.c
       `state
-    =.  config.u.channel
-      %=    config.u.channel
+    =.  config.u.c
+      %=    config.u.c
           our
-        our.config.u.channel(funding-locked-received %.y)
+        our.config.u.c(funding-locked-received %.y)
       ::
           her
-        %=  her.config.u.channel
+        %=  her.config.u.c
           next-per-commitment-point  next-per-commitment-point.msg
         ==
       ==
-    =?  u.channel  ~(is-funded channel:bolt u.channel)
-      (mark-open u.channel)
-    `state(live.chan (~(put by live.chan) id.u.channel u.channel))
+    =?  u.c  ~(is-funded channel u.c)
+      (mark-open u.c)
+    `state(live.chan (~(put by live.chan) id.u.c u.c))
   ::
   ++  handle-update-add-htlc
     |=  msg=update-add-htlc:msg:bolt
@@ -902,7 +896,7 @@
     ?>  =(ship.her.config.c src.bowl)
     ?.  =(state.c %open)
       ~|(%invalid-state !!)
-    =^  htlc  c  (~(receive-htlc channel:bolt c) msg)
+    =^  htlc  c  (~(receive-htlc channel c) msg)
     :-  ~
     state(live.chan (~(put by live.chan) channel-id.msg c))
   ::
@@ -913,13 +907,9 @@
     =+  c=(~(got by live.chan) channel-id.msg)
     =+  msg
     ?>  =(ship.her.config.c src.bowl)
-    ?.  (~(has-pending-changes channel:bolt c) %local)
-      ~|(%invalid-state !!)
-    ?:  (~(is-revack-pending htlcs:bolt c) %local)
-      ~|(%invalid-state !!)
     =^  cards  c
       %-  send-revoke-and-ack
-      %+  ~(receive-new-commitment channel:bolt c)
+      %+  ~(receive-new-commitment channel c)
         sig
       htlc-sigs
     :-  cards
@@ -934,7 +924,7 @@
     =^  cards  c
       %-  maybe-send-commitment
       %.  msg
-      ~(receive-revocation channel:bolt c)
+      ~(receive-revocation channel c)
     :-  cards
     state(live.chan (~(put by live.chan) id.c c))
   ::
@@ -954,18 +944,14 @@
     |=  [=channel=id:bolt =htlc-id:bolt preimage=hexb:bc]
     ^-  (quip card _state)
     ?>  (~(has by live.chan) channel-id)
-    =+  channel=(~(got by live.chan) channel-id)
-    ?>  =(ship.her.config.channel src.bowl)
+    =+  c=(~(got by live.chan) channel-id)
+    ?>  =(ship.her.config.c src.bowl)
     =+  payment-hash=(sha256:bcu:bc preimage)
-    =.  channel
-      %+  ~(receive-htlc-settle channel:bolt channel)
-        preimage
-      htlc-id
-    =^  cards  channel
-      (maybe-send-commitment channel)
+    =.  c  (~(receive-htlc-settle channel c) preimage htlc-id)
+    =^  cards  c  (maybe-send-commitment c)
     :-  cards
     %=  state
-      live.chan  (~(put by live.chan) id.channel channel)
+      live.chan  (~(put by live.chan) id.c c)
       pres       (~(put by pres) payment-hash preimage)
     ==
   ::
@@ -973,59 +959,48 @@
     |=  [=channel=id:bolt =htlc-id:bolt reason=@t]
     ^-  (quip card _state)
     ?>  (~(has by live.chan) channel-id)
-    =+  channel=(~(got by live.chan) channel-id)
-    ?>  =(ship.her.config.channel src.bowl)
-    =.  channel
-      %-  ~(receive-fail-htlc channel:bolt channel)
-        htlc-id
-    =^  cards  channel
-      (maybe-send-commitment channel)
-    ~&  >>>  "{<id.channel>} failed HTLC: {<reason>}"
-    [cards state(live.chan (~(put by live.chan) id.channel channel))]
+    =+  c=(~(got by live.chan) channel-id)
+    ?>  =(ship.her.config.c src.bowl)
+    =.  c  (~(receive-fail-htlc channel c) htlc-id)
+    =^  cards  c  (maybe-send-commitment c)
+    ~&  >>>  "{<id.c>} failed HTLC: {<reason>}"
+    [cards state(live.chan (~(put by live.chan) id.c c))]
   ::
   ++  handle-update-fail-malformed-htlc
     |=  [=channel=id:bolt =htlc-id:bolt]
     ^-  (quip card _state)
     ?>  (~(has by live.chan) channel-id)
-    =+  channel=(~(got by live.chan) channel-id)
-    ?>  =(ship.her.config.channel src.bowl)
-    =.  channel
-      %-  ~(receive-fail-htlc channel:bolt channel)
-        htlc-id
-    =^  cards  channel
-      (maybe-send-commitment channel)
-    ~&  >>>  "{<id.channel>} failed HTLC: (malformed)"
-    [cards state(live.chan (~(put by live.chan) id.channel channel))]
+    =+  c=(~(got by live.chan) channel-id)
+    ?>  =(ship.her.config.c src.bowl)
+    =.  c  (~(receive-fail-htlc channel c) htlc-id)
+    =^  cards  c  (maybe-send-commitment c)
+    ~&  >>>  "{<id.c>} failed HTLC: (malformed)"
+    [cards state(live.chan (~(put by live.chan) id.c c))]
   ::
   ++  handle-update-fee
     |=  [=channel=id:bolt feerate-per-kw=sats:bc]
     ^-  (quip card _state)
     ?>  (~(has by live.chan) channel-id)
-    =+  channel=(~(got by live.chan) channel-id)
-    ?>  =(ship.her.config.channel src.bowl)
-    =.  channel
-      %+  ~(update-fee channel:bolt channel)
-        feerate-per-kw
-      %.n
-    `state(live.chan (~(put by live.chan) id.channel channel))
+    =+  c=(~(got by live.chan) channel-id)
+    ?>  =(ship.her.config.c src.bowl)
+    =.  c  (~(receive-update-fee channel c) feerate-per-kw)
+    `state(live.chan (~(put by live.chan) id.c c))
   ::
   ++  send-revoke-and-ack
     |=  c=chan:bolt
     ^-  (quip card chan:bolt)
-    =^  rev    c  ~(revoke-current-commitment channel:bolt c)
+    =^  rev    c  ~(revoke-current-commitment channel c)
     =^  cards  c  (maybe-send-commitment c)
     :_  c
-    :_  cards
-    (send-message [%revoke-and-ack rev] src.bowl)
+    [(send-message [%revoke-and-ack rev] src.bowl) cards]
   --
 ::
 ++  maybe-send-commitment
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
-  ?:  (~(is-revack-pending htlcs:bolt c) %remote)      `c
-  ?.  (~(has-pending-changes channel:bolt c) %remote)  `c
-  =^  sigs  c
-    ~(sign-next-commitment channel:bolt c)
+  ?:  (~(has-unacked-commitment channel c) %remote)  `c
+  ?.  (~(has-pending-changes channel c) %remote)     `c
+  =^  sigs  c  ~(sign-next-commitment channel c)
   =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
     sigs
   =+  n-htlc-sigs=(lent htlc-sigs)
@@ -1077,9 +1052,10 @@
         ==
     %+  turn  ~(val by wach.chan)
     |=  =id:bolt
-    =+  channel=(~(got by live.chan) id)
     %-  poke-btc-provider
-    [%address-info ~(funding-address channel:bolt channel)]
+    :-  %address-info
+    %~  funding-address  channel
+    (~(got by live.chan) id)
   ::
       %connected
     :-  ~
@@ -1125,11 +1101,11 @@
     ^-  (quip card _state)
     ?.  ?=([%bech32 *] address)  `state
     =+  ^=  script-pubkey
-        %-  cat:byt:bcu:bc
-        :~  1^0
-            1^0x20
-            (bech32-decode:bolt +.address)
-        ==
+      %-  cat:byt:bcu:bc
+      :~  1^0
+          1^0x20
+          (bech32-decode:bolt +.address)
+      ==
     =+  id=(~(get by wach.chan) script-pubkey)
     ?~  id  `state
     =+  channel=(~(got by live.chan) u.id)
@@ -1145,14 +1121,14 @@
     ::
     ?:  ?=(^ utxo)
       =/  channel=chan:bolt
-        %+  ~(update-onchain-state channel:bolt channel)
+        %+  ~(update-onchain-state ^channel channel)
           u.utxo
         block
       =^  cards  channel
         (on-channel-update channel u.utxo block)
       [cards state(live.chan (~(put by live.chan) u.id channel))]
     ::
-    ?:  ~(is-funded channel:bolt channel)
+    ?:  ~(is-funded ^channel channel)
       ::  funded + no utxo -> spent
       ::
       ~&  >>>  "funding-tx spent"
@@ -1167,7 +1143,7 @@
     |=  [channel=chan:bolt =utxo:bc block=@ud]
     ^-  (quip card _channel)
     ?:  ?&  =(state.channel %open)
-            (~(has-expiring-htlcs channel:bolt channel) block)
+            (~(has-expiring-htlcs ^channel channel) block)
         ==
       ::  (force-close channel)
       `channel
@@ -1183,9 +1159,9 @@
 ++  remove-channel
   |=  =id:bolt
   ^-  (quip card _state)
-  =+  channel=(~(get by live.chan) id)
-  ?~  channel  `state
-  =+  ship=ship.her.config.u.channel
+  =+  c=(~(get by live.chan) id)
+  ?~  c  `state
+  =+  ship=ship.her.config.u.c
   =+  peer-ids=(~(gut by peer.chan) ship ~)
   =.  peer-ids  (~(del in peer-ids) id)
   :-  ?~  peer-ids  ~[(unwatch-pubkey ship)]  ~
@@ -1194,7 +1170,7 @@
     (~(del by live.chan) id)
   ::
       wach.chan
-    (~(del by wach.chan) ~(funding-address channel:bolt u.channel))
+    (~(del by wach.chan) ~(funding-address channel u.c))
   ::
       peer.chan
     ?~  peer-ids
@@ -1204,67 +1180,42 @@
   ::
       keys
     ?^  peer-ids  keys
-    =+  pubkey=(get-peer-pubkey ship)
+    =+  pubkey=(scry-peer-pubkey:bolt ship)
     ?~  pubkey  keys
     (~(del by keys) u.pubkey)
   ==
 ::
-++  get-peer-pubkey
-  |=  who=@p
-  ^-  (unit pubkey:bolt)
-  =/  peer-life=(unit @ud)
-    .^((unit @ud) %j /=lyfe=/(scot %p who))
-  ?~  peer-life  ~
-  =/  peer-deed=[life pass (unit @ux)]
-    .^([life pass (unit @ux)] %j /=deed=/(scot %p who)/(scot %d u.peer-life))
-  %-  some
-  (get-public-key-from-pass:detail:ring +<.peer-deed)
-::
 ++  send-funding-locked
-  |=  channel=chan:bolt
+  |=  c=chan:bolt
   ^-  (quip card chan:bolt)
-  =+  who=ship.her.config.channel
-  =+  idx=(dec start-index:revocation:bolt)
+  =+  who=ship.her.config.c
+  =+  idx=(dec start-index:revocation)
   =+  ^=  next-per-commitment-point
-      %-  compute-commitment-point:secret:bolt
-      %^    generate-from-seed:secret:bolt
-          per-commitment-secret-seed.our.config.channel
-        idx
-      ~
-  =?    channel
-      ?&  ~(is-funded channel:bolt channel)
-          funding-locked-received.our.config.channel
-      ==
-   (mark-open channel)
-  :_  channel
-  =-  ~[(send-message - who)]
-  [%funding-locked id.channel next-per-commitment-point]
+    %-  compute-commitment-point:secret
+    %^    generate-from-seed:secret
+        per-commitment-secret-seed.our.config.c
+      idx
+    ~
+  =?  c  ?&(~(is-funded channel c) funding-locked-received.our.config.c)
+   (mark-open c)
+  :_  c
+  ~[(send-message [%funding-locked id.c next-per-commitment-point] who)]
 ::
 ++  mark-open
   |=  c=chan:bolt
   ^-  chan:bolt
-  ?>  ~(is-funded channel:bolt c)
+  ?>  ~(is-funded channel c)
   =+  old-state=state.c
   ?:  =(old-state %open)    c
   ?.  =(old-state %funded)  c
   ?>  funding-locked-received.our.config.c
-  (~(set-state channel:bolt c) %open)
+  (~(set-state channel c) %open)
 ::
 ++  make-temp-id
   |.
   ^-  id:bolt
   (~(rad og eny.bowl) (bex 256))
-::
-++  generate-basepoints
-  |=  [seed=hexb:bc =network:bolt]
-  ^-  basepoints:bolt
-  =|  =basepoints:bolt
-  %=  basepoints
-    htlc             (generate-keypair:bolt seed network %htlc-base)
-    payment          (generate-keypair:bolt seed network %payment-base)
-    delayed-payment  (generate-keypair:bolt seed network %delay-base)
-    revocation       (generate-keypair:bolt seed network %revocation-base)
-  ==
+
 ::  TODO: estimate fee based on network state, target ETA, desired confs
 ::
 ++  current-feerate-per-kw
@@ -1274,25 +1225,14 @@
     feerate-per-kw-min-relay:const:bolt
   (div feerate-fallback:const:bolt 4)
 ::
-++  validate-config
-  |=  [config=channel-config:bolt =funding=sats:bc]
-  ^-  ?
-  ?&  ?!  (lth funding-sats min-funding-sats:const:bolt)
-      ?!  (gth funding-sats max-funding-sats:const:bolt)
-      ?&  (lte 0 initial-msats.config)
-          (lte initial-msats.config (sats-to-msats:bolt funding-sats))
-      ==
-      ?!  (lth reserve-sats.config dust-limit-sats.config)
-  ==
-::
 ++  make-local-config
   |=  [=network:bolt =funding=sats:bc =push=msats initiator=?]
   ^-  local-config:bolt
   ::  TODO: really need cryptographic random
   ::
   =+  ^=  seed
-      ^-  hexb:bc
-      32^(~(rad og eny.bowl) (bex 256))
+    ^-  hexb:bc
+    32^(~(rad og eny.bowl) (bex 256))
   ::
   =|  =local-config:bolt
   =.  local-config
@@ -1306,8 +1246,8 @@
         funding-locked-received  %.n
         htlc-minimum-msats       1
         anchor-outputs           %.y
-        multisig-key             (generate-keypair:bolt seed network %multisig)
-        basepoints               (generate-basepoints seed network)
+        multisig-key             (generate-keypair:^keys seed network %multisig)
+        basepoints               (generate-basepoints:^keys seed network)
     ::
         max-htlc-value-in-flight-msats
       (sats-to-msats:bolt funding-sats)
@@ -1325,9 +1265,9 @@
       dust-limit-sats:const:bolt
     ::
         per-commitment-secret-seed
-      32^prv:(generate-keypair:bolt seed network %revocation-root)
+      32^prv:(generate-keypair:^keys seed network %revocation-root)
     ==
-  ?>  (validate-config -.local-config funding-sats)
+  ?>  (validate-config:bolt -.local-config funding-sats)
   local-config
 ::
 ++  poke-btc-provider

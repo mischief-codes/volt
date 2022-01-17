@@ -718,13 +718,6 @@
       ==
     ::
       %+  category  "logs should be cleared on both sides"
-      ~&  >>  updates.alice-9
-      ~&  >>  %:  compact-logs:channel
-                our.updates.alice-9
-                her.updates.alice-9
-                height:(need (~(oldest-unrevoked-commitment channel alice-9) %local))
-                +(height:(need (~(oldest-unrevoked-commitment channel alice-9) %remote)))
-              ==
       ;:  weld
         %+  expect-eq
           !>  0
@@ -744,7 +737,7 @@
     ^-  [fee=sats:bc alice=chan bob=chan]
     =+  fee=(fall feerate 111)
     =.  alice  (~(update-fee channel alice) fee)
-    =.  bob  (~(receive-fee-update channel bob) fee)
+    =.  bob  (~(receive-update-fee channel bob) fee)
     [fee=fee alice=alice bob=bob]
   ::
   ++  check-update-fee-sender-commits
