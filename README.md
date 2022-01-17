@@ -63,6 +63,34 @@ $ ./urbit ~sampel-palnet
 
 ## Usage
 
+* Opening Channels:
+
+Channels can be funded using a PSBT-based flow like the one described for [LND](https://docs.lightning.engineering/lightning-network-tools/lnd/psbt):
+
+Start the open-channel flow from `%volt`:
+
+```sh
+:volt|command [%open-channel who=~hiddler-tiddys funding-sats=6.000.000 push-msats=0 %main]
+::  outputs channel ID and funding address
+> channel-id=123.456
+> funding-address=bcrt1qpc7sn6fk9mycmvz440pwj3g0zdxapuwrx9t2ra
+```
+
+Create a funded PSBT to the funding address:
+
+```sh
+bitcoin-cli walletcreatefundedpsbt "[]" "[{\"bcrt1qpc7sn6fk9mycmvz440pwj3g0zdxapuwrx9t2ra\":6000000}]"
+# PSBT is output
+bitcoin-cli walletprocesspsbt $PSBT
+# PSBT is output
+```
+
+Continue the open-channel flow using the funded and processed PSBT:
+
+```sh
+:volt|command [%create-funding chan-id=${channel-id} psbt=${processed-psbt}]
+```
+
 * Sending Payments:
 
 Ensure that your lightning wallet has some satoshis in it, and that it is connected to the
