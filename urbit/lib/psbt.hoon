@@ -1,7 +1,7 @@
 ::  psbt.hoon -- A more complete implementation of BIP-174
 ::
 /-  *psbt
-/+  bc=bitcoin, btc-script, der
+/+  bc=bitcoin, der
 |%
 +$  key-value  [typ=@ key=hexb:bc val=hexb:bc]
 +$  map        (list key-value)
