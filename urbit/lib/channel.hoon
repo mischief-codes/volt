@@ -621,9 +621,15 @@
       (sub her-balance.state amount-msats.update)
     ::  check channel reserve
     ::
-    ?:  ?&(ours (lth our-balance.state reserve-sats:(config-for %local)))
+    ?:  ?&  ours
+          %+  lth  (msats-to-sats our-balance.state)
+          reserve-sats:(config-for %local)
+        ==
       [%| [%balance-too-low %local]]
-    ?:  ?&(?!(ours) (lth her-balance.state reserve-sats:(config-for %remote)))
+    ?:  ?&  ?!(ours)
+          %+  lth  (msats-to-sats her-balance.state)
+          reserve-sats:(config-for %remote)
+        ==
       [%| [%balance-too-low %remote]]
     ::  check constraints
     ::
@@ -753,6 +759,24 @@
     state(our-balance (add fee.u.latest our-balance.state))
   state(her-balance (add fee.u.latest her-balance.state))
 ::
+++  check-fee
+  |=  state=evaluation-state
+  =+  our-sats=(msats-to-sats our-balance.state)
+  =+  her-sats=(msats-to-sats her-balance.state)
+  ?:  initiator.constraints.c
+    ?:  (lth our-sats fee.state)
+      [%| %balance-too-low %local]
+    ?:  %+  lth  (sub our-sats fee.state)
+        reserve-sats.our.config.c
+      [%| %balance-too-low %local]
+    [%& state]
+  ?:  (lth her-sats fee.state)
+    [%| %balance-too-low %remote]
+  ?:  %+  lth  (sub her-sats fee.state)
+      reserve-sats.her.config.c
+    [%| %balance-too-low %remote]
+  [%& state]
+::
 ++  apply-pending-lock-ins
   |=  state=evaluation-state
   ^-  [our=update-log her=update-log]
@@ -828,7 +852,9 @@
   =+  (select-updates our-index her-index)
   =+  result=(evaluate-updates ours hers state)
   ?:  ?=([%| *] result)  result
-  [%& (add-commitment-weight-and-fee +.result)]
+  =.  state  +.result
+  =.  state  (add-commitment-weight-and-fee state)
+  (check-fee state)
 ::  +first-commitment: generate first commitment
 ::
 ++  first-commitment
