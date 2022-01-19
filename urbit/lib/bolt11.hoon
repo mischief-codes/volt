@@ -92,6 +92,11 @@
     %p  (div q 10)
   ==
 ::
+++  msats-to-amount
+  |=  msats=@
+  ^-  amount
+  [(mul 10 msats) `%p]
+::
 ++  to-hexb
   |=  =bits:bc
   :*  wid=(div wid.bits 8)
@@ -168,8 +173,7 @@
     ~
   =/  hash=@  (signature-hash hrp raw)
   =+  point=(ecdsa-raw-recover:secp256k1 hash sig)
-  %-  some
-  [33 (compress-point:secp256k1 point)]
+  (some 33^(compress-point:secp256k1 point))
 ::
 ++  sign-data
   =,  secp:crypto
