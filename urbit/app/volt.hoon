@@ -237,18 +237,13 @@
   ::
       %send-payment
     (send-payment +.command)
-  ::
-      %pay-channel
-    =+  +.command
-    =+  channel=(~(get by live.chan) chan-id)
-    ?~  channel
-      `state
-    (pay-channel u.channel amount-msats payment-hash)
   ==
   ++  open-channel
     |=  [who=ship =funding=sats:bc =push=msats =network:bolt]
     ^-  (quip card _state)
-    ?~  btcp.prov  `state
+    ?~  btcp.prov
+      ~&  >>>  "%volt: no btc-provider set"
+      `state
     ?:  (gth funding-sats max-funding-sats:const:bolt)
       ~|  "%volt: must set funding-sats to less than 2^24 sats"
         !!
@@ -613,7 +608,7 @@
                                         push-msats
         reserve-sats                    channel-reserve-sats
         htlc-minimum-msats              htlc-minimum-msats
-        next-per-commitment-point       first-per-commitment-point
+        current-per-commitment-point    first-per-commitment-point
         upfront-shutdown-script         shutdown-script-pubkey
       ==
     ::
@@ -727,7 +722,7 @@
         initial-msats                   push-msats.u.oc.u.c
         reserve-sats                    channel-reserve-sats.msg
         htlc-minimum-msats              htlc-minimum-msats.msg
-        next-per-commitment-point       first-per-commitment-point.msg
+        current-per-commitment-point    first-per-commitment-point.msg
         upfront-shutdown-script         shutdown-script-pubkey.msg
         anchor-outputs                  anchor-outputs.msg
       ==
@@ -816,9 +811,7 @@
         (~(put by live.chan) id.new-channel new-channel)
       ::
           peer.chan
-        %+  ~(jab by peer.chan)  src.bowl
-        |=  s=(set id:bolt)
-        (~(put in s) id.new-channel)
+        (add-peer-channel src.bowl id.new-channel)
       ::
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output id.new-channel)
@@ -828,7 +821,6 @@
   ++  handle-funding-signed
     |=  msg=funding-signed:msg:bolt
     ^-  (quip card _state)
-    =+  remote-sig=signature.msg
     ?.  (~(has by live.chan) channel-id.msg)
       ~&  >>>  "%volt: no channel with id: {<channel-id.msg>}"
       `state
@@ -844,7 +836,7 @@
           pub.multisig-key.our.config.c
         pub.multisig-key.her.config.c
       sats.funding-outpoint.c
-    =.  c  (~(receive-first-commitment channel c) remote-sig)
+    =.  c  (~(receive-first-commitment channel c) signature.msg)
     =.  c  (~(set-state channel c) %opening)
     :_
       %=    state
@@ -852,9 +844,7 @@
         (~(put by live.chan) channel-id.msg c)
       ::
           peer.chan
-        %+  ~(jab by peer.chan)  src.bowl
-        |=  s=(set id:bolt)
-        (~(put in s) channel-id.msg)
+        (add-peer-channel src.bowl channel-id.msg)
       ::
           fund.chan
         (~(del by fund.chan) channel-id.msg)
@@ -993,26 +983,50 @@
     [(send-message [%revoke-and-ack rev] src.bowl) cards]
   --
 ::
-++  maybe-send-commitment
-  |=  c=chan:bolt
-  ^-  (quip card chan:bolt)
-  ?:  (~(has-unacked-commitment channel c) %remote)  `c
-  ?.  (~(has-pending-changes channel c) %remote)     `c
-  =^  sigs  c  ~(sign-next-commitment channel c)
-  =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
-    sigs
-  =+  n-htlc-sigs=(lent htlc-sigs)
-  :_  c
-  =-  ~[(send-message - ship.her.config.c)]
-  :*  %commitment-signed
-      id.c         sig
-      n-htlc-sigs  htlc-sigs
-  ==
-::
 ++  handle-action
   |=  =action
+  |^
   ^-  (quip card _state)
-  `state
+  ?-    -.action
+      %give-invoice
+    =+  (make-invoice network.action amount-msats.action)
+    ::  TODO  private key?
+    =+  payreq=(en:bolt11 invoice 32^0x0)
+    :_  state(pres (~(put by pres) payment-hash.invoice preimage))
+    ~[(poke-volt [%take-invoice payreq] src.bowl)]
+  ::
+      %take-invoice
+    `state
+  ==
+  ++  make-invoice
+    |=  [=network:bolt =amount=msats]
+    ^-  [=invoice:bolt11 preimage=hexb:bc]
+    =+  our-pubkey=(scry-peer-pubkey:bolt our.bowl)
+    ?~  our-pubkey  !!
+    =+  preimage=32^(~(rad og eny.bowl) (bex 256))
+    =+  payment-hash=(sha256:bcu:bc preimage)
+    =|  =invoice:bolt11
+    :_  preimage
+    %=  invoice
+      network       network
+      timestamp     now.bowl
+      payment-hash  payment-hash
+      amount        `(msats-to-amount:bolt11 amount-msats)
+    ::
+        min-final-cltv-expiry
+      min-final-cltv-expiry:const:bolt
+    ::
+        route
+      :~
+        :*  pubkey=identity-pubkey.info.prov
+            short-channel-id=0
+            feebase=0
+            feerate=0
+            cltv-expiry-delta=0
+        ==
+      ==
+    ==
+  --
 ::
 ++  handle-provider-status
   |=  =status:provider
@@ -1154,6 +1168,18 @@
     `channel
   --
 ::
+++  add-peer-channel
+  |=  [who=@p =id:bolt]
+  ^-  (map ship (set id:bolt))
+  ?.  (~(has by peer.chan) who)
+    %+  ~(put by peer.chan)
+      who
+    (sy [id]~)
+  %+  ~(jab by peer.chan)
+    who
+  |=  s=(set id:bolt)
+  (~(put in s) id)
+::
 ++  remove-channel
   |=  =id:bolt
   ^-  (quip card _state)
@@ -1198,6 +1224,22 @@
    (mark-open c)
   :_  c
   ~[(send-message [%funding-locked id.c next-per-commitment-point] who)]
+::
+++  maybe-send-commitment
+  |=  c=chan:bolt
+  ^-  (quip card chan:bolt)
+  ?:  (~(has-unacked-commitment channel c) %remote)  `c
+  ?.  (~(has-pending-changes channel c) %remote)     `c
+  =^  sigs  c  ~(sign-next-commitment channel c)
+  =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
+    sigs
+  =+  n-htlc-sigs=(lent htlc-sigs)
+  :_  c
+  =-  ~[(send-message - ship.her.config.c)]
+  :*  %commitment-signed
+      id.c         sig
+      n-htlc-sigs  htlc-sigs
+  ==
 ::
 ++  mark-open
   |=  c=chan:bolt
@@ -1284,6 +1326,14 @@
   :*  %pass   /provider-action/[(scot %da now.bowl)]
       %agent  [host.u.volt.prov %volt-provider]
       %poke   %volt-provider-action  !>(action)
+  ==
+::
+++  poke-volt
+  |=  [=action who=@p]
+  ^-  card
+  :*  %pass   /action/[(scot %da now.bowl)]
+      %agent  [who %volt]
+      %poke   %volt-action  !>(action)
   ==
 ::
 ++  send-message

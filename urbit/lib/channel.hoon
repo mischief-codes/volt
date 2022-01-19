@@ -164,6 +164,20 @@
     %remote  her.updates.c
   ==
 ::
+++  has-unacked-commitment
+  |=  who=owner
+  ^-  ?
+  %~  has-unacked-commitment  commitment-chain
+  ?-  who
+    %local   our.commitments.c
+    %remote  her.commitments.c
+  ==
+::
+++  has-pending-changes
+  |=  who=owner
+  ^-  ?
+  !=(~ ~(entries log (updates-for who)))
+::
 ++  make-funding-address
   |=  [=network =local-funding=pubkey =remote-funding=pubkey]
   ^-  address:bc
@@ -1633,18 +1647,4 @@
       amount-msats  amount-msats
     ==
   (can-add-htlc %remote update)
-::
-++  has-pending-changes
-  |=  who=owner
-  ^-  ?
-  ~|(%unimplemented !!)
-::
-++  has-unacked-commitment
-  |=  who=owner
-  ^-  ?
-  %~  has-unacked-commitment  commitment-chain
-  ?-  who
-    %local   our.commitments.c
-    %remote  her.commitments.c
-  ==
 --

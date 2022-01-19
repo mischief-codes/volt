@@ -303,14 +303,11 @@
       [%create-funding temporary-channel-id=@ psbt=@t]
       [%close-channel =chan-id]
       [%send-payment =payreq]
-      [%pay-channel =chan-id =amount=msats payment-hash=hexb:bc]
   ==
 ::
 +$  action
-  $%  [%request-invoice =amt=msats]
-      [%give-invoice to=ship =amt=msats memo=(unit cord)]
-      [%give-payment =payreq]
-      [%give-receipt =payment=hash]
+  $%  [%give-invoice =amount=msats =network:bolt]
+      [%take-invoice =payreq]
   ==
 ::
 +$  update
