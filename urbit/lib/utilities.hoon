@@ -158,4 +158,10 @@
     .^([life pass (unit @ux)] %j /=deed=/(scot %p who)/(scot %d u.peer-life))
   %-  some
   (get-public-key-from-pass:detail:ring +<.peer-deed)
+::  +address-to-script: generate
+::
+++  address-to-script
+  |=  =address:bc
+  ^-  hexb:bc
+  0^0x0
 --

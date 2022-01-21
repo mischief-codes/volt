@@ -116,7 +116,7 @@
   ::
   +$  htlc-intercept-request
     $:  incoming-circuit-key=circuit-key
-        incoming-amount-msat=sats:bc
+        =incoming-amount=msats
         incoming-expiry=@ud
         payment-hash=hexb:bc
         outgoing-requested-chan-id=chan-id
@@ -212,22 +212,13 @@
     $%  [%set-url api-url=@t]
         [%open-channel to=pubkey local-amt=sats:bc push-amt=sats:bc]
         [%close-channel funding-txid=txid output-index=@ud]
+        [%send-payment payreq=@t timeout=(unit @dr) fee-limit=(unit sats:bc)]
     ==
   ::
   +$  action
     $%  [%ping ~]
-        [%wallet-balance ~]
         [%settle-htlc =htlc-info =preimage]
         [%fail-htlc =htlc-info]
-        [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
-        $:  %add-invoice
-          =amt=msats
-          memo=(unit cord)
-          preimage=(unit preimage)
-          hash=(unit hash)
-          expiry=(unit @dr)
-        ==
-        [%cancel-invoice =payment=hash]
     ==
   ::
   +$  error
@@ -308,6 +299,13 @@
 +$  action
   $%  [%give-invoice =amount=msats =network:bolt]
       [%take-invoice =payreq]
+      [%forward-payment =payreq htlc=update-add-htlc:msg:bolt]
+  ==
+::
++$  forward-request
+  $:  htlc=update-add-htlc:msg:bolt
+      =payreq
+      forwarded=?
   ==
 ::
 +$  update

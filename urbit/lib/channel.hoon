@@ -1313,7 +1313,7 @@
       htlc-id       htlc-count.her.updates.c
     ==
   ?>  (can-add-htlc %remote update)
-  :-  h
+  :-  h(htlc-id htlc-id.update)
   %=  c
     her.updates  (~(append-htlc log her.updates.c) [%add-htlc update])
   ==

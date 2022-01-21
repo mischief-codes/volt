@@ -17,30 +17,35 @@
 ::
 +$  state-0
   $:  %0
-      keys=(map hexb:bc ship)                 ::  map from pubkey to ship
-      pres=(map hexb:bc hexb:bc)              ::  map from hashes to preimages
-      hist=(list payment)                     ::  payment history
-      $=  prov                                ::  provider state
-      $:  volt=(unit provider-state)          ::    volt provider
-          info=node-info                      ::    provider lnd info
-          btcp=(unit provider-state)          ::    bitcoin provider
-      ==                                      ::
-      $=  chan                                ::  channel state
-      $:  larv=(map id:bolt larva-chan:bolt)  ::    larva channels
-          fund=(map id:bolt psbt:psbt)        ::    funding transactions
-          live=(map id:bolt chan:bolt)        ::    live channels
-          peer=(map ship (set id:bolt))       ::    by peer
-          wach=(map hexb:bc id:bolt)          ::    by funding address
-      ==                                      ::
-      $=  chain                               ::  blockchain state
-      $:  block=@ud                           ::    current height
-          fees=(unit sats:bc)                 ::    feerate
-          time=@da                            ::    timestamp
-  ==  ==
+      $=  keys
+      $:  our=pair:key:bolt
+          their=(map pubkey:bolt ship)
+      ==
+      $=  prov
+      $:  btcp=(unit provider-state)
+          volt=(unit provider-state)
+          info=node-info
+      ==
+      $=  chan
+      $:  live=(map id:bolt chan:bolt)
+          larv=(map id:bolt larva-chan:bolt)
+          fund=(map id:bolt psbt:psbt)
+          peer=(map ship (set id:bolt))
+          wach=(map hexb:bc id:bolt)
+      ==
+      $=  chain
+      $:  block=@ud
+          fees=(unit sats:bc)
+          time=@da
+      ==
+      $=  payments
+      $:  outgoing=(map (pair id:bolt htlc-id:bolt) forward-request)
+          incoming=(map (pair id:bolt htlc-id:bolt) htlc-intercept-request:rpc)
+          preimages=(map hexb:bc hexb:bc)
+      ==
+  ==
 --
-::
 %-  agent:dbug
-::
 =|  state-0
 =*  state  -
 ^-  agent:gall
@@ -52,8 +57,11 @@
 ::
 ++  on-init
   ^-  (quip card _this)
+  =+  seed=(~(rad og eny.bowl) (bex 256))
+  =+  keypair=(generate-keypair:^keys seed %main %node-key)
+  =+  state=*state-0
   ~&  >  '%volt initialized successfully'
-  `this(state *state-0)
+  `this(state state(our.keys keypair))
 ::
 ++  on-save
   ^-  vase
@@ -148,30 +156,6 @@
   ^-  (quip card _this)
   ?:  ?=([%task-timer *] wire)
     [monitor-channels this]
-  ?:  ?=([%sub-pubkeys ~] wire)
-    ?:  ?=([%jael %public-keys ks=*] sign-arvo)
-      ?-    +>-.sign-arvo
-          %full
-        =+  +>+.sign-arvo
-        =+  ^=  pubkeys
-          ^-  (map hexb:bc ship)
-          %-  ~(rep by points)
-          |=  [[=ship =point:jael] acc=(map hexb:bc ship)]
-          =+  ^=  pubkey
-            %-  compress-point:secp256k1:secp:crypto
-            %-  get-public-key-from-pass:detail:ring
-            pass:(~(got by keys.point) life.point)
-          (~(put by acc) 33^pubkey ship)
-        `this(keys (~(uni by keys) pubkeys))
-      ::  TODO: force close any open channels when pubkeys change ?
-      ::
-          %diff
-        `this
-      ::
-          %breach
-        `this
-      ==
-    (on-arvo:def wire sign-arvo)
   (on-arvo:def wire sign-arvo)
 ::
 ++  on-peek   on-peek:def
@@ -180,7 +164,6 @@
 --
 ::
 |_  =bowl:gall
-::
 ++  handle-command
   |=  =command
   |^  ^-  (quip card _state)
@@ -213,18 +196,7 @@
     ==
   ::
       %update-channels
-    =^  cards  state
-      %^  spin  ~(val by live.chan)  state
-      |=  $:  channel=chan:bolt
-              state=_state
-          ==
-      ^-  (quip card _state)
-      =^  cards  channel  (maybe-send-commitment channel)
-      :-  cards
-      %=  state
-        live.chan  (~(put by live.chan) id.channel channel)
-      ==
-    [(zing cards) state]
+    (update-channels)
   ::
       %open-channel
     (open-channel +.command)
@@ -253,10 +225,12 @@
     ?:  (lth funding-sats min-funding-sats:const:bolt)
       ~|  "%volt: funding-sats too low {<funding-sats>} < {<min-funding-sats:const:bolt>}"
         !!
-    =+  tmp-id=(make-temp-id)
-    =+  feerate=(current-feerate-per-kw)
+    =/  rng  ~(. og eny.bowl)
+    =^  tmp-id  rng  (rads:rng (bex 256))
+    =^  seed    rng  (rads:rng (bex 256))
     =/  local-config=local-config:bolt
-      (make-local-config network funding-sats push-msats %.y)
+      (make-local-config seed network funding-sats push-msats %.y)
+    =+  feerate=(current-feerate-per-kw)
     =/  first-per-commitment-secret=@
       %^    generate-from-seed:secret
           per-commitment-secret-seed.local-config
@@ -295,9 +269,7 @@
         oc          `oc
       ==
     :_  state(larv.chan (~(put by larv.chan) tmp-id lar))
-    :~  (send-message [%open-channel oc] who)
-        (watch-pubkey who)
-    ==
+    ~[(send-message [%open-channel oc] who)]
   ::
   ++  create-funding
     |=  [temporary-channel-id=@ psbt=@t]
@@ -382,11 +354,14 @@
     state(live.chan (~(put by live.chan) chan-id u.c))
   ::
   ++  send-shutdown
-    |=  channel=chan:bolt
-    ^-  (quip card _channel)
-    ?>  (can-send-shutdown channel)
-    :_  channel
-    ~[(send-message [%shutdown id.channel 0^0x0] ship.her.config.channel)]
+    |=  c=chan:bolt
+    ^-  (quip card _c)
+    ?>  (can-send-shutdown c)
+    =+  script-pubkey=upfront-shutdown-script.our.config.c
+    :_  (~(set-state channel c) %shutdown)
+    :~  (send-message [%shutdown id.c script-pubkey] ship.her.config.c)
+        (give-update [%channel-state id.c %shutdown])
+    ==
   ::
   ++  can-send-shutdown
     |=  c=chan:bolt
@@ -395,10 +370,16 @@
       ::  if there are updates pending on the receiving node's commitment transaction:
       ::    MUST NOT send a shutdown.
       %.n
-    %.y
+    ?:  ~(is-funded channel c)
+      %.y
+    ?:  initiator.constraints.c
+      %.y
+    ?.  initiator.constraints.c
+      %.y
+    %.n
   ::
   ++  send-payment
-    |=  payreq=@t
+    |=  =payreq
     ^-  (quip card _state)
     ?~  btcp.prov  `state
     =+  invoice=(de:bolt11 payreq)
@@ -413,21 +394,21 @@
       ~&  >>>  "%volt: payreq amount is below 1 msat"
       `state
     =/  who=(unit @p)
-      (~(get by keys) pubkey.u.invoice)
+      (~(get by their.keys) pubkey.u.invoice)
     ?~  who
       ::  unrecognized payee pubkey, try asking provider
       ::
-      (forward-invoice-to-provider u.invoice amount-msats)
+      (forward-to-provider payreq)
     =+  chan-ids=(~(get by peer.chan) u.who)
     ?~  chan-ids
       ::  no direct channel, try asking provider
       ::
-      (forward-invoice-to-provider u.invoice amount-msats)
+      (forward-to-provider payreq)
     =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
     ?~  channel
       ::  no bilateral capacity, try asking provider
       ::
-      (forward-invoice-to-provider u.invoice amount-msats)
+      (forward-to-provider payreq)
     (pay-channel u.channel amount-msats payment-hash.u.invoice)
   ::
   ++  find-channel-with-capacity
@@ -441,36 +422,48 @@
       `u.c
     acc
   ::
-  ++  forward-invoice-to-provider
-    |=  [=invoice:bolt11 =amount=msats]
+  ++  forward-to-provider
+    |=  =payreq
     ^-  (quip card _state)
     ?~  volt.prov
       ~&  >>>  "%volt: no provider configured"
       `state
+    ?:  (team:title our.bowl host.u.volt.prov)
+      ::  we are our own provider, send it
+      ::    TODO: fee-limit and timeout?
+      ::
+      :_  state
+      ~[(provider-command [%send-payment payreq ~ ~])]
     =+  provider-channels=(~(get by peer.chan) host.u.volt.prov)
     ?~  provider-channels
       ~&  >>>  "%volt: no channel with provider"
       `state
+    =+  invoice=(de:bolt11 payreq)
+    ?~  invoice           !!
+    ?~  amount.u.invoice  !!
+    =+  amount-msats=(amount-to-msats:bolt11 u.amount.u.invoice)
     =+  c=(find-channel-with-capacity u.provider-channels amount-msats)
     ?~  c
       ~&  >>>  "%volt: insufficient capacity with provider"
       `state
+    ?>  =(state.u.c %open)
     =+  final-cltv=(add block.chain min-final-cltv-expiry:const:bolt)
     =|  update=update-add-htlc:msg:bolt
     =.  update
       %=  update
         channel-id    id.u.c
-        payment-hash  payment-hash.invoice
+        payment-hash  payment-hash.u.invoice
         amount-msats  amount-msats
         cltv-expiry   final-cltv
       ==
     =^  htlc  u.c  (~(add-htlc channel u.c) update)
     :_  state(live.chan (~(put by live.chan) id.u.c u.c))
-    ~|(%unimplemented !!)
+    ~[(volt-action [%forward-payment payreq htlc] host.u.volt.prov)]
   ::
   ++  pay-channel
     |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc]
     ^-  (quip card _state)
+    ?>  =(state.c %open)
     =|  update=update-add-htlc:msg:bolt
     =.  update
       %=  update
@@ -481,6 +474,21 @@
     =^  htlc  c  (~(add-htlc channel c) update)
     :_  state(live.chan (~(put by live.chan) id.c c))
     ~[(send-message [%update-add-htlc htlc] ship.her.config.c)]
+  ::
+  ++  update-channels
+    |.
+    ^-  (quip card _state)
+    =^  cards  state
+      %^  spin  ~(val by live.chan)  state
+      |=  [channel=chan:bolt state=_state]
+      ^-  (quip card _state)
+      =^  cards-1  channel  (maybe-send-commitment channel)
+      =^  cards-2  channel  (maybe-settle-htlcs channel)
+      :-  (weld cards-1 cards-2)
+      %=  state
+        live.chan  (~(put by live.chan) id.channel channel)
+      ==
+    [(zing cards) state]
   --
 ::
 ++  handle-message
@@ -588,10 +596,9 @@
         !!
     ::
     =+  network=(chain-hash-network:bolt chain-hash)
-    ::
-    =+  ^=  local-config
-      ^-  local-config:bolt
-      (make-local-config network funding-sats push-msats %.n)
+    =+  seed=(~(rad og eny.bowl) (bex 256))
+    =/  local-config=local-config:bolt
+      (make-local-config seed network funding-sats push-msats %.n)
     ::
     =|  =remote-config:bolt
     =.  remote-config
@@ -682,9 +689,7 @@
       ==
     ::
     :_  state(larv.chan (~(put by larv.chan) temporary-channel-id lar))
-    :~  (send-message [%accept-channel accept-channel] src.bowl)
-        (watch-pubkey src.bowl)
-    ==
+    ~[(send-message [%accept-channel accept-channel] src.bowl)]
   ::
   ++  handle-accept-channel
     |=  msg=accept-channel:msg:bolt
@@ -750,12 +755,11 @@
     %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
     %-  (slog leaf+"funding-address={<funding-address>}" ~)
     ::
-    :_  %=    state
-            larv.chan
-        %+  ~(put by larv.chan)  temporary-channel-id.msg
-        %=  u.c
-          her         remote-config
-          ac          `msg
+    :_  %=  state  larv.chan
+          %+  ~(put by larv.chan)  temporary-channel-id.msg
+            %=  u.c
+              her         remote-config
+              ac          `msg
         ==  ==
     ~[(give-update [%need-funding-signature temporary-channel-id.msg funding-address])]
   ::
@@ -816,7 +820,9 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output id.new-channel)
       ==
-    ~[(send-message [%funding-signed id.new-channel sig] src.bowl)]
+    :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
+        (give-update [%channel-state id.new-channel %opening])
+    ==
   ::
   ++  handle-funding-signed
     |=  msg=funding-signed:msg:bolt
@@ -852,8 +858,10 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
       ==
-    =-  ~[(poke-btc-provider [%broadcast-tx -])]
-    (encode-tx:psbt (extract-unsigned:psbt funding-tx))
+    =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
+    :~  (poke-btc-provider [%broadcast-tx tx])
+        (give-update [%channel-state id.c %opening])
+    ==
   ::
   ++  handle-funding-locked
     |=  msg=funding-locked:msg:bolt
@@ -872,9 +880,11 @@
           next-per-commitment-point  next-per-commitment-point.msg
         ==
       ==
-    =?  u.c  ~(is-funded channel u.c)
-      (mark-open u.c)
-    `state(live.chan (~(put by live.chan) id.u.c u.c))
+    =^  cards  u.c
+      ?:  ~(is-funded channel u.c)
+        (mark-open u.c)
+      [~ u.c]
+    [cards state(live.chan (~(put by live.chan) id.u.c u.c))]
   ::
   ++  handle-update-add-htlc
     |=  msg=update-add-htlc:msg:bolt
@@ -882,11 +892,9 @@
     ?>  (~(has by live.chan) channel-id.msg)
     =+  c=(~(got by live.chan) channel-id.msg)
     ?>  =(ship.her.config.c src.bowl)
-    ?.  =(state.c %open)
-      ~|(%invalid-state !!)
+    ?>  =(state.c %open)
     =^  htlc  c  (~(receive-htlc channel c) msg)
-    :-  ~
-    state(live.chan (~(put by live.chan) channel-id.msg c))
+    `state(live.chan (~(put by live.chan) channel-id.msg c))
   ::
   ++  handle-commitment-signed
     |=  msg=commitment-signed:msg:bolt
@@ -909,18 +917,28 @@
     ?>  (~(has by live.chan) channel-id.msg)
     =+  c=(~(got by live.chan) channel-id.msg)
     ?>  =(ship.her.config.c src.bowl)
-    =^  cards  c
+    =^  cards-1  c
       %-  maybe-send-commitment
       %.  msg
       ~(receive-revocation channel c)
-    :-  cards
+    =^  cards-2  state  (maybe-forward-htlcs c)
+    :-  (weld cards-1 cards-2)
     state(live.chan (~(put by live.chan) id.c c))
   ::
   ++  handle-shutdown
     |=  =shutdown:msg:bolt
     ^-  (quip card _state)
     =+  shutdown
-    `state
+    =+  c=(~(get by live.chan) channel-id)
+    ?~  c  `state
+    ?>  =(ship.her.config.u.c src.bowl)
+    =+  upfront-script=upfront-shutdown-script.her.config.u.c
+    ?:  ?&  (gth wid.upfront-script 0)
+            ?!  =(upfront-script script-pubkey)
+        ==
+      ~|(%invalid-script-pubkey !!)
+    ::  TODO: check pubkey template
+    ~|(%unimplemented !!)
   ::
   ++  handle-closing-signed
     |=  =closing-signed:msg:bolt
@@ -938,9 +956,12 @@
     =.  c  (~(receive-htlc-settle channel c) preimage htlc-id)
     =^  cards  c  (maybe-send-commitment c)
     :-  cards
-    %=  state
-      live.chan  (~(put by live.chan) id.c c)
-      pres       (~(put by pres) payment-hash preimage)
+    %=    state
+        live.chan
+      (~(put by live.chan) id.c c)
+    ::
+        preimages.payments
+      (~(put by preimages.payments) payment-hash preimage)
     ==
   ::
   ++  handle-update-fail-htlc
@@ -973,82 +994,155 @@
     ?>  =(ship.her.config.c src.bowl)
     =.  c  (~(receive-update-fee channel c) feerate-per-kw)
     `state(live.chan (~(put by live.chan) id.c c))
-  ::
-  ++  send-revoke-and-ack
-    |=  c=chan:bolt
-    ^-  (quip card chan:bolt)
-    =^  rev    c  ~(revoke-current-commitment channel c)
-    =^  cards  c  (maybe-send-commitment c)
-    :_  c
-    [(send-message [%revoke-and-ack rev] src.bowl) cards]
   --
 ::
 ++  handle-action
   |=  =action
-  |^
   ^-  (quip card _state)
   ?-    -.action
       %give-invoice
     =+  (make-invoice network.action amount-msats.action)
-    ::  TODO  private key?
-    =+  payreq=(en:bolt11 invoice 32^0x0)
-    :_  state(pres (~(put by pres) payment-hash.invoice preimage))
-    ~[(poke-volt [%take-invoice payreq] src.bowl)]
+    =+  payreq=(en:bolt11 invoice 32^prv.our.keys)
+    :_  %=    state
+            preimages.payments
+          (~(put by preimages.payments) payment-hash.invoice preimage)
+        ==
+    ~[(volt-action [%take-invoice payreq] src.bowl)]
   ::
       %take-invoice
+    %-  (slog leaf+"{<payreq.action>}" ~)
     `state
-  ==
-  ++  make-invoice
-    |=  [=network:bolt =amount=msats]
-    ^-  [=invoice:bolt11 preimage=hexb:bc]
-    =+  our-pubkey=(scry-peer-pubkey:bolt our.bowl)
-    ?~  our-pubkey  !!
-    =+  preimage=32^(~(rad og eny.bowl) (bex 256))
-    =+  payment-hash=(sha256:bcu:bc preimage)
-    =|  =invoice:bolt11
-    :_  preimage
-    %=  invoice
-      network       network
-      timestamp     now.bowl
-      payment-hash  payment-hash
-      amount        `(msats-to-amount:bolt11 amount-msats)
-    ::
-        min-final-cltv-expiry
-      min-final-cltv-expiry:const:bolt
-    ::
-        route
-      :~
-        :*  pubkey=identity-pubkey.info.prov
-            short-channel-id=0
-            feebase=0
-            feerate=0
-            cltv-expiry-delta=0
-        ==
+  ::
+      %forward-payment
+    ?~  volt.prov  !!
+    ?>  (team:title our.bowl host.u.volt.prov)
+    =+  action
+    =+  c=(~(get by live.chan) channel-id.htlc)
+    ?~  c  !!
+    ?>  =(ship.her.config.u.c src.bowl)
+    ?>  =(state.u.c %open)
+    =^  her-htlc=update-add-htlc:msg:bolt  u.c
+      (~(receive-htlc channel u.c) htlc)
+    =|  req=forward-request
+    =.  req
+      %=  req
+        htlc       her-htlc
+        payreq     payreq
+        forwarded  %.n
       ==
+    :-  ~
+    %=    state
+        live.chan
+      (~(put by live.chan) id.u.c u.c)
+    ::
+        outgoing.payments
+      (~(put in outgoing.payments) [id.u.c htlc-id.her-htlc] req)
     ==
-  --
+  ==
+::
+++  make-invoice
+  |=  [=network:bolt =amount=msats]
+  ^-  [=invoice:bolt11 preimage=hexb:bc]
+  =/  rng  ~(. og eny.bowl)
+  =^  preimage  rng  (rads:rng (bex 256))
+  =^  secret    rng  (rads:rng (bex 256))
+  =+  payment-hash=(sha256:bcu:bc 32^preimage)
+  =+  amount=`(msats-to-amount:bolt11 amount-msats)
+  =|  =invoice:bolt11
+  :_  32^preimage
+  %=  invoice
+    network                network
+    pubkey                 pub.our.keys
+    timestamp              now.bowl
+    payment-hash           payment-hash
+    payment-secret         `32^secret
+    amount                 amount
+    min-final-cltv-expiry  min-final-cltv-expiry:const:bolt
+    route                  route-to-provider
+  ==
+::
+++  route-to-provider
+  ^-  (list route:bolt11)
+  :~
+    :*  pubkey=identity-pubkey.info.prov
+        short-channel-id=0
+        feebase=0
+        feerate=0
+        cltv-expiry-delta=0
+    ==
+  ==
 ::
 ++  handle-provider-status
   |=  =status:provider
   ^-  (quip card _state)
-  `state
+  ?~  volt.prov  `state
+  ?:  =(status %connected)
+    `state(volt.prov `u.volt.prov(connected %.y))
+  `state(volt.prov `u.volt.prov(connected %.n))
 ::
 ++  handle-provider-update
   |=  =update:provider
   |^  ^-  (quip card _state)
   ?:  ?=([%| *] update)
-    (provider-error +.update)
-  (provider-result +.update)
-  ::
-  ++  provider-error
-    |=  =error:provider
-    ^-  (quip card _state)
+    ~&  >>>  "%volt: provider-error {<update>}"
     `state
+  (provider-result +.update)
   ::
   ++  provider-result
     |=  =result:provider
     ^-  (quip card _state)
-    `state
+    ?+    -.result  `state
+        %node-info
+      `state(info.prov +.result)
+    ::
+        %payment-update
+      ~&  >>  "PAYM:{<+.result>}"
+      (handle-payment-update +.result)
+    ::
+        %htlc
+      ~&  >>  "HTLC:{<+.result>}"
+      (handle-htlc-intercept +.result)
+    ==
+  ::
+  ++  handle-payment-update
+    |=  result=payment:rpc
+    ^-  (quip card _state)
+    =^  cards  state
+      %^  spin  ~(val by outgoing.payments)
+        state
+      |=  [req=forward-request state=_state]
+      ?.  =(payment-hash.htlc.req hash.result)
+        `state
+      ?.  =(status.result %'SUCCEEDED')
+        `state  ::  Fail it ?
+      `state(preimages.payments (~(put by preimages.payments) hash.result preimage.result))
+    [(zing cards) state]
+  ::
+  ++  handle-htlc-intercept
+    |=  result=htlc-intercept-request:rpc
+    ^-  (quip card _state)
+    =+  c=(~(get by live.chan) chan-id.incoming-circuit-key.result)
+    ?~  c  `state  ::  Fail it?
+    ?>  =(state.u.c %open)
+    =|  msg=update-add-htlc:msg:bolt
+    =.  msg
+      %=  msg
+        channel-id    id.u.c
+        amount-msats  incoming-amount-msats.result
+        payment-hash  payment-hash.result
+        cltv-expiry   incoming-expiry.result
+      ==
+    =^  htlc  u.c  (~(receive-htlc channel u.c) msg)
+    :-  ~
+    %=    state
+        live.chan
+      (~(put by live.chan) id.u.c u.c)
+    ::
+        incoming.payments
+      %+  ~(put by incoming.payments)
+        [id.u.c htlc-id.incoming-circuit-key.result]
+      result
+    ==
   --
 ::
 ++  handle-bitcoin-status
@@ -1188,7 +1282,7 @@
   =+  ship=ship.her.config.u.c
   =+  peer-ids=(~(gut by peer.chan) ship ~)
   =.  peer-ids  (~(del in peer-ids) id)
-  :-  ?~  peer-ids  ~[(unwatch-pubkey ship)]  ~
+  :-  ~
   %=    state
       live.chan
     (~(del by live.chan) id)
@@ -1200,13 +1294,7 @@
     ?~  peer-ids
       (~(del by peer.chan) ship)
     (~(put by peer.chan) ship peer-ids)
-  ::  remove pubkey if no channels left
-  ::
-      keys
-    ?^  peer-ids  keys
-    =+  pubkey=(scry-peer-pubkey:bolt ship)
-    ?~  pubkey  keys
-    (~(del by keys) u.pubkey)
+  ::  TODO: remove pubkey if no channels left
   ==
 ::
 ++  send-funding-locked
@@ -1220,10 +1308,21 @@
         per-commitment-secret-seed.our.config.c
       idx
     ~
-  =?  c  ?&(~(is-funded channel c) funding-locked-received.our.config.c)
-   (mark-open c)
+  =^  cards  c
+    ?:  ?&(~(is-funded channel c) funding-locked-received.our.config.c)
+      (mark-open c)
+    [~ c]
   :_  c
-  ~[(send-message [%funding-locked id.c next-per-commitment-point] who)]
+  :-  (send-message [%funding-locked id.c next-per-commitment-point] who)
+  cards
+::
+++  send-revoke-and-ack
+  |=  c=chan:bolt
+  ^-  (quip card chan:bolt)
+  =^  rev    c  ~(revoke-current-commitment channel c)
+  =^  cards  c  (maybe-send-commitment c)
+  :_  c
+  [(send-message [%revoke-and-ack rev] src.bowl) cards]
 ::
 ++  maybe-send-commitment
   |=  c=chan:bolt
@@ -1241,21 +1340,62 @@
       n-htlc-sigs  htlc-sigs
   ==
 ::
+++  maybe-forward-htlcs
+  |=  c=chan:bolt
+  |^  ^-  (quip card _state)
+  =+  commitment=(~(oldest-unrevoked-commitment channel c) %remote)
+  ?~  commitment  `state
+  =^  cards  state
+    %^  spin  recd-htlcs.u.commitment
+      state
+    maybe-forward
+  [(zing cards) state]
+  ++  maybe-forward
+    |=  [h=add-htlc-update:bolt state=_state]
+    ^-  (quip card _state)
+    ?~  volt.prov  `state
+    ?.  (team:title our.bowl host.u.volt.prov)
+      `state
+    =+  key=[id.c htlc-id.h]
+    =+  req=(~(get by outgoing.payments) key)
+    ?~  req  `state
+    ?:  forwarded.u.req  `state
+    =.  forwarded.u.req  %.y
+    :_  =-  state(outgoing.payments -)
+          (~(put by outgoing.payments) [id.c htlc-id.h] u.req)
+    ~[(provider-command [%send-payment payreq.u.req ~ ~])]
+  --
+::
+++  maybe-settle-htlcs
+  |=  c=chan:bolt
+  |^  ^-  (quip card _c)
+  =+  commitment=(~(oldest-unrevoked-commitment channel c) %local)
+  ?~  commitment  `c
+  =^  cards  c
+    %^  spin  recd-htlcs.u.commitment
+      c
+    maybe-settle
+  [(zing cards) c]
+  ++  maybe-settle
+    |=  [h=add-htlc-update:bolt c=chan:bolt]
+    ^-  (quip card _c)
+    =+  preimage=(~(get by preimages.payments) payment-hash.h)
+    ?~  preimage  `c
+    :_  (~(settle-htlc channel c) u.preimage htlc-id.h)
+    =-  ~[(send-message - ship.her.config.c)]
+    [%update-fulfill-htlc id.c htlc-id.h u.preimage]
+  --
+::
 ++  mark-open
   |=  c=chan:bolt
-  ^-  chan:bolt
+  ^-  (quip card chan:bolt)
   ?>  ~(is-funded channel c)
   =+  old-state=state.c
-  ?:  =(old-state %open)    c
-  ?.  =(old-state %funded)  c
+  ?:  =(old-state %open)    `c
+  ?.  =(old-state %funded)  `c
   ?>  funding-locked-received.our.config.c
-  (~(set-state channel c) %open)
-::
-++  make-temp-id
-  |.
-  ^-  id:bolt
-  (~(rad og eny.bowl) (bex 256))
-
+  :_  (~(set-state channel c) %open)
+  ~[(give-update [%channel-state id.c %open])]
 ::  TODO: estimate fee based on network state, target ETA, desired confs
 ::
 ++  current-feerate-per-kw
@@ -1266,14 +1406,8 @@
   (div feerate-fallback:const:bolt 4)
 ::
 ++  make-local-config
-  |=  [=network:bolt =funding=sats:bc =push=msats initiator=?]
+  |=  [seed=@ =network:bolt =funding=sats:bc =push=msats initiator=?]
   ^-  local-config:bolt
-  ::  TODO: really need cryptographic random
-  ::
-  =+  ^=  seed
-    ^-  @
-    (~(rad og eny.bowl) (bex 256))
-  ::
   =|  =local-config:bolt
   =.  local-config
     %=    local-config
@@ -1315,11 +1449,20 @@
   ^-  card
   ?~  btcp.prov  ~|("provider not set" !!)
   :*  %pass   /btc-provider-action/[(scot %da now.bowl)]
-      %agent  [host.u.btcp.prov %btc-provider]
+      %agent  host.u.btcp.prov^%btc-provider
       %poke   %btc-provider-action  !>(action)
   ==
 ::
-++  poke-provider
+++  provider-command
+  |=  =command:provider
+  ^-  card
+  ?~  volt.prov  ~|("provider not set" !!)
+  :*  %pass   /provider-command/[(scot %da now.bowl)]
+      %agent  host.u.volt.prov^%volt-provider
+      %poke   %volt-provider-command  !>(command)
+  ==
+::
+++  provider-action
   |=  =action:provider
   ^-  card
   ?~  volt.prov  ~|("provider not set" !!)
@@ -1328,11 +1471,11 @@
       %poke   %volt-provider-action  !>(action)
   ==
 ::
-++  poke-volt
+++  volt-action
   |=  [=action who=@p]
   ^-  card
   :*  %pass   /action/[(scot %da now.bowl)]
-      %agent  [who %volt]
+      %agent  who^%volt
       %poke   %volt-action  !>(action)
   ==
 ::
@@ -1349,9 +1492,25 @@
   ^-  (list card)
   :-  :*  %pass   /set-provider/[(scot %p who)]
           %agent  who^%volt-provider
+          %watch  /status
+      ==
+  ?:  (team:title src.bowl who)
+    :~
+      :*  %pass  /set-provider/[(scot %p who)]
+          %agent  who^%volt-provider
           %watch  /clients
       ==
-    ~
+    ==
+   ~
+::
+++  leave-provider
+  |=  who=@p
+  ^-  (list card)
+  :_  ~
+  :*  %pass   /set-provider/[(scot %p who)]
+      %agent  who^%volt-provider
+      %leave  ~
+  ==
 ::
 ++  watch-btc-provider
   |=  who=@p
@@ -1369,15 +1528,6 @@
     ==
   ~
 ::
-++  leave-provider
-  |=  who=@p
-  ^-  (list card)
-  :-  :*  %pass   /set-provider/[(scot %p who)]
-          %agent  who^%volt-provider
-          %leave  ~
-      ==
-    ~
-::
 ++  leave-btc-provider
   |=  who=@p
   ^-  (list card)
@@ -1392,22 +1542,6 @@
         %leave  ~
     ==
   ~
-::
-++  watch-pubkey
-  |=  who=@p
-  ^-  card
-  :*  %pass         /sub-pubkeys
-      %arvo         %j
-      %public-keys  (silt ~[who])
-  ==
-::
-++  unwatch-pubkey
-  |=  who=@p
-  ^-  card
-  :*  %pass  /sub-pubkeys
-      %arvo  %j
-      %nuke  (silt ~[who])
-  ==
 ::
 ++  give-update
   |=  =update
