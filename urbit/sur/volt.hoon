@@ -299,6 +299,8 @@
 +$  action
   $%  [%give-invoice =amount=msats =network:bolt]
       [%take-invoice =payreq]
+      [%give-pubkey ~]
+      [%take-pubkey =pubkey]
       [%forward-payment =payreq htlc=update-add-htlc:msg:bolt]
   ==
 ::

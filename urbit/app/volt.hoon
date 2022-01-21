@@ -1013,21 +1013,27 @@
     %-  (slog leaf+"{<payreq.action>}" ~)
     `state
   ::
+      %give-pubkey
+    :_  state
+    ~[(volt-action [%take-pubkey pub.our.keys] src.bowl)]
+  ::
+      %take-pubkey
+    `state(their.keys (~(put by their.keys) pubkey.action src.bowl))
+  ::
       %forward-payment
     ?~  volt.prov  !!
     ?>  (team:title our.bowl host.u.volt.prov)
-    =+  action
-    =+  c=(~(get by live.chan) channel-id.htlc)
+    =+  c=(~(get by live.chan) channel-id.htlc.action)
     ?~  c  !!
     ?>  =(ship.her.config.u.c src.bowl)
     ?>  =(state.u.c %open)
     =^  her-htlc=update-add-htlc:msg:bolt  u.c
-      (~(receive-htlc channel u.c) htlc)
+      (~(receive-htlc channel u.c) htlc.action)
     =|  req=forward-request
     =.  req
       %=  req
         htlc       her-htlc
-        payreq     payreq
+        payreq     payreq.action
         forwarded  %.n
       ==
     :-  ~

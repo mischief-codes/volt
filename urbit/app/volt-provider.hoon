@@ -291,6 +291,7 @@
     :_  state(connected.host-info %.y, node-info +.result)
     :~  (give-status %connected)
         (give-update [%& %node-info +.result])
+        (give-info +.result)
     ==
   ::
       %open-channel
@@ -384,6 +385,14 @@
         same
       ~&(>> "volt-provider: error: {<p.update>}" same)
   [%give %fact ~[/clients] %volt-provider-update !>(update)]
+::
+++  give-info
+  |=  info=^node-info
+  ^-  card
+  :*  %give
+      %fact  ~[/status]
+      %volt-provider-update  !>([%& %node-info info])
+  ==
 ::
 ++  give-status
   |=  =status
