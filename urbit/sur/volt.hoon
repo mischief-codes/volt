@@ -286,6 +286,12 @@
       received-at=@da
   ==
 ::
++$  forward-request
+  $:  htlc=update-add-htlc:msg:bolt
+      =payreq
+      forwarded=?
+  ==
+::
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%set-btc-provider provider=(unit ship)]
@@ -299,15 +305,9 @@
 +$  action
   $%  [%give-invoice =amount=msats =network:bolt]
       [%take-invoice =payreq]
-      [%give-pubkey ~]
-      [%take-pubkey =pubkey]
+      [%give-pubkey nonce=@]
+      [%take-pubkey sig=[v=@ r=@ s=@]]
       [%forward-payment =payreq htlc=update-add-htlc:msg:bolt]
-  ==
-::
-+$  forward-request
-  $:  htlc=update-add-htlc:msg:bolt
-      =payreq
-      forwarded=?
   ==
 ::
 +$  update

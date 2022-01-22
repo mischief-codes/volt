@@ -19,6 +19,7 @@
   $:  %0
       $=  keys
       $:  our=pair:key:bolt
+          chal=(map ship @)
           their=(map pubkey:bolt ship)
       ==
       $=  prov
@@ -83,6 +84,7 @@
       (handle-command:hc !<(command vase))
     ::
         %volt-action
+      ?<  =((clan:title src.bowl) %pawn)
       (handle-action:hc !<(action vase))
     ::
         %volt-message
@@ -227,6 +229,7 @@
     =/  rng  ~(. og eny.bowl)
     =^  tmp-id  rng  (rads:rng (bex 256))
     =^  seed    rng  (rads:rng (bex 256))
+    =^  chal    rng  (rads:rng (bex 256))
     =/  local-config=local-config:bolt
       (make-local-config seed network funding-sats push-msats %.y)
     =+  feerate=(current-feerate-per-kw)
@@ -267,9 +270,12 @@
         our         local-config
         oc          `oc
       ==
-    :_  state(larv.chan (~(put by larv.chan) tmp-id lar))
+    :_  %=  state
+          larv.chan  (~(put by larv.chan) tmp-id lar)
+          chal.keys  (~(put by chal.keys) who chal)
+        ==
     :~  (send-message [%open-channel oc] who)
-        (volt-action [%give-pubkey ~] who)
+        (volt-action [%give-pubkey chal] who)
     ==
   ::
   ++  create-funding
@@ -597,7 +603,9 @@
         !!
     ::
     =+  network=(chain-hash-network:bolt chain-hash)
-    =+  seed=(~(rad og eny.bowl) (bex 256))
+    =/  rng  ~(. og eny.bowl)
+    =^  seed  rng  (rads:rng (bex 256))
+    =^  chal  rng  (rads:rng (bex 256))
     =/  local-config=local-config:bolt
       (make-local-config seed network funding-sats push-msats %.n)
     ::
@@ -689,9 +697,12 @@
         ac         `accept-channel
       ==
     ::
-    :_  state(larv.chan (~(put by larv.chan) temporary-channel-id lar))
+    :_  %=  state
+          larv.chan  (~(put by larv.chan) temporary-channel-id lar)
+          chal.keys  (~(put by chal.keys) src.bowl chal)
+        ==
     :~  (send-message [%accept-channel accept-channel] src.bowl)
-        (volt-action [%give-pubkey ~] src.bowl)
+        (volt-action [%give-pubkey chal] src.bowl)
     ==
   ::
   ++  handle-accept-channel
@@ -1017,11 +1028,19 @@
     `state
   ::
       %give-pubkey
+    =+  secp256k1:secp:crypto
+    =+  hash=(shay 32 nonce.action)
+    =+  sig=(ecdsa-raw-sign hash prv.our.keys)
     :_  state
-    ~[(volt-action [%take-pubkey pub.our.keys] src.bowl)]
+    ~[(volt-action [%take-pubkey sig] src.bowl)]
   ::
       %take-pubkey
-    `state(their.keys (~(put by their.keys) pubkey.action src.bowl))
+    =+  secp256k1:secp:crypto
+    =+  chal=(~(get by chal.keys) src.bowl)
+    ?~  chal  `state
+    =+  hash=(shay 32 u.chal)
+    =+  pubkey=(ecdsa-raw-recover hash sig.action)
+    `state(their.keys (~(put by their.keys) pubkey src.bowl))
   ::
       %forward-payment
     ?~  volt.prov  !!
@@ -1072,14 +1091,13 @@
 ::
 ++  route-to-provider
   ^-  (list route:bolt11)
-  :~
-    :*  pubkey=identity-pubkey.info.prov
-        short-channel-id=0
-        feebase=0
-        feerate=0
-        cltv-expiry-delta=0
-    ==
-  ==
+  ::  TODO: construct this properly
+  :~  :*  pubkey=identity-pubkey.info.prov
+          short-channel-id=0
+          feebase=0
+          feerate=0
+          cltv-expiry-delta=0
+  ==  ==
 ::
 ++  handle-provider-status
   |=  =status:provider
@@ -1095,24 +1113,18 @@
   ?:  ?=([%| *] update)
     ~&  >>>  "%volt: provider-error {<update>}"
     `state
-  (provider-result +.update)
+  ?+    +<.update  `state
+      %node-info
+    `state(info.prov +>.update)
   ::
-  ++  provider-result
-    |=  =result:provider
-    ^-  (quip card _state)
-    ?+    -.result  `state
-        %node-info
-      `state(info.prov +.result)
-    ::
-        %payment-update
-      ~&  >>  "PAYM:{<+.result>}"
-      (handle-payment-update +.result)
-    ::
-        %htlc
-      ~&  >>  "HTLC:{<+.result>}"
-      (handle-htlc-intercept +.result)
-    ==
+      %payment-update
+    ~&  >>  "PAYM:{<+.result>}"
+    (handle-payment-update +>.update)
   ::
+      %htlc
+    ~&  >>  "HTLC:{<+.result>}"
+    (handle-htlc-intercept +>.update)
+  ==
   ++  handle-payment-update
     |=  result=payment:rpc
     ^-  (quip card _state)
@@ -1124,7 +1136,8 @@
         `state
       ?.  =(status.result %'SUCCEEDED')
         `state  ::  Fail it ?
-      `state(preimages.payments (~(put by preimages.payments) hash.result preimage.result))
+      =-  `state(preimages.payments -)
+      (~(put by preimages.payments) hash.result preimage.result)
     [(zing cards) state]
   ::
   ++  handle-htlc-intercept
@@ -1371,7 +1384,7 @@
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     :_  =-  state(outgoing.payments -)
-          (~(put by outgoing.payments) [id.c htlc-id.h] u.req)
+        (~(put by outgoing.payments) key u.req)
     ~[(provider-command [%send-payment payreq.u.req ~ ~])]
   --
 ::
