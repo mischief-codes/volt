@@ -1040,7 +1040,11 @@
     ?~  chal  `state
     =+  hash=(shay 32 u.chal)
     =+  pubkey=(ecdsa-raw-recover hash sig.action)
-    `state(their.keys (~(put by their.keys) pubkey src.bowl))
+    :-  ~
+    %=  state
+      chal.keys   (~(del by chal.keys) src.bowl)
+      their.keys  (~(put by their.keys) pubkey src.bowl)
+    ==
   ::
       %forward-payment
     ?~  volt.prov  !!
