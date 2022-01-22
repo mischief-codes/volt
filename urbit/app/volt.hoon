@@ -83,7 +83,6 @@
       (handle-command:hc !<(command vase))
     ::
         %volt-action
-      ?>  (team:title our.bowl src.bowl)
       (handle-action:hc !<(action vase))
     ::
         %volt-message
@@ -269,7 +268,9 @@
         oc          `oc
       ==
     :_  state(larv.chan (~(put by larv.chan) tmp-id lar))
-    ~[(send-message [%open-channel oc] who)]
+    :~  (send-message [%open-channel oc] who)
+        (volt-action [%give-pubkey ~] who)
+    ==
   ::
   ++  create-funding
     |=  [temporary-channel-id=@ psbt=@t]
@@ -689,7 +690,9 @@
       ==
     ::
     :_  state(larv.chan (~(put by larv.chan) temporary-channel-id lar))
-    ~[(send-message [%accept-channel accept-channel] src.bowl)]
+    :~  (send-message [%accept-channel accept-channel] src.bowl)
+        (volt-action [%give-pubkey ~] src.bowl)
+    ==
   ::
   ++  handle-accept-channel
     |=  msg=accept-channel:msg:bolt
