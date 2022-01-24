@@ -612,6 +612,7 @@
     =|  =remote-config:bolt
     =.  remote-config
       %=  remote-config
+        ship                            src.bowl
         network                         network
         pub.multisig-key                funding-pubkey
         basepoints                      basepoints
