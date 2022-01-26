@@ -171,6 +171,7 @@
     [%close-channel +.command]
   ::
       %send-payment
+    ~&  >>>  "%volt-provider: sending payment {<+.command>}"
     :_  state
     %-  do-rpc
     [%send-payment +.command]
@@ -296,7 +297,7 @@
   ::
       %open-channel
     ?>  ?=([%open-channel *] result)
-    ~&  >  "opening channel: funding-txid={<funding-txid.result>}"
+    ~&  >  "%volt-provider: opening channel: funding-txid={<funding-txid.result>}"
     `state
   ::
       %close-channel
@@ -305,12 +306,12 @@
   ::
       %settle-htlc
     ?>  ?=([%settle-htlc *] result)
-    ~&  >  "settled HTLC: {<circuit-key.result>}"
+    ~&  >  "%volt-provider: settled HTLC: {<circuit-key.result>}"
     `state
   ::
       %fail-htlc
     ?>  ?=([%fail-htlc *] result)
-    ~&  >>>  "failed HTLC: {<circuit-key.result>}"
+    ~&  >>>  "%volt-provider: failed HTLC: {<circuit-key.result>}"
     `state
   ::
       %send-payment

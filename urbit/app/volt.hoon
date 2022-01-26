@@ -152,13 +152,7 @@
     `this
   ==
 ::
-++  on-arvo
-  |=  [=wire =sign-arvo]
-  ^-  (quip card _this)
-  ?:  ?=([%task-timer *] wire)
-    [monitor-channels this]
-  (on-arvo:def wire sign-arvo)
-::
+++  on-arvo   on-arvo:def
 ++  on-peek   on-peek:def
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
@@ -195,9 +189,6 @@
     :~  (leave-btc-provider host.u.btcp.prov)
         (watch-btc-provider u.provider.command)
     ==
-  ::
-      %update-channels
-    (update-channels)
   ::
       %open-channel
     (open-channel +.command)
@@ -425,7 +416,7 @@
     |=  [=id:bolt acc=(unit chan:bolt)]
     =+  c=(~(get by live.chan) id)
     ?~  c  acc
-    ?:  (~(can-pay channel u.c) amount-msats)
+    ?:  ?&(=(state.u.c %open) (~(can-pay channel u.c) amount-msats))
       `u.c
     acc
   ::
@@ -463,9 +454,10 @@
         amount-msats  amount-msats
         cltv-expiry   final-cltv
       ==
-    =^  htlc  u.c  (~(add-htlc channel u.c) update)
+    =^  htlc   u.c  (~(add-htlc channel u.c) update)
+    =^  cards  u.c  (maybe-send-commitment u.c)
     :_  state(live.chan (~(put by live.chan) id.u.c u.c))
-    ~[(volt-action [%forward-payment payreq htlc] host.u.volt.prov)]
+    [(volt-action [%forward-payment payreq htlc] host.u.volt.prov) cards]
   ::
   ++  pay-channel
     |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc]
@@ -474,28 +466,15 @@
     =|  update=update-add-htlc:msg:bolt
     =.  update
       %=  update
+        channel-id    id.c
         payment-hash  payment-hash
         amount-msats  amount-msats
         cltv-expiry   (add block.chain min-final-cltv-expiry:const:bolt)
       ==
-    =^  htlc  c  (~(add-htlc channel c) update)
+    =^  htlc   c  (~(add-htlc channel c) update)
+    =^  cards  c  (maybe-send-commitment c)
     :_  state(live.chan (~(put by live.chan) id.c c))
-    ~[(send-message [%update-add-htlc htlc] ship.her.config.c)]
-  ::
-  ++  update-channels
-    |.
-    ^-  (quip card _state)
-    =^  cards  state
-      %^  spin  ~(val by live.chan)  state
-      |=  [channel=chan:bolt state=_state]
-      ^-  (quip card _state)
-      =^  cards-1  channel  (maybe-send-commitment channel)
-      =^  cards-2  channel  (maybe-settle-htlcs channel)
-      :-  (weld cards-1 cards-2)
-      %=  state
-        live.chan  (~(put by live.chan) id.channel channel)
-      ==
-    [(zing cards) state]
+    [(send-message [%update-add-htlc htlc] ship.her.config.c) cards]
   --
 ::
 ++  handle-message
@@ -1017,6 +996,7 @@
   ?-    -.action
       %give-invoice
     =+  (make-invoice network.action amount-msats.action)
+    ~&  >  invoice
     =+  payreq=(en:bolt11 invoice 32^prv.our.keys)
     :_  %=    state
             preimages.payments
@@ -1056,6 +1036,7 @@
     ?>  =(state.u.c %open)
     =^  her-htlc=update-add-htlc:msg:bolt  u.c
       (~(receive-htlc channel u.c) htlc.action)
+    ~&  >>  "%volt: received htlc from {<src.bowl>}"
     =|  req=forward-request
     =.  req
       %=  req
@@ -1074,34 +1055,35 @@
   ==
 ::
 ++  make-invoice
+  =,  secp256k1:secp:crypto
   |=  [=network:bolt =amount=msats]
   ^-  [=invoice:bolt11 preimage=hexb:bc]
   =/  rng  ~(. og eny.bowl)
   =^  preimage  rng  (rads:rng (bex 256))
   =^  secret    rng  (rads:rng (bex 256))
-  =+  payment-hash=(sha256:bcu:bc 32^preimage)
-  =+  amount=`(msats-to-amount:bolt11 amount-msats)
+  =+  amount=(msats-to-amount:bolt11 amount-msats)
   =|  =invoice:bolt11
   :_  32^preimage
   %=  invoice
     network                network
-    pubkey                 pub.our.keys
     timestamp              now.bowl
-    payment-hash           payment-hash
-    payment-secret         `32^secret
-    amount                 amount
+    expiry                 ~h1
+    payment-hash           (sha256:bcu:bc 32^preimage)
+    description            `'blah'
+    amount                 `amount
     min-final-cltv-expiry  min-final-cltv-expiry:const:bolt
     route                  route-to-provider
   ==
 ::
 ++  route-to-provider
+  =,  secp256k1:secp:crypto
   ^-  (list route:bolt11)
   ::  TODO: construct this properly
-  :~  :*  pubkey=identity-pubkey.info.prov
+  :~  :*  pubkey=33^(compress-point identity-pubkey.info.prov)
           short-channel-id=0
           feebase=0
           feerate=0
-          cltv-expiry-delta=0
+          cltv-expiry-delta=3
   ==  ==
 ::
 ++  handle-provider-status
@@ -1355,7 +1337,8 @@
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
   ?:  (~(has-unacked-commitment channel c) %remote)  `c
-  ?.  (~(has-pending-changes channel c) %remote)     `c
+  ?.  (~(owes-commitment channel c) %local)          `c
+  ~&  >>  "%volt: sending next commitment {<id.c>}"
   =^  sigs  c  ~(sign-next-commitment channel c)
   =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
     sigs
@@ -1386,6 +1369,7 @@
     =+  key=[id.c htlc-id.h]
     =+  req=(~(get by outgoing.payments) key)
     ?~  req  `state
+    ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     :_  =-  state(outgoing.payments -)
@@ -1521,7 +1505,7 @@
           %agent  who^%volt-provider
           %watch  /status
       ==
-  ?:  (team:title src.bowl who)
+  ?:  (team:title our.bowl who)
     :~
       :*  %pass  /set-provider/[(scot %p who)]
           %agent  who^%volt-provider
@@ -1574,22 +1558,4 @@
   |=  =update
   ^-  card
   [%give %fact ~[/all] %volt-update !>(update)]
-::
-++  start-task-timer
-  |=  interval=@dr
-  ^-  card
-  :*  %pass  /task-timer
-      %arvo  %b
-      %wait  (add now.bowl interval)
-  ==
-::
-++  monitor-channels
-  ^-  (list card)
-  =/  update=command  [%update-channels ~]
-  :~  :*  %pass   /monitor/[(scot %da now.bowl)]
-          %agent  [our.bowl %volt]
-          %poke   %volt-command  !>(update)
-      ==
-      (start-task-timer ~s10)
-  ==
 --

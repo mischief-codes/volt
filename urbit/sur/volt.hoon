@@ -295,7 +295,6 @@
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%set-btc-provider provider=(unit ship)]
-      [%update-channels ~]
       [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
       [%create-funding temporary-channel-id=@ psbt=@t]
       [%close-channel =chan-id]
