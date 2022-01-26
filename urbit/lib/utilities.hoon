@@ -99,18 +99,35 @@
   |=  [a=@ oc=point ac=point]
   ^-  commitment-number
   (mix dat:(commitment-number-blinding-factor oc ac) a)
+::  +encode-point: DER-encode elliptic curve point
+::
+++  encode-point
+  |=  p=point
+  ^-  hexb:bc
+  %-  flip:byt:bcu:bc
+  %-  en:der
+  :-  %seq
+  :~  [%int x.p]
+      [%int y.p]
+  ==
+::  +decode-point: DER-decode elliptic curve point
+::
+++  decode-point
+  |=  h=hexb:bc
+  ^-  point
+  =/  a=spec:asn1:der
+    %-  need
+    %-  de:der
+    (flip:byt:bcu h)
+  ?.  ?=([%seq [%int @] [%int @] ~] a)
+    !!
+  [x=int.i.seq.a y=int.i.t.seq.a]
 ::  +extract-signature: parse DER-format signature or fail
 ::
 ++  extract-signature
   |=  =signature
   ^-  [r=@ s=@]
-  =/  a=spec:asn1:der
-    %-  need
-    %-  de:der
-    (flip:byt:bcu signature)
-  ?.  ?=([%seq [%int @] [%int @] ~] a)
-    !!
-  [r=int.i.seq.a s=int.i.t.seq.a]
+  (decode-point signature)
 ::  +ecdsa-verify: verify sig is a valid signature for pubkey
 ::
 ++  ecdsa-verify
