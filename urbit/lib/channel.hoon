@@ -720,6 +720,17 @@
     [%& state(fee-rate fee-rate.update)]
   --
 ::
+++  is-htlc-dust
+  |=  [ctx-owner=owner fee-per-kw=sats:bc htlc-owner=owner h=add-htlc-update]
+  ^-  ?
+  %:  is-trimmed:tx
+    direction=?:(=(ctx-owner htlc-owner) %sent %received)
+    amount-msats=amount-msats.h
+    feerate=fee-per-kw
+    dust-limit=dust-limit-sats:(config-for ctx-owner)
+    anchor=anchor-outputs.constraints.c
+  ==
+::
 ++  commitment-weight
   |=  $:  whose=owner
           fee-rate=sats:bc
@@ -740,13 +751,7 @@
     |=  sender=owner
     |=  h=add-htlc-update
     ^-  ?
-    %:  is-trimmed:tx
-      direction=?:(=(whose sender) %sent %received)
-      amount-msats=amount-msats.h
-      feerate=fee-rate
-      dust-limit=dust-limit-sats:(config-for whose)
-      anchor=anchor-outputs.constraints.c
-    ==
+    (is-htlc-dust whose fee-rate sender h)
   --
 ::
 ++  add-commitment-weight-and-fee
@@ -959,7 +964,7 @@
     acc
   ?:  (~(has by sent-htlc-index.ctx) i)
     =+  htlc=(~(got by sent-htlc-index.ctx) i)
-    ?:  (is-dust %local htlc)
+    ?:  (is-htlc-dust owner.ctx fee-per-kw.ctx %local htlc)
       $(i +(i))
     =+  sig=(sign-one %local htlc)
     %=  $
@@ -968,7 +973,7 @@
     ==
   ?:  (~(has by recd-htlc-index.ctx) i)
     =+  htlc=(~(got by recd-htlc-index.ctx) i)
-    ?:  (is-dust %remote htlc)
+    ?:  (is-htlc-dust owner.ctx fee-per-kw.ctx %remote htlc)
       $(i +(i))
     =+  sig=(sign-one %remote htlc)
     %=  $
@@ -987,17 +992,6 @@
           keys=keys
         ==
     0  32^privkey  ~
-  ::
-  ++  is-dust
-    |=  [whose=owner h=add-htlc-update]
-    ^-  ?
-    %:  is-trimmed:tx
-      direction=?:(=(owner.ctx whose) %sent %received)
-      amount-msats=amount-msats.h
-      feerate=fee-per-kw.ctx
-      dust-limit=dust-limit-sats:(config-for owner.ctx)
-      anchor=anchor-outputs.constraints.c
-    ==
   --
 ::  +check-htlc-signatures: validate HTLC signatures for commitment
 ::
@@ -1020,6 +1014,8 @@
   ?~  htlc-and-owner  $(i +(i))
   =/  [htlc=add-htlc-update whose=owner]
     u.htlc-and-owner
+  ?:  (is-htlc-dust owner.ctx fee-per-kw.ctx whose htlc)
+    $(i +(i))
   =/  htlc-tx=psbt:psbt
     %:  make-htlc-tx
       htlc=htlc
