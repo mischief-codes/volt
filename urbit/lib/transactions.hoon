@@ -406,9 +406,10 @@
           local-delayed-pubkey=delayed-pubkey
           to-self-delay=to-self-delay
         ==
+    =+  amount-sats=(msats-to-sats amount-msats.htlc)
     %=  output
       script-pubkey  script-pubkey
-      value          (msats-to-sats (sub amount-msats.htlc fee))
+      value          ?:((lth amount-sats fee) 0 (sub amount-sats fee))
     ==
   ::
   ++  witness-script
