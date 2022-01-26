@@ -278,12 +278,12 @@
       |^  ^-  result:rpc:volt
       ?-    -.act
           %get-info
-        =/  info=[version=@t hash=@t pubkey=@t]
-          %-  node-info  jon
+        =/  info=[version=@t commit-hash=@t pubkey=hexb:bc]
+          (node-info jon)
         :*  %get-info
-            version.info
-            hash.info
-            (as-octs:mimes:html pubkey.info)
+          version.info
+          commit-hash.info
+          (decompress-point:secp256k1:secp:crypto dat.pubkey.info)
         ==
       ::
           %wallet-balance
@@ -316,7 +316,7 @@
         %-  ot
         :~  [%version so]
             ['commit_hash' so]
-            ['identity_pubkey' so]
+            ['identity_pubkey' hex]
         ==
       ::
       ++  channel-point
