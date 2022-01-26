@@ -391,8 +391,9 @@
     ?:  =(0 amount-msats)
       ~&  >>>  "%volt: payreq amount is below 1 msat"
       `state
+    =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
     =/  who=(unit @p)
-      (~(get by their.keys) pubkey.u.invoice)
+      (~(get by their.keys) pubkey-point)
     ?~  who
       ::  unrecognized payee pubkey, try asking provider
       ::
@@ -911,13 +912,12 @@
     ?>  (~(has by live.chan) channel-id.msg)
     =+  c=(~(got by live.chan) channel-id.msg)
     ?>  =(ship.her.config.c src.bowl)
-    =^  cards-1  c
-      %-  maybe-send-commitment
-      %.  msg
-      ~(receive-revocation channel c)
-    =^  cards-2  state  (maybe-forward-htlcs c)
-    :-  (weld cards-1 cards-2)
-    state(live.chan (~(put by live.chan) id.c c))
+    =.  c  (~(receive-revocation channel c) msg)
+    =^  cards-1  c  (maybe-send-settle c)
+    =^  cards-2  c  (maybe-send-commitment c)
+    =^  cards-3  state  (maybe-forward-htlcs c)
+    :_  state(live.chan (~(put by live.chan) id.c c))
+    ;:(weld cards-1 cards-2 cards-3)
   ::
   ++  handle-shutdown
     |=  =shutdown:msg:bolt
@@ -1384,7 +1384,6 @@
     |=  [h=add-htlc-update:bolt state=_state]
     ^-  (quip card _state)
     ?~  volt.prov  `state
-    ~&  >>  "%volt: maybe forward {<src.bowl>} {<our.bowl>} {<host.u.volt.prov>}"
     ?.  (team:title our.bowl host.u.volt.prov)
       `state
     =+  req=(~(get by outgoing.payments) payment-hash.h)
@@ -1397,25 +1396,23 @@
     ~[(provider-command [%send-payment payreq.u.req ~ ~])]
   --
 ::
-++  maybe-settle-htlcs
+++  maybe-send-settle
   |=  c=chan:bolt
-  |^  ^-  (quip card _c)
-  =+  commitment=(~(oldest-unrevoked-commitment channel c) %local)
+  ^-  (quip card chan:bolt)
+  =+  commitment=(~(oldest-unrevoked-commitment channel c) %remote)
   ?~  commitment  `c
-  =^  cards  c
-    %^  spin  recd-htlcs.u.commitment
-      c
-    maybe-settle
-  [(zing cards) c]
-  ++  maybe-settle
-    |=  [h=add-htlc-update:bolt c=chan:bolt]
-    ^-  (quip card _c)
-    =+  preimage=(~(get by preimages.payments) payment-hash.h)
-    ?~  preimage  `c
-    :_  (~(settle-htlc channel c) u.preimage htlc-id.h)
-    =-  ~[(send-message - ship.her.config.c)]
-    [%update-fulfill-htlc id.c htlc-id.h u.preimage]
-  --
+  =/  with-preimages=(list add-htlc-update:bolt)
+    %+  skim  recd-htlcs.u.commitment
+    |=  h=add-htlc-update:bolt
+    ^-  ?
+    (~(has by preimages.payments) payment-hash.h)
+  ?~  with-preimages  `c
+  =+  h=(head with-preimages)
+  =+  preimage=(~(got by preimages.payments) payment-hash.h)
+  ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
+  :_  (~(settle-htlc channel c) preimage htlc-id.h)
+  =-  ~[(send-message - ship.her.config.c)]
+  [%update-fulfill-htlc id.c htlc-id.h preimage]
 ::
 ++  mark-open
   |=  c=chan:bolt
