@@ -40,8 +40,8 @@
           time=@da
       ==
       $=  payments
-      $:  outgoing=(map (pair id:bolt htlc-id:bolt) forward-request)
-          incoming=(map (pair id:bolt htlc-id:bolt) htlc-intercept-request:rpc)
+      $:  outgoing=(map hexb:bc forward-request)
+          incoming=(map hexb:bc htlc-intercept-request:rpc)
           preimages=(map hexb:bc hexb:bc)
       ==
   ==
@@ -1034,9 +1034,10 @@
     ?~  c  !!
     ?>  =(ship.her.config.u.c src.bowl)
     ?>  =(state.u.c %open)
+    ~&  >>  "%volt: received htlc {<htlc-id.htlc.action>} from {<src.bowl>}"
     =^  her-htlc=update-add-htlc:msg:bolt  u.c
       (~(receive-htlc channel u.c) htlc.action)
-    ~&  >>  "%volt: received htlc from {<src.bowl>}"
+    ~&  >>  "%volt: added htlc {<htlc-id.her-htlc>} from {<src.bowl>}"
     =|  req=forward-request
     =.  req
       %=  req
@@ -1050,7 +1051,7 @@
       (~(put by live.chan) id.u.c u.c)
     ::
         outgoing.payments
-      (~(put in outgoing.payments) [id.u.c htlc-id.her-htlc] req)
+      (~(put by outgoing.payments) payment-hash.her-htlc req)
     ==
   ==
 ::
@@ -1105,27 +1106,42 @@
     `state(info.prov +>.update)
   ::
       %payment-update
-    ~&  >>  "PAYM:{<+.result>}"
     (handle-payment-update +>.update)
   ::
       %htlc
-    ~&  >>  "HTLC:{<+.result>}"
+    ~&  >>  "HTLC:{<+.update>}"
     (handle-htlc-intercept +>.update)
   ==
   ++  handle-payment-update
     |=  result=payment:rpc
     ^-  (quip card _state)
-    =^  cards  state
-      %^  spin  ~(val by outgoing.payments)
-        state
-      |=  [req=forward-request state=_state]
-      ?.  =(payment-hash.htlc.req hash.result)
-        `state
-      ?.  =(status.result %'SUCCEEDED')
-        `state  ::  Fail it ?
-      =-  `state(preimages.payments -)
-      (~(put by preimages.payments) hash.result preimage.result)
-    [(zing cards) state]
+    =+  req=(~(get by outgoing.payments) hash.result)
+    ?~  req  `state
+    =+  c=(~(get by live.chan) channel-id.htlc.u.req)
+    ?~  c  `state  :: drop it?
+    ?:  =(status.result %'SUCCEEDED')
+      =.  u.c  (~(settle-htlc channel u.c) preimage.result htlc-id.htlc.u.req)
+      =^  cards  u.c  (maybe-send-commitment u.c)
+      :_  %=    state
+              live.chan
+            (~(put by live.chan) id.u.c u.c)
+          ::
+              preimages.payments
+            (~(put by preimages.payments) hash.result preimage.result)
+          ::
+              outgoing.payments
+            (~(del by outgoing.payments) hash.result)
+          ==
+      =-  [(send-message - ship.her.config.u.c) cards]
+      [%update-fulfill-htlc id.u.c htlc-id.htlc.u.req preimage.result]
+    ::
+    ?:  =(status.result %'FAILED')
+      =.  u.c  (~(fail-htlc channel u.c) htlc-id.htlc.u.req)
+      =^  cards  u.c  (maybe-send-commitment u.c)
+      :_  state(live.chan (~(put by live.chan) id.u.c u.c))
+      =-  [(send-message - ship.her.config.u.c) cards]
+      [%update-fail-htlc id.u.c htlc-id.htlc.u.req `@t`failure-reason.result]
+    `state
   ::
   ++  handle-htlc-intercept
     |=  result=htlc-intercept-request:rpc
@@ -1141,16 +1157,15 @@
         payment-hash  payment-hash.result
         cltv-expiry   incoming-expiry.result
       ==
-    =^  htlc  u.c  (~(receive-htlc channel u.c) msg)
-    :-  ~
+    =^  htlc   u.c  (~(receive-htlc channel u.c) msg)
+    =^  cards  u.c  (maybe-send-commitment u.c)
+    :-  cards
     %=    state
         live.chan
       (~(put by live.chan) id.u.c u.c)
     ::
         incoming.payments
-      %+  ~(put by incoming.payments)
-        [id.u.c htlc-id.incoming-circuit-key.result]
-      result
+      (~(put by incoming.payments) payment-hash.result result)
     ==
   --
 ::
@@ -1328,6 +1343,7 @@
 ++  send-revoke-and-ack
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
+  ~&  >>  "%volt: revoking current commitment {<id.c>}"
   =^  rev    c  ~(revoke-current-commitment channel c)
   =^  cards  c  (maybe-send-commitment c)
   :_  c
@@ -1364,16 +1380,16 @@
     |=  [h=add-htlc-update:bolt state=_state]
     ^-  (quip card _state)
     ?~  volt.prov  `state
+    ~&  >>  "%volt: maybe forward {<src.bowl>} {<our.bowl>} {<host.u.volt.prov>}"
     ?.  (team:title our.bowl host.u.volt.prov)
       `state
-    =+  key=[id.c htlc-id.h]
-    =+  req=(~(get by outgoing.payments) key)
+    =+  req=(~(get by outgoing.payments) payment-hash.h)
     ?~  req  `state
     ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     :_  =-  state(outgoing.payments -)
-        (~(put by outgoing.payments) key u.req)
+        (~(put by outgoing.payments) payment-hash.h u.req)
     ~[(provider-command [%send-payment payreq.u.req ~ ~])]
   --
 ::
@@ -1501,13 +1517,13 @@
 ++  watch-provider
   |=  who=@p
   ^-  (list card)
-  :-  :*  %pass   /set-provider/[(scot %p who)]
+  :-  :*  %pass   /provider-status/[(scot %p who)]
           %agent  who^%volt-provider
           %watch  /status
       ==
   ?:  (team:title our.bowl who)
     :~
-      :*  %pass  /set-provider/[(scot %p who)]
+      :*  %pass  /provider-updates/[(scot %p who)]
           %agent  who^%volt-provider
           %watch  /clients
       ==
