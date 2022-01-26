@@ -1318,7 +1318,11 @@
     ?~  peer-ids
       (~(del by peer.chan) ship)
     (~(put by peer.chan) ship peer-ids)
-  ::  TODO: remove pubkey if no channels left
+  ::
+      their.keys
+    ?~  peer-ids
+      (~(del by their.keys) ship)
+    their.keys
   ==
 ::
 ++  send-funding-locked
