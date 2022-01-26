@@ -688,20 +688,23 @@
       state(ours-pending-lock-in (snoc ours-pending-lock-in.state update))
     =?  state  ?!(ours)
       state(hers-pending-lock-in (snoc hers-pending-lock-in.state update))
-    =?  state  ?&(?!(ours) ?=([%settle-htlc *] update))
-      %=  state
-        our-balance   (add our-balance.state amount)
-        sent-settled  (add sent-settled.state amount)
-      ==
-    =?  state  ?&(?!(ours) ?!(?=([%settle-htlc *] update)))
-      state(her-balance (add her-balance.state amount))
+    ::
     =?  state  ?&(ours ?=([%settle-htlc *] update))
       %=  state
-        her-balance   (add her-balance.state amount)
+        our-balance   (add our-balance.state amount)
         recd-settled  (add recd-settled.state amount)
       ==
     =?  state  ?&(ours ?!(?=([%settle-htlc *] update)))
+      state(her-balance (add her-balance.state amount))
+    ::
+    =?  state  ?&(?!(ours) ?=([%settle-htlc *] update))
+      %=  state
+        her-balance   (add her-balance.state amount)
+        sent-settled  (add sent-settled.state amount)
+      ==
+    =?  state  ?&(?!(ours) ?!(?=([%settle-htlc *] update)))
       state(our-balance (add our-balance.state amount))
+    ::
     state
   ::
   ++  evaluate-fee
