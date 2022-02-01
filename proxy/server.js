@@ -207,13 +207,13 @@ app.delete('/invoice/:payment_hash', (req, res) => {
     invoices.cancelInvoice(msg, returnToShip(res))
 })
 
-app.post('/resolve_htlc', (req, res) => {
+app.post('/settle_invoice', (req, res) => {
     let body = req.body
-    console.log(req.body)
-    if (body.primage)
-	body.preimage = Buffer.from(body.preimage, 'base64')
-    htlc.write(body)
-    res.status(200).send(body)
+    if (body.preimage) {
+	body.preimage =
+	    Buffer.from(body.preimage, 'base64')
+    }
+    invoicesrpc.settleInvoice(body, returnToShip(res))
 })
 
 app.listen(port, () => console.log(`Proxy listening on port: ${port}`))
