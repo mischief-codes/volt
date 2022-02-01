@@ -93,7 +93,6 @@ let serialize = (obj) => {
 let sendToShip = (path) => {
     let handler = data => {
 	let body = serialize(data)
-	console.log(data)
 	let options = makeRequestOptions(path, body)
 	let req = http.request(options, res => {
 	    if (res.statusCode == 201)
@@ -111,7 +110,6 @@ let sendToShip = (path) => {
 
 let returnToShip = (res) => {
     let handler = (err, data) => {
-	console.log(data)
 	if (err) {
 	    res.status(500).json({'code': err.code, 'message': err.details})
 	} else {
