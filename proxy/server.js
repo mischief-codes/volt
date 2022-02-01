@@ -123,12 +123,12 @@ let returnToShip = (res) => {
 let chans = lightning.subscribeChannelEvents({})
 chans.on('data', sendToShip('/~volt-channels'))
 chans.on('status', status => { console.log(status) })
-chans.on('end', () => {})
+chans.on('end', () => { console.log("Closing channel monitor") })
 
 let htlc = router.HtlcInterceptor({})
 htlc.on('data', sendToShip('/~volt-htlcs'))
 htlc.on('status', status => { console.log(status) })
-htlc.on('end', () => {})
+htlc.on('end', () => { console.log("Closing HTLCInterceptor") })
 
 let invoice = lightning.SubscribeInvoices({
     'add_index' : 0,
@@ -136,7 +136,7 @@ let invoice = lightning.SubscribeInvoices({
 })
 invoice.on('data', sendToShip('/~volt-invoices'))
 invoice.on('status', status => { console.log(status) })
-invoice.on('end', () => { console.log('Closing invoices') })
+invoice.on('end', () => { console.log('Closing invoice monitor') })
 
 let app = express()
 app.use(bodyParser.json())
@@ -202,11 +202,7 @@ app.post('/invoice', (req, res) => {
 	body.r_hash =
 	    Buffer.from(body.r_hash, 'base64')
     }
-    if (body.r_preimage) {
-	body.r_preimage =
-	    Buffer.from(body.r_preimage, 'base64')
-    }
-    lightning.AddInvoice(body, returnToShip(res))
+    invoicesrpc.addHoldInvoice(body, returnToShip(res))
 })
 
 app.delete('/invoice/:payment_hash', (req, res) => {

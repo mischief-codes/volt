@@ -38,10 +38,9 @@
         [%settle-htlc =circuit-key =preimage]
         [%fail-htlc =circuit-key]
         [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
-        $:  %add-invoice
+        $:  %add-hold-invoice
           =amt=msats
           memo=(unit cord)
-          preimage=(unit preimage)
           hash=(unit hash)
           expiry=(unit @dr)
         ==
@@ -56,7 +55,7 @@
         [%settle-htlc =circuit-key]
         [%fail-htlc =circuit-key]
         [%send-payment ~]
-        [%add-invoice add-invoice-response]
+        [%add-hold-invoice add-hold-invoice-response]
         [%cancel-invoice ~]
     ==
   ::
@@ -167,6 +166,12 @@
         unconfirmed-balance=msats
     ==
   ::
+  +$  add-hold-invoice-response
+    $:  payment-request=cord
+        add-index=@ud
+        payment-address=hexb:bc
+    ==
+  ::
   +$  add-invoice-response
     $:  r-hash=hexb:bc
         payment-request=cord
@@ -230,6 +235,7 @@
   +$  result
     $%  [%node-info =node-info]
         [%htlc htlc-intercept-request:rpc]
+        [%hold-invoice add-hold-invoice-response:rpc]
         [%invoice-added add-invoice-response:rpc]
         [%invoice-update invoice:rpc]
         [%channel-update channel-update:rpc]
@@ -302,7 +308,7 @@
   ==
 ::
 +$  action
-  $%  [%give-invoice =amount=msats =network:bolt]
+  $%  [%give-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
       [%take-invoice =payreq]
       [%give-pubkey nonce=@]
       [%take-pubkey sig=[v=@ r=@ s=@]]

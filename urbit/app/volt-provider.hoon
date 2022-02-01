@@ -2,7 +2,7 @@
 ::  LND daemon integration agent
 ::
 /-  volt
-/+  server, default-agent, dbug, libvolt=volt
+/+  server, default-agent, dbug, lnd-rpc
 =,  provider:volt
 |%
 +$  card  card:agent:gall
@@ -185,22 +185,22 @@
     |=  =json
     ?:  =(url.request.inbound-request '/~volt-channels')
       %+  handle-channel-update  id
-      %-  channel-update:dejs:rpc:libvolt
+      %-  channel-update:dejs:lnd-rpc
       json
     ::
     ?:  =(url.request.inbound-request '/~volt-payments')
       %+  handle-payment-update  id
-      %-  payment:dejs:rpc:libvolt
+      %-  payment:dejs:lnd-rpc
       json
     ::
     ?:  =(url.request.inbound-request '/~volt-invoices')
       %+  handle-invoice-update  id
-      %-  invoice:dejs:rpc:libvolt
+      %-  invoice:dejs:lnd-rpc
       json
     ::
     ?>  =(url.request.inbound-request '/~volt-htlcs')
       %+  handle-htlc-intercept  id
-      %-  htlc-intercept-request:dejs:rpc:libvolt
+      %-  htlc-intercept-request:dejs:lnd-rpc
       json
   [(no-content id) state]
   ::
@@ -303,6 +303,13 @@
       %close-channel
     ?>  ?=([%close-channel *] result)
     `state
+  ::
+      %add-hold-invoice
+    ?>  ?=([%add-hold-invoice *] result)
+    :_  state(connected.host-info %.y)
+    :~  (give-status %connected)
+        (give-update [%& %hold-invoice +.result])
+    ==
   ::
       %settle-htlc
     ?>  ?=([%settle-htlc *] result)
