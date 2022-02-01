@@ -125,14 +125,6 @@ chans.on('data', sendToShip('/~volt-channels'))
 chans.on('status', status => { console.log(status) })
 chans.on('end', () => { console.log("Closing channel monitor") })
 
-let invoice = lightning.SubscribeInvoices({
-    'add_index' : 0,
-    'settle_index' : 0
-})
-invoice.on('data', sendToShip('/~volt-invoices'))
-invoice.on('status', status => { console.log(status) })
-invoice.on('end', () => { console.log('Closing invoice monitor') })
-
 let app = express()
 app.use(bodyParser.json())
 
@@ -191,15 +183,26 @@ app.post('/payment', (req, res) => {
     res.status(200).send({})
 })
 
+//  create and subscribe to a hold invoice
 app.post('/invoice', (req, res) => {
     let body = req.body
-    if (body.r_hash) {
-	body.r_hash =
-	    Buffer.from(body.r_hash, 'base64')
+    if (body.hash) {
+	body.hash = Buffer.from(body.hash, 'base64')
     }
-    invoices.addHoldInvoice(body, returnToShip(res))
+    invoices.addHoldInvoice(body, (err, resp) => {
+	let ret = returnToShip(res)
+	if (err) { ret(err, resp) }
+	let call = invoices.subscribeSingleInvoice (
+	    { 'r_hash' : body.hash }
+	)
+	call.on('data', sendToShip('/~volt-invoices'))
+	call.on('status', () => sendToShip('/~volt-invoices'))
+	call.on('end', () => {})
+	ret(err, resp)
+    })
 })
 
+//  cancel a hold invoice
 app.delete('/invoice/:payment_hash', (req, res) => {
     let msg = {
 	'payment_hash' : Buffer.from(req.params.payment_hash, 'base64')
@@ -207,6 +210,7 @@ app.delete('/invoice/:payment_hash', (req, res) => {
     invoices.cancelInvoice(msg, returnToShip(res))
 })
 
+//  settle a hold invoice with received preimage
 app.post('/settle_invoice', (req, res) => {
     let body = req.body
     if (body.preimage) {
