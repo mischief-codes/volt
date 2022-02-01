@@ -1641,8 +1641,8 @@
   =|  update=add-htlc-update
   =.  update
     %=  update
-      index         update-count.our.updates.c
-      htlc-id       htlc-count.our.updates.c
+      index         update-count.her.updates.c
+      htlc-id       htlc-count.her.updates.c
       amount-msats  amount-msats
     ==
   (can-add-htlc %remote update)
