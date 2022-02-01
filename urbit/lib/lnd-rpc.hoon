@@ -52,30 +52,16 @@
     ++  add-hold-invoice
       |=  $:  amt=msats:volt
               memo=(unit cord)
-              payment-hash=(unit hexb:bc)
+              payment-hash=hexb:bc
               expiry=(unit @dr)
           ==
-      |^  ^-  json
+      ^-  json
       %-  pairs
       :~  ['memo' [%s (fall memo '')]]
-          ['hash' [%s hash]]
+          ['hash' [%s (en:base64:mimes:html (flip:byt:bcu payment-hash))]]
           ['value_msat' (numb amt)]
-          ['expiry' expiry-time]
+          ['expiry' (numb (div (fall expiry ~h1) ~s1))]
       ==
-      ++  expiry-time
-        %-  numb
-        %+  div
-          (fall expiry ~h1)
-        ~s1
-      ::
-      ++  hash
-        %+  fall
-          %+  bind  payment-hash
-          |=  h=hash:volt
-          %-  en:base64:mimes:html
-          %-  flip:byt:bcu  h
-        ''
-      --
     --
   --
 ::

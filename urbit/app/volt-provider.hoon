@@ -137,6 +137,9 @@
       %ping
     [(do-rpc [%get-info ~]) state]
   ::
+      %add-hold-invoice
+    [(do-rpc [%add-hold-invoice +.action]) state]
+  ::
       %settle-invoice
     [(do-rpc [%settle-invoice preimage.action]) state]
   ::

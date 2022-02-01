@@ -28,7 +28,7 @@
         $:  %add-hold-invoice
           =amt=msats
           memo=(unit cord)
-          hash=(unit hash)
+          =payment=hash
           expiry=(unit @dr)
         ==
         [%settle-invoice =preimage]
@@ -190,6 +190,7 @@
   ::
   +$  action
     $%  [%ping ~]
+        [%add-hold-invoice =amt=msats memo=(unit @t) =payment=hash expiry=(unit @dr)]
         [%settle-invoice =preimage]
         [%cancel-invoice =payment=hash]
     ==
