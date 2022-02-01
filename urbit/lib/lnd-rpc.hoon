@@ -1,11 +1,11 @@
-::
 ::  lib/lnd-rpc.hoon
 ::
-/-  spider, volt, bc=bitcoin
-/+  *strandio, bcu=bitcoin-utils
+/-  spider, volt
+/+  *strandio, bc=bitcoin
 =,  strand=strand:spider
 |_  =host-info:provider:volt
 ::
+++  bcu  bcu:bc
 ++  enjs
   =,  enjs:format
   |%
@@ -71,6 +71,16 @@
   ++  base64
     %+  cu  flip:byt:bcu
     %-  su  parse:base64:mimes:html
+  ::
+  ++  maybe-base64
+    |=  jon=json
+    ^-  (unit hexb:bc)
+    ?>  ?=([%s *] jon)
+    ?:  =(p.jon '')
+      ~
+    %-  some
+    %-  flip:byt:bcu:bc
+    (need (de:base64:mimes:html p.jon))
   ::
   ++  hex     (su rule:base16:mimes:html)
   ::
@@ -178,17 +188,14 @@
   ::
   ++  add-hold-invoice-response
     %-  ot
-    :~  ['payment_request' so]
-        ['add_index' (su dim:ag)]
-        ['payment_addr' base64]
-    ==
+    ~[['payment_request' so]]
   ::
   ++  invoice
     =,  chrono:userlib
     |^
     %-  ot
     :~  ['memo' so]
-        ['r_preimage' base64]
+        ['r_preimage' maybe-base64]
         ['r_hash' base64]
         ['value_msat' (su dim:ag)]
         ['settled' bo]

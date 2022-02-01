@@ -93,6 +93,7 @@ let serialize = (obj) => {
 let sendToShip = (path) => {
     let handler = data => {
 	let body = serialize(data)
+	console.log(data)
 	let options = makeRequestOptions(path, body)
 	let req = http.request(options, res => {
 	    if (res.statusCode == 201)
@@ -110,6 +111,7 @@ let sendToShip = (path) => {
 
 let returnToShip = (res) => {
     let handler = (err, data) => {
+	console.log(data)
 	if (err) {
 	    res.status(500).json({'code': err.code, 'message': err.details})
 	} else {
@@ -197,7 +199,7 @@ app.post('/invoice', (req, res) => {
 	body.r_hash =
 	    Buffer.from(body.r_hash, 'base64')
     }
-    invoicesrpc.addHoldInvoice(body, returnToShip(res))
+    invoices.addHoldInvoice(body, returnToShip(res))
 })
 
 app.delete('/invoice/:payment_hash', (req, res) => {
@@ -213,7 +215,7 @@ app.post('/settle_invoice', (req, res) => {
 	body.preimage =
 	    Buffer.from(body.preimage, 'base64')
     }
-    invoicesrpc.settleInvoice(body, returnToShip(res))
+    invoices.settleInvoice(body, returnToShip(res))
 })
 
 app.listen(port, () => console.log(`Proxy listening on port: ${port}`))

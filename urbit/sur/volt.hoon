@@ -136,8 +136,6 @@
   ::
   +$  add-hold-invoice-response
     $:  payment-request=cord
-        add-index=@ud
-        payment-address=hexb:bc
     ==
   ::
   +$  add-invoice-response
@@ -149,7 +147,7 @@
   ::
   +$  invoice
     $:  memo=cord
-        =r=preimage
+        r-preimage=(unit preimage)
         =r=hash
         =value=msats
         settled=?
