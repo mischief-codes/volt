@@ -34,7 +34,6 @@
   :~  [%pass /bind %arvo %e %connect [~ /'~volt-channels'] %volt-provider]
       [%pass /bind %arvo %e %connect [~ /'~volt-payments'] %volt-provider]
       [%pass /bind %arvo %e %connect [~ /'~volt-invoices'] %volt-provider]
-      [%pass /bind %arvo %e %connect [~ /'~volt-htlcs'] %volt-provider]
   ==
 ::
 ++  on-save
@@ -138,15 +137,11 @@
       %ping
     [(do-rpc [%get-info ~]) state]
   ::
-      %settle-htlc
-    :_  state
-    %-  do-rpc
-    [%settle-htlc circuit-key.htlc-info.action preimage.action]
+      %settle-invoice
+    [(do-rpc [%settle-invoice preimage.action]) state]
   ::
-      %fail-htlc
-    :_  state
-    %-  do-rpc
-    [%fail-htlc circuit-key.htlc-info.action]
+      %cancel-invoice
+    [(do-rpc [%cancel-invoice payment-hash.action]) state]
   ==
 ::
 ++  handle-command
@@ -193,14 +188,9 @@
       %-  payment:dejs:lnd-rpc
       json
     ::
-    ?:  =(url.request.inbound-request '/~volt-invoices')
+    ?>  =(url.request.inbound-request '/~volt-invoices')
       %+  handle-invoice-update  id
       %-  invoice:dejs:lnd-rpc
-      json
-    ::
-    ?>  =(url.request.inbound-request '/~volt-htlcs')
-      %+  handle-htlc-intercept  id
-      %-  htlc-intercept-request:dejs:lnd-rpc
       json
   [(no-content id) state]
   ::
@@ -268,13 +258,6 @@
   :-  (give-update [%& %invoice-update invoice])
       (no-content id)
 ::
-++  handle-htlc-intercept
-  |=  [id=@ta req=htlc-intercept-request:rpc:volt]
-  ^-  (quip card _state)
-  :_  state
-  :-  (give-update [%& %htlc req])
-      (no-content id)
-::
 ++  handle-rpc-response
   |=  [=wire =response:rpc:volt]
   ^-  (quip card _state)
@@ -311,14 +294,12 @@
         (give-update [%& %hold-invoice +.result])
     ==
   ::
-      %settle-htlc
-    ?>  ?=([%settle-htlc *] result)
-    ~&  >  "%volt-provider: settled HTLC: {<circuit-key.result>}"
+      %settle-invoice
+    ?>  ?=([%settle-invoice *] result)
     `state
   ::
-      %fail-htlc
-    ?>  ?=([%fail-htlc *] result)
-    ~&  >>>  "%volt-provider: failed HTLC: {<circuit-key.result>}"
+      %cancel-invoice
+    ?>  ?=([%cancel-invoice *] result)
     `state
   ::
       %send-payment

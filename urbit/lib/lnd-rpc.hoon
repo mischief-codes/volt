@@ -14,10 +14,10 @@
     |^  ^-  json
     ?+  -.act  ~|("Unknown request type" !!)
       %open-channel        (open-channel +.act)
-      %settle-htlc         (settle-htlc +.act)
-      %fail-htlc           (fail-htlc +.act)
       %send-payment        (send-payment +.act)
       %add-hold-invoice    (add-hold-invoice +.act)
+      %settle-invoice      (settle-invoice +.act)
+      %cancel-invoice      (cancel-invoice +.act)
     ==
     ++  open-channel
       |=  [=pubkey:volt local-amt=sats:bc push-amt=sats:bc]
@@ -28,22 +28,17 @@
           ['push_sat' (numb push-amt)]
       ==
     ::
-    ++  settle-htlc
-      |=  [ck=circuit-key:rpc:volt preimage=hexb:bc]
+    ++  settle-invoice
+      |=  preimage=hexb:bc
       ^-  json
       %-  pairs
-      :~  ['circuit_key' (circuit-key ck)]
-          ['action' [%s 'SETTLE']]
-          ['preimage' [%s (en:base64:mimes:html preimage)]]
-      ==
+      ~[['preimage' [%s (en:base64:mimes:html preimage)]]]
     ::
-    ++  fail-htlc
-      |=  ck=circuit-key:rpc:volt
+    ++  cancel-invoice
+      |=  hash=hexb:bc
       ^-  json
       %-  pairs
-      :~  ['circuit_key' (circuit-key ck)]
-          ['action' [%s 'FAIL']]
-      ==
+      ~[['payment_hash' [%s (en:base64:mimes:html hash)]]]
     ::
     ++  send-payment
       |=  [invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
@@ -81,14 +76,6 @@
           %-  flip:byt:bcu  h
         ''
       --
-    ::
-    ++  circuit-key
-      |=  ck=circuit-key:rpc:volt
-      ^-  json
-      %-  pairs
-      :~  ['chan_id' (numb chan-id.ck)]
-          ['htlc_id' (numb htlc-id.ck)]
-      ==
     --
   --
 ::
@@ -171,33 +158,6 @@
           ['remote_balance' (su dim:ag)]
           ['commit_fee' (su dim:ag)]
           ['total_satoshis_sent' (su dim:ag)]
-      ==
-    --
-  ::
-  ++  htlc-intercept-request
-    |=  =json
-    |^  ^-  htlc-intercept-request:rpc:volt
-    %.  json
-    %-  ot
-    :~  ['incoming_circuit_key' circuit-key]
-        ['incoming_amount_msat' (su dim:ag)]
-        ['incoming_expiry' ni]
-        ['payment_hash' base64]
-        ['outgoing_requested_chan_id' (su dim:ag)]
-        ['outgoing_amount_msat' (su dim:ag)]
-        ['outgoing_expiry' ni]
-        ['onion_blob' base64]
-    ==
-    ++  circuit-key
-      %-  ot
-      :~  ['chan_id' (su dim:ag)]
-          ['htlc_id' (su dim:ag)]
-      ==
-    ::
-    ++  custom-record
-      %-  ot
-      :~  ['key' ni]
-          ['value' base64]
       ==
     --
   ::
@@ -284,12 +244,6 @@
         %close-channel
       [%close-channel ~]
     ::
-        %settle-htlc
-      [%settle-htlc circuit-key.act]
-    ::
-        %fail-htlc
-      [%fail-htlc circuit-key.act]
-    ::
         %send-payment
       [%send-payment ~]
     ::
@@ -298,6 +252,9 @@
     ::
         %cancel-invoice
       [%cancel-invoice ~]
+    ::
+        %settle-invoice
+      [%settle-invoice ~]
     ==
     ++  node-info
       %-  ot
@@ -343,16 +300,6 @@
     %-  delete-request
     %+  url  '/channel/'  parms
   ::
-      %settle-htlc
-    %+  post-request
-    %+  url  '/resolve_htlc'  ''
-    act
-  ::
-      %fail-htlc
-    %+  post-request
-    %+  url  '/resolve_htlc'  ''
-    act
-  ::
       %wallet-balance
     %-  get-request
     %+  url  '/wallet_balance'  ''
@@ -365,6 +312,11 @@
       %add-hold-invoice
     %+  post-request
     %+  url  '/invoice'  ''
+    act
+  ::
+      %settle-invoice
+    %+  post-request
+    %+  url  '/settle_invoice'  ''
     act
   ::
       %cancel-invoice

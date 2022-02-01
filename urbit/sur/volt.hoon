@@ -11,21 +11,10 @@
 +$  chan-id  id:bolt
 +$  htlc-id  htlc-id:bolt
 ::
-+$  circuit-key
-  $:  =chan-id
-      =htlc-id
-  ==
-::
 +$  node-info
   $:  version=@t
       commit-hash=@t
       =identity=pubkey
-  ==
-::
-+$  htlc-info
-  $:  =circuit-key  :: incoming circuit
-      =hash         :: payment hash
-      =chan-id      :: outgoing channel
   ==
 ::
 ++  rpc
@@ -35,8 +24,6 @@
         [%wallet-balance ~]
         [%open-channel node=pubkey local-amount=sats:bc push-amount=sats:bc]
         [%close-channel funding-txid=txid output-index=@ud]
-        [%settle-htlc =circuit-key =preimage]
-        [%fail-htlc =circuit-key]
         [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
         $:  %add-hold-invoice
           =amt=msats
@@ -44,6 +31,7 @@
           hash=(unit hash)
           expiry=(unit @dr)
         ==
+        [%settle-invoice =preimage]
         [%cancel-invoice =payment=hash]
     ==
   ::
@@ -52,10 +40,9 @@
         [%wallet-balance total=msats confirmed=msats unconfirmed=msats]
         [%open-channel channel-point]
         [%close-channel ~]
-        [%settle-htlc =circuit-key]
-        [%fail-htlc =circuit-key]
         [%send-payment ~]
         [%add-hold-invoice add-hold-invoice-response]
+        [%settle-invoice ~]
         [%cancel-invoice ~]
     ==
   ::
@@ -112,25 +99,6 @@
     $:  =txid
         output-index=@ud
     ==
-  ::
-  +$  htlc-intercept-request
-    $:  incoming-circuit-key=circuit-key
-        =incoming-amount=msats
-        incoming-expiry=@ud
-        payment-hash=hexb:bc
-        outgoing-requested-chan-id=chan-id
-        outgoing-amount-msat=sats:bc
-        outgoing-expiry=@ud
-        onion-blob=hexb:bc
-    ==
-  ::
-  +$  htlc-intercept-response
-    $:  incoming-circuit-key=circuit-key
-        action=htlc-action
-        preimage=(unit hexb:bc)
-    ==
-  ::
-  +$  htlc-action  ?(%'SETTLE' %'FAIL' %'RESUME')
   ::
   +$  payment
     $:  =hash
@@ -222,8 +190,8 @@
   ::
   +$  action
     $%  [%ping ~]
-        [%settle-htlc =htlc-info =preimage]
-        [%fail-htlc =htlc-info]
+        [%settle-invoice =preimage]
+        [%cancel-invoice =payment=hash]
     ==
   ::
   +$  error
@@ -234,7 +202,6 @@
   ::
   +$  result
     $%  [%node-info =node-info]
-        [%htlc htlc-intercept-request:rpc]
         [%hold-invoice add-hold-invoice-response:rpc]
         [%invoice-added add-invoice-response:rpc]
         [%invoice-update invoice:rpc]

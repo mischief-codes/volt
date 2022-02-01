@@ -125,11 +125,6 @@ chans.on('data', sendToShip('/~volt-channels'))
 chans.on('status', status => { console.log(status) })
 chans.on('end', () => { console.log("Closing channel monitor") })
 
-let htlc = router.HtlcInterceptor({})
-htlc.on('data', sendToShip('/~volt-htlcs'))
-htlc.on('status', status => { console.log(status) })
-htlc.on('end', () => { console.log("Closing HTLCInterceptor") })
-
 let invoice = lightning.SubscribeInvoices({
     'add_index' : 0,
     'settle_index' : 0

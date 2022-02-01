@@ -41,7 +41,7 @@
       ==
       $=  payments
       $:  outgoing=(map hexb:bc forward-request)
-          incoming=(map hexb:bc htlc-intercept-request:rpc)
+          incoming=(map hexb:bc add-hold-invoice-response:rpc)
           preimages=(map hexb:bc hexb:bc)
       ==
   ==
@@ -624,7 +624,7 @@
         is-local-initiator=%.n
         anchors=%.y
         round=%.n
-        ==
+      ==
     ?:  (lth initial-msats.remote-config commit-fees)
       ~|("%volt: funder's amount is insufficient for full fee payment" !!)
     ::  The receiving node MUST fail the channel if:
@@ -995,8 +995,7 @@
   ^-  (quip card _state)
   ?-    -.action
       %give-invoice
-    =+  (make-invoice network.action amount-msats.action)
-    ~&  >  invoice
+    =+  (make-invoice amount-msats.action memo.action network.action)
     =+  payreq=(en:bolt11 invoice 32^prv.our.keys)
     :_  %=    state
             preimages.payments
@@ -1057,35 +1056,60 @@
 ::
 ++  make-invoice
   =,  secp256k1:secp:crypto
-  |=  [=network:bolt =amount=msats]
+  |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
   ^-  [=invoice:bolt11 preimage=hexb:bc]
   =/  rng  ~(. og eny.bowl)
   =^  preimage  rng  (rads:rng (bex 256))
   =^  secret    rng  (rads:rng (bex 256))
-  =+  amount=(msats-to-amount:bolt11 amount-msats)
+  =/  fee=msats
+    %+  add  fee-base-msats
+    %+  div
+      %+  mul  fee-proportional-usat
+      (mul amount-msats 1.000)
+    1.000
+  =/  amount=amount:bolt11
+    %-  msats-to-amount:bolt11
+    amount-msats
+  =/  feature-bits=bits:bc
+    :-  15
+    %+  con
+      (lsh [0 14] 1)
+    (lsh [0 9] 1)
   =|  =invoice:bolt11
   :_  32^preimage
   %=  invoice
-    network                network
+    network                (fall network %main)
     timestamp              now.bowl
     expiry                 ~h1
+    payment-secret         `32^secret
     payment-hash           (sha256:bcu:bc 32^preimage)
-    description            `'blah'
+    description            `(fall memo '')
     amount                 `amount
-    min-final-cltv-expiry  min-final-cltv-expiry:const:bolt
+    pubkey                 33^(compress-point pub.our.keys)
+    min-final-cltv-expiry  40 ::  min-final-cltv-expiry:const:bolt
     route                  route-to-provider
+    feature-bits           feature-bits
   ==
+::
+++  fee-base-msats  0         ::  1.000
+++  fee-proportional-usat  0  ::  1
 ::
 ++  route-to-provider
   =,  secp256k1:secp:crypto
   ^-  (list route:bolt11)
-  ::  TODO: construct this properly
   :~  :*  pubkey=33^(compress-point identity-pubkey.info.prov)
           short-channel-id=0
-          feebase=0
-          feerate=0
-          cltv-expiry-delta=3
-  ==  ==
+          feebase=fee-base-msats
+          feerate=fee-proportional-usat
+          cltv-expiry-delta=0  ::  40
+      ==
+      :*  pubkey=33^(compress-point pub.our.keys)
+          short-channel-id=0
+          feebase=fee-base-msats
+          feerate=fee-proportional-usat
+          cltv-expiry-delta=0  ::  40
+      ==
+  ==
 ::
 ++  handle-provider-status
   |=  =status:provider
@@ -1108,9 +1132,9 @@
       %payment-update
     (handle-payment-update +>.update)
   ::
-      %htlc
-    ~&  >>  "HTLC:{<+.update>}"
-    (handle-htlc-intercept +>.update)
+      %hold-invoice
+    ~&  >>  "INVOICE:{<+.update>}"
+    (handle-hold-invoice +>.update)
   ==
   ++  handle-payment-update
     |=  result=payment:rpc
@@ -1143,30 +1167,10 @@
       [%update-fail-htlc id.u.c htlc-id.htlc.u.req `@t`failure-reason.result]
     `state
   ::
-  ++  handle-htlc-intercept
-    |=  result=htlc-intercept-request:rpc
+  ++  handle-hold-invoice
+    |=  result=add-hold-invoice-response:rpc
     ^-  (quip card _state)
-    =+  c=(~(get by live.chan) chan-id.incoming-circuit-key.result)
-    ?~  c  `state  ::  Fail it?
-    ?>  =(state.u.c %open)
-    =|  msg=update-add-htlc:msg:bolt
-    =.  msg
-      %=  msg
-        channel-id    id.u.c
-        amount-msats  incoming-amount-msats.result
-        payment-hash  payment-hash.result
-        cltv-expiry   incoming-expiry.result
-      ==
-    =^  htlc   u.c  (~(receive-htlc channel u.c) msg)
-    =^  cards  u.c  (maybe-send-commitment u.c)
-    :-  cards
-    %=    state
-        live.chan
-      (~(put by live.chan) id.u.c u.c)
-    ::
-        incoming.payments
-      (~(put by incoming.payments) payment-hash.result result)
-    ==
+    `state
   --
 ::
 ++  handle-bitcoin-status
