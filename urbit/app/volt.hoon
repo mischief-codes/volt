@@ -413,24 +413,13 @@
       (forward-to-provider payreq)
     (pay-channel u.channel amount-msats payment-hash.u.invoice)
   ::
-  ++  find-channel-with-capacity
-    |=  [ids=(set id:bolt) =amount=msats]
-    ^-  (unit chan:bolt)
-    %+  roll  ~(tap in ids)
-    |=  [=id:bolt acc=(unit chan:bolt)]
-    =+  c=(~(get by live.chan) id)
-    ?~  c  acc
-    ?:  ?&(=(state.u.c %open) (~(can-pay channel u.c) amount-msats))
-      `u.c
-    acc
-  ::
   ++  forward-to-provider
     |=  =payreq
     ^-  (quip card _state)
     ?~  volt.prov
       ~&  >>>  "%volt: no provider configured"
       `state
-    ?:  (team:title our.bowl host.u.volt.prov)
+    ?:  own-provider
       ::  we are our own provider, send it
       ::    TODO: fee-limit and timeout?
       ::
@@ -463,23 +452,6 @@
     :_  state(live.chan (~(put by live.chan) id.u.c u.c))
     [(volt-action [%forward-payment payreq htlc] host.u.volt.prov) cards]
   ::
-  ++  pay-channel
-    |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc]
-    ^-  (quip card _state)
-    ?>  =(state.c %open)
-    =|  update=update-add-htlc:msg:bolt
-    =.  update
-      %=  update
-        channel-id    id.c
-        payment-hash  payment-hash
-        amount-msats  amount-msats
-        cltv-expiry   (add block.chain min-final-cltv-expiry:const:bolt)
-      ==
-    =^  htlc   c  (~(add-htlc channel c) update)
-    =^  cards  c  (maybe-send-commitment c)
-    :_  state(live.chan (~(put by live.chan) id.c c))
-    [(send-message [%update-add-htlc htlc] ship.her.config.c) cards]
-  ::
   ++  add-invoice
     |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
     ?~  volt.prov  !!
@@ -502,7 +474,7 @@
       ==
     ::  own provider: poke provider agent
     ::
-    ?:  (team:title our.bowl host.u.volt.prov)
+    ?:  own-provider
       ~[(provider-action [%add-hold-invoice amount-msats memo hash ~])]
     ::  external provider: poke provider for hold invoice
     ::
@@ -979,8 +951,9 @@
     ?>  =(ship.her.config.c src.bowl)
     =+  payment-hash=(sha256:bcu:bc preimage)
     =.  c  (~(receive-htlc-settle channel c) preimage htlc-id)
-    =^  cards  c  (maybe-send-commitment c)
-    :-  cards
+    =^  cards-1  c      (maybe-send-commitment c)
+    =^  cards-2  state  (maybe-settle-external payment-hash preimage)
+    :-  (weld cards-1 cards-2)
     %=    state
         live.chan
       (~(put by live.chan) id.c c)
@@ -1026,8 +999,7 @@
   ^-  (quip card _state)
   ?-    -.action
       %give-invoice
-    ?~  volt.prov  !!
-    ?>  (team:title our.bowl host.u.volt.prov)
+    ?>  own-provider
     =|  req=payment-request
     :_  %=  state  incoming.payments
         %+  ~(put by incoming.payments)  payment-hash.action
@@ -1067,8 +1039,7 @@
     ==
   ::
       %forward-payment
-    ?~  volt.prov  !!
-    ?>  (team:title our.bowl host.u.volt.prov)
+    ?>  own-provider
     =+  c=(~(get by live.chan) channel-id.htlc.action)
     ?~  c  !!
     ?>  =(ship.her.config.u.c src.bowl)
@@ -1170,7 +1141,24 @@
     |=  result=invoice:rpc
     ^-  (quip card _state)
     ~&  >>  "%volt: invoice update {<result>}"
+    ?:  =(state.result %'ACCEPTED')
+      =+  req=(~(get by incoming.payments) r-hash.result)
+      ?~  req  (cancel-invoice r-hash.result)
+      =+  chan-ids=(~(get by peer.chan) payee.u.req)
+      ?~  chan-ids  (cancel-invoice r-hash.result)
+      =+  c=(find-channel-with-capacity u.chan-ids value-msats.result)
+      ?~  c  (cancel-invoice r-hash.result)
+      ::  can apply fees here
+      (pay-channel u.c value-msats.result r-hash.result)
+    ?:  =(state.result %'SETTLED')
+      `state(incoming.payments (~(del by incoming.payments) r-hash.result))
     `state
+  ::
+  ++  cancel-invoice
+    |=  =payment=hash
+    ^-  (quip card _state)
+    :_  state
+    ~[(provider-action [%cancel-invoice payment-hash])]
   --
 ::
 ++  handle-bitcoin-status
@@ -1276,19 +1264,53 @@
   ++  on-channel-update
     |=  [channel=chan:bolt =utxo:bc block=@ud]
     ^-  (quip card _channel)
-    ?:  ?&  =(state.channel %open)
-            (~(has-expiring-htlcs ^channel channel) block)
-        ==
-      ::  (force-close channel)
+    ?+    state.channel  `channel
+        %open
+      ?:  (~(has-expiring-htlcs ^channel channel) block)
+        ::  force close
+        `channel
       `channel
-    ?:  =(state.channel %funded)
+    ::
+        %funded
       (send-funding-locked channel)
-    ?:  =(state.channel %open)
+    ::
+        %force-closing
       `channel
-    ?:  =(state.channel %force-closing)
-      `channel
-    `channel
+    ==
   --
+::
+++  own-provider
+  ^-  ?
+  ?~  volt.prov  %.n
+  (team:title our.bowl host.u.volt.prov)
+::
+++  find-channel-with-capacity
+  |=  [ids=(set id:bolt) =amount=msats]
+  ^-  (unit chan:bolt)
+  %+  roll  ~(tap in ids)
+  |=  [=id:bolt acc=(unit chan:bolt)]
+  =+  c=(~(get by live.chan) id)
+  ?~  c  acc
+  ?:  ?&(=(state.u.c %open) (~(can-pay channel u.c) amount-msats))
+    `u.c
+  acc
+::
+++  pay-channel
+  |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc]
+  ^-  (quip card _state)
+  ?>  =(state.c %open)
+  =|  update=update-add-htlc:msg:bolt
+  =.  update
+    %=  update
+      channel-id    id.c
+      payment-hash  payment-hash
+      amount-msats  amount-msats
+      cltv-expiry   (add block.chain min-final-cltv-expiry:const:bolt)
+    ==
+  =^  htlc   c  (~(add-htlc channel c) update)
+  =^  cards  c  (maybe-send-commitment c)
+  :_  state(live.chan (~(put by live.chan) id.c c))
+  [(send-message [%update-add-htlc htlc] ship.her.config.c) cards]
 ::
 ++  add-peer-channel
   |=  [who=@p =id:bolt]
@@ -1388,7 +1410,7 @@
     |=  [h=add-htlc-update:bolt state=_state]
     ^-  (quip card _state)
     ?~  volt.prov  `state
-    ?.  (team:title our.bowl host.u.volt.prov)
+    ?.  own-provider
       `state
     =+  req=(~(get by outgoing.payments) payment-hash.h)
     ?~  req  `state
@@ -1417,6 +1439,21 @@
   :_  (~(settle-htlc channel c) preimage htlc-id.h)
   =-  ~[(send-message - ship.her.config.c)]
   [%update-fulfill-htlc id.c htlc-id.h preimage]
+::
+++  maybe-settle-external
+  |=  [payment-hash=hexb:bc preimage=hexb:bc]
+  ^-  (quip card _state)
+  ?.  own-provider
+    `state
+  ?.  (~(has by incoming.payments) payment-hash)
+    `state
+  :_  %=    state
+          incoming.payments
+        %+  ~(jab by incoming.payments)
+          payment-hash
+        |=(req=payment-request req(preimage `preimage))
+      ==
+  ~[(provider-action [%settle-invoice preimage])]
 ::
 ++  mark-open
   |=  c=chan:bolt
