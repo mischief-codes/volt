@@ -1094,63 +1094,6 @@
     ==
   ==
 ::
-++  make-invoice
-  =,  secp256k1:secp:crypto
-  |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
-  ^-  [=invoice:bolt11 preimage=hexb:bc]
-  =/  rng  ~(. og eny.bowl)
-  =^  preimage  rng  (rads:rng (bex 256))
-  =^  secret    rng  (rads:rng (bex 256))
-  =/  fee=msats
-    %+  add  fee-base-msats
-    %+  div
-      %+  mul  fee-proportional-usat
-      (mul amount-msats 1.000)
-    1.000
-  =/  amount=amount:bolt11
-    %-  msats-to-amount:bolt11
-    amount-msats
-  =/  feature-bits=bits:bc
-    :-  15
-    %+  con
-      (lsh [0 14] 1)
-    (lsh [0 9] 1)
-  =|  =invoice:bolt11
-  :_  32^preimage
-  %=  invoice
-    network                (fall network %main)
-    timestamp              now.bowl
-    expiry                 ~h1
-    payment-secret         `32^secret
-    payment-hash           (sha256:bcu:bc 32^preimage)
-    description            `(fall memo '')
-    amount                 `amount
-    pubkey                 33^(compress-point pub.our.keys)
-    min-final-cltv-expiry  40 ::  min-final-cltv-expiry:const:bolt
-    route                  route-to-provider
-    feature-bits           feature-bits
-  ==
-::
-++  fee-base-msats  0         ::  1.000
-++  fee-proportional-usat  0  ::  1
-::
-++  route-to-provider
-  =,  secp256k1:secp:crypto
-  ^-  (list route:bolt11)
-  :~  :*  pubkey=33^(compress-point identity-pubkey.info.prov)
-          short-channel-id=0
-          feebase=fee-base-msats
-          feerate=fee-proportional-usat
-          cltv-expiry-delta=0  ::  40
-      ==
-      :*  pubkey=33^(compress-point pub.our.keys)
-          short-channel-id=0
-          feebase=fee-base-msats
-          feerate=fee-proportional-usat
-          cltv-expiry-delta=0  ::  40
-      ==
-  ==
-::
 ++  handle-provider-status
   |=  =status:provider
   ^-  (quip card _state)
