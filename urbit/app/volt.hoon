@@ -41,7 +41,7 @@
       ==
       $=  payments
       $:  outgoing=(map hexb:bc forward-request)
-          incoming=(map hexb:bc add-hold-invoice-response:rpc)
+          incoming=(map hexb:bc payment-request)
           preimages=(map hexb:bc hexb:bc)
       ==
   ==
@@ -201,6 +201,9 @@
   ::
       %send-payment
     (send-payment +.command)
+  ::
+      %add-invoice
+    (add-invoice +.command)
   ==
   ++  open-channel
     |=  [who=ship =funding=sats:bc =push=msats =network:bolt]
@@ -476,6 +479,34 @@
     =^  cards  c  (maybe-send-commitment c)
     :_  state(live.chan (~(put by live.chan) id.c c))
     [(send-message [%update-add-htlc htlc] ship.her.config.c) cards]
+  ::
+  ++  add-invoice
+    |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
+    ?~  volt.prov  !!
+    =/  rng  ~(. og eny.bowl)
+    =^  preimage  rng  (rads:rng (bex 256))
+    =+  hash=32^(shay 32 preimage)
+    =|  req=payment-request
+    :_  %=    state
+          preimages.payments
+        (~(put by preimages.payments) hash 32^preimage)
+      ::
+          incoming.payments
+        %+  ~(put by incoming.payments)  hash
+        %=  req
+          payee         our.bowl
+          amount-msats  amount-msats
+          payment-hash  hash
+          preimage      `32^preimage
+        ==
+      ==
+    ::  own provider: poke provider agent
+    ::
+    ?:  (team:title our.bowl host.u.volt.prov)
+      ~[(provider-action [%add-hold-invoice amount-msats memo hash ~])]
+    ::  external provider: poke provider for hold invoice
+    ::
+    ~[(volt-action [%give-invoice amount-msats hash memo network] host.u.volt.prov)]
   --
 ::
 ++  handle-message
@@ -995,13 +1026,22 @@
   ^-  (quip card _state)
   ?-    -.action
       %give-invoice
-    =+  (make-invoice amount-msats.action memo.action network.action)
-    =+  payreq=(en:bolt11 invoice 32^prv.our.keys)
-    :_  %=    state
-            preimages.payments
-          (~(put by preimages.payments) payment-hash.invoice preimage)
+    ?~  volt.prov  !!
+    ?>  (team:title our.bowl host.u.volt.prov)
+    =|  req=payment-request
+    :_  %=  state  incoming.payments
+        %+  ~(put by incoming.payments)  payment-hash.action
+        %=  req
+          payee         src.bowl
+          amount-msats  amount-msats.action
+          payment-hash  payment-hash.action
         ==
-    ~[(volt-action [%take-invoice payreq] src.bowl)]
+      ==
+    =-  ~[(provider-action -)]
+    :*  %add-hold-invoice
+      amount-msats.action  memo.action
+      payment-hash.action  ~
+    ==
   ::
       %take-invoice
     %-  (slog leaf+"{<payreq.action>}" ~)
@@ -1133,8 +1173,10 @@
     (handle-payment-update +>.update)
   ::
       %hold-invoice
-    ~&  >>  "INVOICE:{<+.update>}"
     (handle-hold-invoice +>.update)
+  ::
+      %invoice-update
+    (handle-invoice-update +>.update)
   ==
   ++  handle-payment-update
     |=  result=payment:rpc
@@ -1170,6 +1212,21 @@
   ++  handle-hold-invoice
     |=  result=add-hold-invoice-response:rpc
     ^-  (quip card _state)
+    =+  payreq=(de:bolt11 payment-request.result)
+    ?~  payreq
+      ~&  >>>  "%volt: invalid invoice payreq"
+      `state
+    =+  request=(~(get by incoming.payments) payment-hash.u.payreq)
+    ?~  request
+      ~&  >>>  "%volt: unknown invoice payment hash"
+      `state
+    :_  state
+    ~[(volt-action [%take-invoice payment-request.result] payee.u.request)]
+  ::
+  ++  handle-invoice-update
+    |=  result=invoice:rpc
+    ^-  (quip card _state)
+    ~&  >>  "%volt: invoice update {<result>}"
     `state
   --
 ::

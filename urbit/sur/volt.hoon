@@ -236,26 +236,11 @@
 ::
 +$  payreq  cord
 ::
-+$  payment
-  $:  payer=ship
-      payee=ship
-      fee-limit=(unit sats:bc)
-      payment:rpc
-  ==
-::
-+$  invoice
-  $:  payer=ship
-      payee=ship
-      invoice:rpc
-  ==
-::
 +$  payment-request
-  $:  payer=ship
-      payee=ship
-      status=payment-status:rpc
-      =payreq
+  $:  payee=ship
       =amount=msats
-      received-at=@da
+      =payment=hash
+      preimage=(unit preimage)
   ==
 ::
 +$  forward-request
@@ -271,10 +256,11 @@
       [%create-funding temporary-channel-id=@ psbt=@t]
       [%close-channel =chan-id]
       [%send-payment =payreq]
+      [%add-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
   ==
 ::
 +$  action
-  $%  [%give-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
+  $%  [%give-invoice =amount=msats =payment=hash memo=(unit @t) network=(unit network:bolt)]
       [%take-invoice =payreq]
       [%give-pubkey nonce=@]
       [%take-pubkey sig=[v=@ r=@ s=@]]
