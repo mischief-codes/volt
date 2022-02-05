@@ -20,7 +20,9 @@
 ++  append-htlc
   |=  =update
   ^-  update-log
+  ?>  ?=([%add-htlc *] update)
   ?>  =(index.update update-count.log)
+  ?>  =(htlc-id.update htlc-count.log)
   %=  log
     list          (snoc list.log update)
     update-count  +(update-count.log)
@@ -38,8 +40,10 @@
   ^-  update-log
   =+  entry=(~(get by update-index.log) index)
   ?~  entry  log
+  =+  offset=(find ~[u.entry] list.log)
+  ?~  offset  log
   %=  log
-    list          (oust [index 1] list.log)
+    list          (oust [u.offset 1] list.log)
     update-index  (~(del by update-index.log) index)
   ==
 ::
