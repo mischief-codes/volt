@@ -397,8 +397,21 @@
     =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
     =/  who=(unit @p)
       (~(get by their.keys) pubkey-point)
+    =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     ?~  who
-      ::  unrecognized payee pubkey, try asking provider
+      ::  unrecognized payee pubkey
+      ::
+      ?:  own-provider
+        ?~  req
+          ::  not one of ours, have LND send it
+          ::    TODO: fee-limit and timeout?
+          ::
+          :_  state
+          ~[(provider-command [%send-payment payreq ~ ~])]
+        ::  internalize the payment and cancel the invoice in LND
+        ::
+        (pay-ship payee.u.req amount-msats payment-hash.u.invoice)
+      ::  try asking provider
       ::
       (forward-to-provider payreq)
     =+  chan-ids=(~(get by peer.chan) u.who)
@@ -413,18 +426,25 @@
       (forward-to-provider payreq)
     (pay-channel u.channel amount-msats payment-hash.u.invoice)
   ::
+  ++  pay-ship
+    |=  [who=@p =amount=msats =payment=hash]
+    ^-  (quip card _state)
+    =+  ids=(~(get by peer.chan) who)
+    ?~  ids
+      ~&  >>>  "%volt: no channels with {<who>}"
+      `state
+    =+  c=(find-channel-with-capacity u.ids amount-msats)
+    ?~  c
+      ~&  >>>  "%volt: insufficient capacity with {<who>}"
+      `state
+    (pay-channel u.c amount-msats payment-hash)
+  ::
   ++  forward-to-provider
     |=  =payreq
     ^-  (quip card _state)
     ?~  volt.prov
       ~&  >>>  "%volt: no provider configured"
       `state
-    ?:  own-provider
-      ::  we are our own provider, send it
-      ::    TODO: fee-limit and timeout?
-      ::
-      :_  state
-      ~[(provider-command [%send-payment payreq ~ ~])]
     =+  provider-channels=(~(get by peer.chan) host.u.volt.prov)
     ?~  provider-channels
       ~&  >>>  "%volt: no channel with provider"
