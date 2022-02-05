@@ -457,7 +457,7 @@
     ?~  volt.prov  !!
     =/  rng  ~(. og eny.bowl)
     =^  preimage  rng  (rads:rng (bex 256))
-    =+  hash=32^(shay 32 preimage)
+    =+  hash=(sha256:bcu:bc 32^preimage)
     =|  req=payment-request
     :_  %=    state
           preimages.payments
@@ -1143,11 +1143,14 @@
     ~&  >>  "%volt: invoice update {<result>}"
     ?:  =(state.result %'ACCEPTED')
       =+  req=(~(get by incoming.payments) r-hash.result)
-      ?~  req  (cancel-invoice r-hash.result)
-      =+  chan-ids=(~(get by peer.chan) payee.u.req)
-      ?~  chan-ids  (cancel-invoice r-hash.result)
-      =+  c=(find-channel-with-capacity u.chan-ids value-msats.result)
-      ?~  c  (cancel-invoice r-hash.result)
+      ?~  req
+        ~&  >>>  "%volt: unknown invoice"
+        (cancel-invoice r-hash.result)
+      =+  chan-ids=(~(gut by peer.chan) payee.u.req ~)
+      =+  c=(find-channel-with-capacity chan-ids value-msats.result)
+      ?~  c
+        ~&  >>>  "%volt: no capacity with peer"
+        (cancel-invoice r-hash.result)
       ::  can apply fees here
       (pay-channel u.c value-msats.result r-hash.result)
     ?:  =(state.result %'SETTLED')
@@ -1447,6 +1450,7 @@
     `state
   ?.  (~(has by incoming.payments) payment-hash)
     `state
+  ~&  >>  "%volt: settling invoice"
   :_  %=    state
           incoming.payments
         %+  ~(jab by incoming.payments)
