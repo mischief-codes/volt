@@ -32,7 +32,7 @@
       |=  preimage=hexb:bc
       ^-  json
       %-  pairs
-      ~[['preimage' [%s (en:base64:mimes:html preimage)]]]
+      ~[['preimage' [%s (en:base64:mimes:html (flip:byt:bcu preimage))]]]
     ::
     ++  cancel-invoice
       |=  hash=hexb:bc
