@@ -1415,11 +1415,17 @@
     ?~  volt.prov  `state
     ?.  own-provider
       `state
+    ?:  (~(has by preimages.payments) payment-hash.h)
+      ::  we already know the preimage. either it's ours or
+      ::  we somehow already discovered the payment secret.
+      ::  either way, it makes no sense to forward.
+      ::
+      `state
     =+  req=(~(get by outgoing.payments) payment-hash.h)
     ?~  req  `state
-    ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
+    ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
     :_  =-  state(outgoing.payments -)
         (~(put by outgoing.payments) payment-hash.h u.req)
     ~[(provider-command [%send-payment payreq.u.req ~ ~])]
