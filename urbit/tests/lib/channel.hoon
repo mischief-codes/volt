@@ -892,10 +892,10 @@
   =+  capacity=(mul one-bitcoin-in-sats 10)
   ;:  weld
     %-  expect
-    !>  (~(can-pay channel alice) 0)
+    !>  (~(can-pay channel alice) 1)
   ::
     %-  expect
-    !>  (~(can-pay channel bob) 0)
+    !>  (~(can-pay channel bob) 1)
   ::
     %-  expect
     !>  %-  ~(can-pay channel alice)
