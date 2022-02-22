@@ -163,22 +163,14 @@
       ==
       ?!  (lth reserve-sats.config dust-limit-sats.config)
   ==
-::  +scry-peer-pubkey: lookup latest ship pubkey from jael
-::
-++  scry-peer-pubkey
-  |=  who=@p
-  ^-  (unit pubkey)
-  =/  peer-life=(unit @ud)
-    .^((unit @ud) %j /=lyfe=/(scot %p who))
-  ?~  peer-life  ~
-  =/  peer-deed=[life pass (unit @ux)]
-    .^([life pass (unit @ux)] %j /=deed=/(scot %p who)/(scot %d u.peer-life))
-  %-  some
-  (get-public-key-from-pass:detail:ring +<.peer-deed)
-::  +address-to-script: generate
+::  +address-to-script: not completely correct but enough for our purpose
 ::
 ++  address-to-script
   |=  =address:bc
   ^-  hexb:bc
-  0^0x0
+  ~&  >>  address
+  ?+    -.address  !!
+      %bech32
+    (bech32-decode +.address)
+  ==
 --

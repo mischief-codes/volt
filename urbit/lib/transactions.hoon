@@ -111,7 +111,7 @@
 ::  +funding-input: generate spend from multisig output
 ::
 ++  funding-input
-    =,  secp256k1:secp:crypto
+  =,  secp256k1:secp:crypto
   |=  $:  =local-funding=pubkey
           =remote-funding=pubkey
           =funding=outpoint

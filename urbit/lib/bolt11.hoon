@@ -696,7 +696,7 @@
   ::  pubkey is the 33 byte ECC compressed public key
   ::
   ++  encode-pubkey
-    |=  [=network pubkey=byts]
+    |=  [network=?(%main %testnet %regtest) pubkey=byts]
     ^-  (unit cord)
     ?.  =(33 wid.pubkey)
       ~&  >>>  pubkey

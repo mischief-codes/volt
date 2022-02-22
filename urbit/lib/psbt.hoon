@@ -546,8 +546,11 @@
   ::
   ++  signature-list
     ^-  (list signature)
-    %+  turn  ~(tap by partial-sigs.input)
-    |=  [pk=pubkey sig=signature]  sig
+    %+  reel  pubkeys.input
+    |=  [pub=pubkey sigs=(list signature)]
+    =+  sig=(~(get by partial-sigs.input) pub)
+    ?~  sig  [0^0x0 sigs]
+    [u.sig sigs]
   ::
   ++  script-witness
     ^-  witness
@@ -1068,11 +1071,11 @@
   ^-  tx:tx
   =|  =tx:tx
   =+  ^=  input-txin
-      |=  =input
-      ~(to-input txin input)
+    |=  =input
+    ~(to-input txin input)
   =+  ^=  output-txout
-      |=  =output
-      ~(to-output txout output)
+    |=  =output
+    ~(to-output txout output)
   %=  tx
     vin        (turn inputs.psbt input-txin)
     vout       (turn outputs.psbt output-txout)
@@ -1088,4 +1091,49 @@
   ?:  (is-complete psbt)
     (encode-tx (extract-unsigned psbt))
   (en psbt)
+::  +estimated-size: return an estimated virtual tx size in vbytes
+::
+++  estimated-size
+  |=  =psbt
+  ^-  @
+  %-  virtual-size-from-weight
+  %-  estimated-weight
+    psbt
+::  +estimated-total-size: return an estimated total transaction size in bytes
+::
+++  estimated-total-size
+  |=  =psbt
+  ^-  @
+  wid:(encode-tx (extract-unsigned psbt))
+::
+++  virtual-size-from-weight
+  |=  weight=@
+  ^-  @
+  %+  add  (div weight 4)
+  ?:((gth (mod weight 4) 0) 1 0)
+::  +estimated-witness-size: return an estimate of witness size in bytes
+::
+++  estimated-witness-size
+  |=  =psbt
+  ^-  @
+  %+  roll  inputs.psbt
+  |=  [=input acc=@]
+  %+  add  acc
+  wid:(encode-witness ~(to-input txin input))
+::  +estiamted-base-size: return an estimated base transaction size in bytes
+::
+++  estimated-base-size
+  |=  =psbt
+  ^-  @
+  %+  sub
+    (estimated-total-size psbt)
+  (estimated-witness-size psbt)
+::  +estimated-weight: return an estimate of transaction weight
+::
+++  estimated-weight
+  |=  =psbt
+  ^-  @
+  =+  total=(estimated-total-size psbt)
+  =+  base=(estimated-base-size psbt)
+  (add (mul 3 base) total)
 --

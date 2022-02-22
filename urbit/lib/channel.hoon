@@ -197,6 +197,23 @@
     pub.multisig-key.our.config.c
   pub.multisig-key.her.config.c
 ::
+++  sweep-address
+  =,  secp256k1:secp:crypto
+  ^-  address:bc
+  ::  using static-remotekey:
+  :-  %bech32
+  %-  need
+  %+  encode-pubkey:bech32:bolt11  network.our.config.c
+  33^(compress-point pub.payment.basepoints.our.config.c)
+::
+++  shutdown-script
+  =,  secp256k1:secp:crypto
+  ^-  hexb:bc
+  ?:  !=(wid.upfront-shutdown-script.our.config.c 0)
+    upfront-shutdown-script.our.config.c
+  %-  p2wpkh:script
+  33^(compress-point pub.payment.basepoints.our.config.c)
+::
 ++  funding-tx-min-depth
   ^-  blocks
   funding-tx-min-depth.constraints.c
@@ -1574,11 +1591,9 @@
       funding-outpoint=funding-outpoint.c
       outputs=outputs
     ==
-  =+  ^=  signing-key
-    ^-  hexb:bc
+  =/  signing-key=hexb:bc
     32^prv.multisig-key.our.config.c
-  :-  tx
-  (~(one sign:psbt tx) 0 signing-key ~)
+  [tx (~(one sign:psbt tx) 0 signing-key ~)]
 ::
 ++  signature-fits
   |=  tx=psbt:psbt
@@ -1605,7 +1620,6 @@
     (cat:byt:bcu:bc ~[current-commitment-signature.local-config 1^0x1])
   ?.  (is-complete:psbt tx)  ~|(%incomplete-force-close-tx !!)
   tx
-::
 ::
 ++  has-expiring-htlcs
   |=  block=@
@@ -1646,4 +1660,14 @@
       amount-msats  amount-msats
     ==
   (can-add-htlc %remote update)
+::
+++  latest-fee
+  |=  who=owner
+  ^-  sats:bc
+  =+  latest=(latest-commitment who)
+  ?~  latest  !!
+  %+  sub  capacity.constraints.c
+  %+  roll  vout.tx.u.latest
+  |=  [=out:tx:psbt acc=sats:bc]
+  (add value.out acc)
 --

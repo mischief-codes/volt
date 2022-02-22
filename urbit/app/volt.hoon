@@ -15,6 +15,17 @@
 ::
 +$  provider-state  [host=ship connected=?]
 ::
++$  closing-state
+  $:  initiator=ship
+      max-fee=sats:bc
+      our-fee=sats:bc
+      her-fee=sats:bc
+      our-sig=hexb:bc
+      her-sig=hexb:bc
+      our-script=hexb:bc
+      her-script=hexb:bc
+  ==
+::
 +$  state-0
   $:  %0
       $=  keys
@@ -33,6 +44,7 @@
           fund=(map id:bolt psbt:psbt)
           peer=(map ship (set id:bolt))
           wach=(map hexb:bc id:bolt)
+          shut=(map id:bolt closing-state)
       ==
       $=  chain
       $:  block=@ud
@@ -348,36 +360,23 @@
   ++  close-channel
     |=  =chan-id
     ^-  (quip card _state)
+    ?:  (~(has by shut.chan) chan-id)
+      ~&  >>>  "%volt: channel already closing"
+      `state
     =+  c=(~(get by live.chan) chan-id)
     ?~  c  `state
-    =^  cards  u.c  (send-shutdown u.c)
+    =|  close=closing-state
+    =.  close
+      %=  close
+        initiator   our.bowl
+        our-script  ~(shutdown-script channel u.c)
+      ==
+    =^  cards  u.c  (send-shutdown u.c close)
     :-  cards
-    state(live.chan (~(put by live.chan) chan-id u.c))
-  ::
-  ++  send-shutdown
-    |=  c=chan:bolt
-    ^-  (quip card _c)
-    ?>  (can-send-shutdown c)
-    =+  script-pubkey=upfront-shutdown-script.our.config.c
-    :_  (~(set-state channel c) %shutdown)
-    :~  (send-message [%shutdown id.c script-pubkey] ship.her.config.c)
-        (give-update [%channel-state id.c %shutdown])
+    %=  state
+      live.chan  (~(put by live.chan) chan-id u.c)
+      shut.chan  (~(put by shut.chan) chan-id close)
     ==
-  ::
-  ++  can-send-shutdown
-    |=  c=chan:bolt
-    ^-  ?
-    ?:  (~(has-pending-changes channel c) %remote)
-      ::  if there are updates pending on the receiving node's commitment transaction:
-      ::    MUST NOT send a shutdown.
-      %.n
-    ?:  ~(is-funded channel c)
-      %.y
-    ?:  initiator.constraints.c
-      %.y
-    ?.  initiator.constraints.c
-      %.y
-    %.n
   ::
   ++  send-payment
     |=  =payreq
@@ -936,8 +935,8 @@
     =+  c=(~(got by live.chan) channel-id.msg)
     ?>  =(ship.her.config.c src.bowl)
     =.  c  (~(receive-revocation channel c) msg)
-    =^  cards-1  c  (maybe-send-settle c)
-    =^  cards-2  c  (maybe-send-commitment c)
+    =^  cards-1  c      (maybe-send-settle c)
+    =^  cards-2  c      (maybe-send-commitment c)
     =^  cards-3  state  (maybe-forward-htlcs c)
     :_  state(live.chan (~(put by live.chan) id.c c))
     ;:(weld cards-1 cards-2 cards-3)
@@ -946,22 +945,110 @@
     |=  =shutdown:msg:bolt
     ^-  (quip card _state)
     =+  shutdown
+    ~&  >>  "shutdown received {<channel-id>}"
     =+  c=(~(get by live.chan) channel-id)
     ?~  c  `state
     ?>  =(ship.her.config.u.c src.bowl)
     =+  upfront-script=upfront-shutdown-script.her.config.u.c
     ?:  ?&  (gth wid.upfront-script 0)
-            ?!  =(upfront-script script-pubkey)
+            !=(upfront-script script-pubkey)
         ==
       ~|(%invalid-script-pubkey !!)
     ::  TODO: check pubkey template
-    ~|(%unimplemented !!)
+    ::
+    =+  close=(~(get by shut.chan) id.u.c)
+    ?~  close
+      ::  counterparty initiated: ack shutdown
+      ::
+      =|  close=closing-state
+      =.  initiator.close   src.bowl
+      =.  her-script.close  script-pubkey
+      =.  our-script.close
+        ?:  !=(wid.upfront-shutdown-script.our.config.u.c 0)
+          upfront-shutdown-script.our.config.u.c
+        ~(shutdown-script channel u.c)
+      =^  cards-1  u.c    (send-shutdown u.c close)
+      =^  cards-2  close  (maybe-sign-closing u.c close)
+      ?>  =(~ cards-2)
+      :-  cards-1
+      %=  state
+        live.chan  (~(put by live.chan) id.u.c u.c)
+        shut.chan  (~(put by shut.chan) id.u.c close)
+      ==
+    ::  counterparty acked: start closing negotiations
+    ::
+    ?>  =(initiator.u.close our.bowl)
+    =.  her-script.u.close  script-pubkey
+    =^  cards  u.close      (maybe-sign-closing u.c u.close)
+    :-  cards
+    %=  state
+      live.chan  (~(put by live.chan) id.u.c u.c)
+      shut.chan  (~(put by shut.chan) id.u.c u.close)
+    ==
   ::
   ++  handle-closing-signed
     |=  =closing-signed:msg:bolt
     ^-  (quip card _state)
     =+  closing-signed
-    `state
+    ~&  >>  "closing-signed: {<closing-signed>}"
+    =+  c=(~(get by live.chan) channel-id)
+    ?~  c  `state
+    ?>  =(ship.her.config.u.c src.bowl)
+    =+  close=(~(got by shut.chan) id.u.c)
+    =.  close
+      %=  close
+        her-fee  fee-sats
+        her-sig  signature
+      ==
+    ~&  >>  "closing-state: {<close>}"
+    =/  [closing-tx=psbt:psbt our-sig=signature:bolt]
+      %^    ~(make-closing-tx channel u.c)
+          our-script.close
+        her-script.close
+      her-fee.close
+    ?>  (verify-signature u.c closing-tx her-sig.close)
+    =/  fee-diff=sats:bc
+      ?:  (gth our-fee.close her-fee.close)
+        (sub our-fee.close her-fee.close)
+      (sub her-fee.close our-fee.close)
+    ?:  (lth fee-diff 2)
+      ::  we're done
+      ::
+      =.  our-fee.close  her-fee.close
+      =.  our-sig.close  our-sig
+      =^  cards-1        close
+        ::  non-funder replies
+        ::
+        ?:  initiator.constraints.u.c  `close
+        (maybe-sign-closing u.c close)
+      ::  add-signatures to closing-tx
+      ::
+      =.  closing-tx
+        %:  ~(add-signature update:psbt closing-tx)  0
+          pub.multisig-key.our.config.u.c
+          our-sig.close
+        ==
+      ::
+      =.  closing-tx
+        %:  ~(add-signature update:psbt closing-tx)  0
+          pub.multisig-key.her.config.u.c
+          her-sig.close
+        ==
+      ::
+      =.  u.c  (~(set-state channel u.c) %closing)
+      =+  encoded=(extract:psbt closing-tx)
+      =/  cards-2=(list card)
+        ~[(poke-btc-provider [%broadcast-tx encoded])]
+      :_  state
+      (welp cards-1 cards-2)
+    ::  set fee 'strictly between' the previous values
+    ::
+    =/  our-fee=sats:bc
+      (div (add our-fee.close her-fee.close) 2)
+    ::  another round
+    ::
+    =^  cards  close  (maybe-sign-closing u.c close)
+    [cards state(shut.chan (~(put by shut.chan) id.u.c close))]
   ::
   ++  handle-update-fulfill-htlc
     |=  [=channel=id:bolt =htlc-id:bolt preimage=hexb:bc]
@@ -1402,6 +1489,31 @@
   :_  c
   [(send-message [%revoke-and-ack rev] src.bowl) cards]
 ::
+++  send-shutdown
+  |=  [c=chan:bolt close=closing-state]
+  |^  ^-  (quip card _c)
+  ?>  (can-send-shutdown c)
+  :_  (~(set-state channel c) %shutdown)
+  :~  (send-message [%shutdown id.c our-script.close] ship.her.config.c)
+      (give-update [%channel-state id.c %shutdown])
+  ==
+  ++  can-send-shutdown
+    |=  c=chan:bolt
+    ^-  ?
+    ?:  (~(has-pending-changes channel c) %remote)
+      ::  if there are updates pending on the receiving node's commitment transaction:
+      ::    MUST NOT send a shutdown.
+      %.n
+    =/  shutdown-states=(list chan-state:bolt)
+      :~  %opening
+          %funded
+          %open
+          %shutdown
+          %closing
+      ==
+    ?=(^ (find [state.c]~ shutdown-states))
+  --
+::
 ++  maybe-send-commitment
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
@@ -1484,6 +1596,69 @@
         |=(req=payment-request req(preimage `preimage))
       ==
   ~[(provider-action [%settle-invoice preimage])]
+::
+++  maybe-sign-closing
+  |=  [c=chan:bolt close=closing-state]
+  ^-  (quip card _close)
+  =+  fee-rate=(current-feerate-per-kw)
+  =/  [tx=psbt:psbt =signature:bolt]
+    %:  ~(make-closing-tx channel c)
+      our-script.close
+      her-script.close
+      0
+    ==
+  =/  our-fee=sats:bc
+    =+  size=(estimated-size:psbt tx)
+    (div (mul fee-rate size) 1.000)
+  =/  max-fee=sats:bc
+   %-  ~(latest-fee channel c)
+   ?:  =(our.bowl initiator.close)  %local  %remote
+  ?:  ?&(initiator.constraints.c =(0 wid.our-sig.close))
+    ::  send first closing-signed
+    ::
+    %+  send-closing-signed  c
+    %=  close
+      max-fee  max-fee
+      our-fee  (min our-fee max-fee)
+    ==
+  ?:  ?&(?!(initiator.constraints.c) =(0 wid.her-sig.close))
+    ::  wait for first closing-signed
+    ::
+    :-  ~
+    %=  close
+      max-fee  max-fee
+      our-fee  (min our-fee max-fee)
+    ==
+  ::  send next closing-signed
+  ::
+  (send-closing-signed c close)
+::
+++  send-closing-signed
+  |=  [c=chan:bolt close=closing-state]
+  ^-  (quip card _close)
+  =|  msg=closing-signed:msg:bolt
+  =/  [tx=psbt:psbt =signature:bolt]
+    %^    ~(make-closing-tx channel c)
+        our-script.close
+      her-script.close
+    our-fee.close
+  =.  msg
+    %=  msg
+      channel-id  id.c
+      fee-sats    our-fee.close
+      signature   signature
+    ==
+  :_  close(our-sig signature)
+  ~[(send-message [%closing-signed msg] ship.her.config.c)]
+::
+++  verify-signature
+  |=  [c=chan:bolt tx=psbt:psbt =signature:bolt]
+  ^-  ?
+  =+  preimage=(~(witness-preimage sign:psbt tx) 0 ~)
+  %^    check-signature:bolt
+      (dsha256:bcu:bc preimage)
+    signature
+  pub.multisig-key.her.config.c
 ::
 ++  mark-open
   |=  c=chan:bolt
