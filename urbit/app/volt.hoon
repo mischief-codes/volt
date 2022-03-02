@@ -24,6 +24,7 @@
       her-sig=hexb:bc
       our-script=hexb:bc
       her-script=hexb:bc
+      close-height=@
   ==
 ::
 +$  state-0
@@ -1016,7 +1017,7 @@
       ::
       =.  our-fee.close  her-fee.close
       =.  our-sig.close  our-sig
-      =^  cards-1        close
+      =^  cards          close
         ::  non-funder replies
         ::
         ?:  initiator.constraints.u.c  `close
@@ -1037,10 +1038,16 @@
       ::
       =.  u.c  (~(set-state channel u.c) %closing)
       =+  encoded=(extract:psbt closing-tx)
-      =/  cards-2=(list card)
-        ~[(poke-btc-provider [%broadcast-tx encoded])]
-      :_  state
-      (welp cards-1 cards-2)
+      :_  %=  state
+            live.chan  (~(put by live.chan) id.u.c u.c)
+            shut.chan  (~(put by shut.chan) id.u.c close)
+          ==
+      ;:  welp
+        cards
+        :~  (poke-btc-provider [%broadcast-tx encoded])
+            (give-update [%channel-state id.u.c %closing])
+        ==
+      ==
     ::  set fee 'strictly between' the previous values
     ::
     =/  our-fee=sats:bc
@@ -1048,7 +1055,8 @@
     ::  another round
     ::
     =^  cards  close  (maybe-sign-closing u.c close)
-    [cards state(shut.chan (~(put by shut.chan) id.u.c close))]
+    :-  cards
+    state(shut.chan (~(put by shut.chan) id.u.c close))
   ::
   ++  handle-update-fulfill-htlc
     |=  [=channel=id:bolt =htlc-id:bolt preimage=hexb:bc]
@@ -1353,21 +1361,30 @@
     ::
     ?:  ?=(^ utxo)
       =/  channel=chan:bolt
-        %+  ~(update-onchain-state ^channel channel)
-          u.utxo
+        %^  ~(update-onchain-state ^channel channel)
+            height.u.utxo
+          0
         block
       =^  cards  channel
         (on-channel-update channel u.utxo block)
-      [cards state(live.chan (~(put by live.chan) u.id channel))]
+      :-  cards
+      state(live.chan (~(put by live.chan) u.id channel))
     ::
     ?:  ~(is-funded ^channel channel)
-      ::  funded + no utxo -> spent
-      ::
-      ~&  >>>  "funding-tx spent"
-      ::  find spender tx and then ask:
-      ::  - is it a cooperative close?
-      ::  - is it a force close?
-      ::  - is it a revoked commitment?
+      =+  close=(~(get by shut.chan) u.id)
+      ?^  close
+        ::  cooperative close:
+        ?:  =(0 close-height.u.close)
+          `state(shut.chan (~(put by shut.chan) u.id u.close(close-height block)))
+        =/  channel=chan:bolt
+          %^    ~(update-onchain-state ^channel channel)
+              0
+            close-height.u.close
+          block
+        :_  state(live.chan (~(put by live.chan) u.id channel))
+        ~[(give-update [%channel-state u.id %closed])]
+      ::  force close?
+      ::  revoked commitment?
       `state
     `state
   ::

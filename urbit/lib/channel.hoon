@@ -1628,14 +1628,19 @@
   %.n
 ::
 ++  update-onchain-state
-  |=  [=utxo:bc block=@]
+  |=  [funding-height=@ closed-height=@ block=@]
   ^-  chan
-  ::  TODO: revisit this, handle spending utxos
-  ?.  =(state.c %opening)  c
-  =+  confs=(sub block height.utxo)
-  ?:  (gte confs funding-tx-min-depth)
+  ?+    state.c  c
+      %opening
+    =+  confs=(sub block funding-height)
+    ?.  (gte confs funding-tx-min-depth)  c
     (set-state %funded)
-  c
+  ::
+      %closing
+    =+  confs=(sub block closed-height)
+    ?.  (gth confs 0)  c
+    (set-state %closed)
+  ==
 ::
 ++  can-pay
   |=  =amount=msats
