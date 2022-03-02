@@ -33,7 +33,7 @@ let loaderOptions = {
 }
 
 let packagedef = protoLoader.loadSync (
-    ['rpc.proto', 'router.proto', 'invoices.proto'],
+    ['rpc.proto', 'router.proto', 'invoices.proto', 'chainnotifier.proto'],
     loaderOptions
 )
 
@@ -41,6 +41,7 @@ let rpcpkg = grpc.loadPackageDefinition(packagedef)
 let routerrpc = rpcpkg.routerrpc
 let lnrpc = rpcpkg.lnrpc
 let invoicesrpc = rpcpkg.invoicesrpc
+let chainrpc = rpcpkg.chainrpc
 
 let cert = fs.readFileSync(`${lndDir}/tls.cert`)
 let sslCreds = grpc.credentials.createSsl(cert)
@@ -59,6 +60,7 @@ let creds = grpc.credentials.combineChannelCredentials (
 let lightning = new lnrpc.Lightning(lndHost, creds)
 let router = new routerrpc.Router(lndHost, creds)
 let invoices = new invoicesrpc.Invoices(lndHost, creds)
+let chain = new chainrpc.ChainNotifier(lndHost, creds)
 
 let makeRequestOptions = (path, data) => {
     let options = {
@@ -218,6 +220,34 @@ app.post('/settle_invoice', (req, res) => {
 	    Buffer.from(body.preimage, 'base64')
     }
     invoices.settleInvoice(body, returnToShip(res))
+})
+
+//  register confirmations notification
+app.post('/confirms', (req, res) => {
+    let body = req.body
+    if (body.txid) {
+	body.txid = Buffer.from(body.txid, 'base64')
+    }
+    if (body.script) {
+	body.script = Buffer.from(body.script, 'base64')
+    }
+    let call = chain.registerConfirmationsNtfn(body)
+    call.on('data', sendToShip('/~volt-confirms'))
+    res.status(200).send({})
+})
+
+//  register confirmations notification
+app.post('/spends', (req, res) => {
+    let body = req.body
+    if (body.script) {
+	body.script = Buffer.from(body.script, 'base64')
+    }
+    if (body.outpoint.hash) {
+	body.outpoint.hash = Buffer.from(body.outpoint.hash, 'base64')
+    }
+    let call = chain.registerSpendNtfn(body)
+    call.on('data', sendToShip('/~volt-spends'))
+    res.status(200).send({})
 })
 
 app.listen(port, () => console.log(`Proxy listening on port: ${port}`))
