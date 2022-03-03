@@ -18,6 +18,8 @@
       %add-hold-invoice    (add-hold-invoice +.act)
       %settle-invoice      (settle-invoice +.act)
       %cancel-invoice      (cancel-invoice +.act)
+      %subscribe-confirms  (subscribe-confirms +.act)
+      %subscribe-spends    (subscribe-spends +.act)
     ==
     ++  open-channel
       |=  [=pubkey:volt local-amt=sats:bc push-amt=sats:bc]
@@ -61,6 +63,40 @@
           ['hash' [%s (en:base64:mimes:html (flip:byt:bcu payment-hash))]]
           ['value_msat' (numb amt)]
           ['expiry' (numb (div (fall expiry ~h1) ~s1))]
+      ==
+    ::
+    ++  subscribe-confirms
+      |=  $:  =txid:volt
+              script=hexb:bc
+              num-confs=@
+              height-hint=@
+          ==
+      ^-  json
+      %-  pairs
+      :~  ['txid' [%s (en:base64:mimes:html (flip:byt:bcu txid))]]
+          ['script' [%s (en:base64:mimes:html (flip:byt:bcu script))]]
+          ['num_confs' (numb num-confs)]
+          ['height_hint' (numb height-hint)]
+      ==
+    ::
+    ++  subscribe-spends
+      |=  $:  o=outpoint:rpc:volt
+              script=hexb:bc
+              height-hint=@
+          ==
+      ^-  json
+      %-  pairs
+      :~  ['outpoint' (outpoint o)]
+          ['script' [%s (en:base64:mimes:html (flip:byt:bcu script))]]
+          ['height_hint' (numb height-hint)]
+      ==
+    ::
+    ++  outpoint
+      |=  o=outpoint:rpc:volt
+      ^-  json
+      %-  pairs
+      :~  ['hash' [%s (en:base64:mimes:html (flip:byt:bcu hash.o))]]
+          ['index' (numb index.o)]
       ==
     --
   --
@@ -234,20 +270,15 @@
         %open-channel
       [%open-channel (channel-point jon)]
     ::
-        %close-channel
-      [%close-channel ~]
-    ::
-        %send-payment
-      [%send-payment ~]
-    ::
         %add-hold-invoice
       [%add-hold-invoice (add-hold-invoice-response jon)]
     ::
-        %cancel-invoice
-      [%cancel-invoice ~]
-    ::
-        %settle-invoice
-      [%settle-invoice ~]
+        %close-channel       [%close-channel ~]
+        %send-payment        [%send-payment ~]
+        %cancel-invoice      [%cancel-invoice ~]
+        %settle-invoice      [%settle-invoice ~]
+        %subscribe-confirms  [%subscribe-confirms ~]
+        %subscribe-spends    [%subscribe-spends ~]
     ==
     ++  node-info
       %-  ot
@@ -271,6 +302,31 @@
     :~  [%code ni]
         [%message so]
     ==
+  ::
+  ++  confirmation-event
+    |=  jon=json
+    ^-  confirmation-event:rpc:volt
+    %.  jon
+    %-  ot
+    :~  ['raw_tx' base64]
+        ['block_hash' base64]
+        ['block_height' ni]
+        ['tx_index' ni]
+    ==
+  ::
+  ++  spend-event
+    |=  jon=json
+    ^-  spend-event:rpc:volt
+    %.  jon
+    %-  ot
+    :~  ['spending_outpoint' outpoint]
+        ['raw_spending_tx' base64]
+        ['spending_tx_hash' base64]
+        ['spending_input_index' ni]
+        ['spending_height' ni]
+    ==
+  ::
+  ++  outpoint  (ot ~[['hash' base64] ['index' ni]])
   --
 ::
 ++  action-to-request
@@ -317,6 +373,16 @@
     %+  url  '/invoice/'
     %-  ~(en base64:mimes:html & &)
     %-  flip:byt:bcu  payment-hash.act
+  ::
+      %subscribe-confirms
+    %+  post-request
+    %+  url  '/confirms'  ''
+    act
+  ::
+      %subscribe-spends
+    %+  post-request
+    %+  url  '/spends'  ''
+    act
   ==
   ++  url
     |=  [route=@t params=@t]

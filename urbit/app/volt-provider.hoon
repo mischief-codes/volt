@@ -34,6 +34,8 @@
   :~  [%pass /bind %arvo %e %connect [~ /'~volt-channels'] %volt-provider]
       [%pass /bind %arvo %e %connect [~ /'~volt-payments'] %volt-provider]
       [%pass /bind %arvo %e %connect [~ /'~volt-invoices'] %volt-provider]
+      [%pass /bind %arvo %e %connect [~ /'~volt-confirms'] %volt-provider]
+      [%pass /bind %arvo %e %connect [~ /'~volt-spends'] %volt-provider]
   ==
 ::
 ++  on-save
@@ -191,9 +193,19 @@
       %-  payment:dejs:lnd-rpc
       json
     ::
-    ?>  =(url.request.inbound-request '/~volt-invoices')
+    ?:  =(url.request.inbound-request '/~volt-invoices')
       %+  handle-invoice-update  id
       %-  invoice:dejs:lnd-rpc
+      json
+    ::
+    ?:  =(url.request.inbound-request '/~volt-confirms')
+      %+  handle-confirmation-notification  id
+      %-  confirmation-event:dejs:lnd-rpc
+      json
+    ::
+    ?>  =(url.request.inbound-request '/~volt-spends')
+      %+  handle-spend-notification  id
+      %-  spend-event:dejs:lnd-rpc
       json
   [(no-content id) state]
   ::
@@ -259,6 +271,20 @@
   ^-  (quip card _state)
   :_  state
   :-  (give-update [%& %invoice-update invoice])
+      (no-content id)
+::
+++  handle-confirmation-notification
+  |=  [id=@ta =confirmation-event:rpc:volt]
+  ^-  (quip card _state)
+  :_  state
+  :-  (give-update [%& %confirmation-event confirmation-event])
+      (no-content id)
+::
+++  handle-spend-notification
+  |=  [id=@ta =spend-event:rpc:volt]
+  ^-  (quip card _state)
+  :_  state
+  :-  (give-update [%& %spend-event spend-event])
       (no-content id)
 ::
 ++  handle-rpc-response

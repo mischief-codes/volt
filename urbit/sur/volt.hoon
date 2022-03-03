@@ -33,6 +33,8 @@
         ==
         [%settle-invoice =preimage]
         [%cancel-invoice =payment=hash]
+        [%subscribe-confirms =txid script=hexb:bc num-confs=@ height-hint=@]
+        [%subscribe-spends =outpoint script=hexb:bc height-hint=@]
     ==
   ::
   +$  result
@@ -44,6 +46,8 @@
         [%add-hold-invoice add-hold-invoice-response]
         [%settle-invoice ~]
         [%cancel-invoice ~]
+        [%subscribe-confirms ~]
+        [%subscribe-spends ~]
     ==
   ::
   +$  error
@@ -167,6 +171,23 @@
         %'CANCELED'
         %'ACCEPTED'
     ==
+  ::
+  +$  confirmation-event
+    $:  raw-tx=hexb:bc
+        block-hash=hexb:bc
+        block-height=@
+        tx-index=@
+    ==
+  ::
+  +$  spend-event
+    $:  =spending=outpoint
+        raw-spending-tx=hexb:bc
+        spending-tx-hash=hexb:bc
+        spending-input-index=@
+        spending-height=@
+    ==
+  ::
+  +$  outpoint  [hash=hexb:bc index=@]
   --
 ::
 ::  provider types
@@ -207,6 +228,8 @@
         [%channel-update channel-update:rpc]
         [%payment-update payment:rpc]
         [%balance-update wallet-balance-response:rpc]
+        [%confirmation-event confirmation-event:rpc]
+        [%spend-event spend-event:rpc]
     ==
   ::
   +$  update  (each result error)
