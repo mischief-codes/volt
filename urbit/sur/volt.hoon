@@ -212,6 +212,8 @@
         [%add-hold-invoice =amt=msats memo=(unit @t) =payment=hash expiry=(unit @dr)]
         [%settle-invoice =preimage]
         [%cancel-invoice =payment=hash]
+        [%subscribe-confirms =txid script=hexb:bc num-confs=@ height-hint=@]
+        [%subscribe-spends =outpoint:rpc script=hexb:bc height-hint=@]
     ==
   ::
   +$  error

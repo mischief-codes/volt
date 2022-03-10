@@ -147,6 +147,12 @@
   ::
       %cancel-invoice
     [(do-rpc [%cancel-invoice payment-hash.action]) state]
+  ::
+      %subscribe-confirms
+    [(do-rpc [%subscribe-confirms +.action]) state]
+  ::
+      %subscribe-spends
+    [(do-rpc [%subscribe-spends +.action]) state]
   ==
 ::
 ++  handle-command
@@ -333,6 +339,14 @@
   ::
       %send-payment
     ?>  ?=([%send-payment *] result)
+    `state
+  ::
+      %subscribe-confirms
+    ?>  ?=([%subscribe-confirms ~] result)
+    `state
+  ::
+      %subscribe-spends
+    ?>  ?=([%subscribe-spends ~] result)
     `state
   ==
 ::
