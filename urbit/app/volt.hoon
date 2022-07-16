@@ -946,7 +946,7 @@
     |=  =shutdown:msg:bolt
     ^-  (quip card _state)
     =+  shutdown
-    ~&  >>  "shutdown received {<channel-id>}"
+    ~&  >>  "%volt: shutdown {<channel-id>}"
     =+  c=(~(get by live.chan) channel-id)
     ?~  c  `state
     ?>  =(ship.her.config.u.c src.bowl)
@@ -964,12 +964,9 @@
       =|  close=closing-state
       =.  initiator.close   src.bowl
       =.  her-script.close  script-pubkey
-      =.  our-script.close
-        ?:  !=(wid.upfront-shutdown-script.our.config.u.c 0)
-          upfront-shutdown-script.our.config.u.c
-        ~(shutdown-script channel u.c)
-      =^  cards-1  u.c    (send-shutdown u.c close)
-      =^  cards-2  close  (maybe-sign-closing u.c close)
+      =.  our-script.close  ~(shutdown-script channel u.c)
+      =^  cards-1  u.c      (send-shutdown u.c close)
+      =^  cards-2  close    (maybe-sign-closing u.c close)
       ?>  =(~ cards-2)
       :-  cards-1
       %=  state
@@ -991,7 +988,6 @@
     |=  =closing-signed:msg:bolt
     ^-  (quip card _state)
     =+  closing-signed
-    ~&  >>  "closing-signed: {<closing-signed>}"
     =+  c=(~(get by live.chan) channel-id)
     ?~  c  `state
     ?>  =(ship.her.config.u.c src.bowl)
@@ -1001,7 +997,6 @@
         her-fee  fee-sats
         her-sig  signature
       ==
-    ~&  >>  "closing-state: {<close>}"
     =/  [closing-tx=psbt:psbt our-sig=signature:bolt]
       %^    ~(make-closing-tx channel u.c)
           our-script.close
@@ -1206,6 +1201,12 @@
   ::
       %invoice-update
     (handle-invoice-update +>.update)
+  ::
+      %confirmation-event
+    (handle-confirmation-event +>.update)
+  ::
+      %spend-event
+    (handle-spend-event +>.update)
   ==
   ++  handle-payment-update
     |=  result=payment:rpc
@@ -1277,6 +1278,18 @@
     ^-  (quip card _state)
     :_  state
     ~[(provider-action [%cancel-invoice payment-hash])]
+  ::
+  ++  handle-confirmation-event
+    |=  event=confirmation-event:rpc
+    ^-  (quip card _state)
+    ~&  >>  "%volt: confirmation event: {<event>}"
+    `state
+  ::
+  ++  handle-spend-event
+    |=  event=spend-event:rpc
+    ^-  (quip card _state)
+    ~&  >>  "%volt: spend event: {<event>}"
+    `state
   --
 ::
 ++  handle-bitcoin-status
@@ -1367,13 +1380,30 @@
         block
       =^  cards  channel
         (on-channel-update channel u.utxo block)
-      :-  cards
-      state(live.chan (~(put by live.chan) u.id channel))
+      :_  state(live.chan (~(put by live.chan) u.id channel))
+      %+  weld  cards
+      ?.  own-provider  ~
+      =-  ~[(provider-action -)]
+      :*  %subscribe-spends
+        ^=  outpoint
+        :*  hash=txid.funding-outpoint.channel
+            index=pos.funding-outpoint.channel
+        ==
+      ::
+        ^=  script
+        %-  p2wsh:script:tx
+        %+  funding-output:script:tx
+          pub.multisig-key.our.config.channel
+        pub.multisig-key.her.config.channel
+      ::
+        height-hint=+(block)
+      ==
     ::
     ?:  ~(is-funded ^channel channel)
       =+  close=(~(get by shut.chan) u.id)
       ?^  close
         ::  cooperative close:
+        ::
         ?:  =(0 close-height.u.close)
           `state(shut.chan (~(put by shut.chan) u.id u.close(close-height block)))
         =/  channel=chan:bolt
