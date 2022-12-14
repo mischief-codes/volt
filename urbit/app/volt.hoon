@@ -959,7 +959,7 @@
     ::
     =+  close=(~(get by shut.chan) id.u.c)
     ?~  close
-      ::  counterparty initiated: ack shutdown
+      ::  counterparty initiated: ack shutdown, and if we're the funder, start closing negotiations
       ::
       =|  close=closing-state
       =.  initiator.close   src.bowl
@@ -967,13 +967,14 @@
       =.  our-script.close  ~(shutdown-script channel u.c)
       =^  cards-1  u.c      (send-shutdown u.c close)
       =^  cards-2  close    (maybe-sign-closing u.c close)
-      ?>  =(~ cards-2)
+      :: just remove this assertion to fix bug in non-funder-initiated closing?
+      :: ?>  =(~ cards-2)
       :-  cards-1
       %=  state
         live.chan  (~(put by live.chan) id.u.c u.c)
         shut.chan  (~(put by shut.chan) id.u.c close)
       ==
-    ::  counterparty acked: start closing negotiations
+    ::  counterparty acked: start closing negotiations if we're the funder, otherwise wait for counterparty
     ::
     ?>  =(initiator.u.close our.bowl)
     =.  her-script.u.close  script-pubkey
@@ -1047,6 +1048,7 @@
     ::
     =/  our-fee=sats:bc
       (div (add our-fee.close her-fee.close) 2)
+    =.  our-fee.close  our-fee
     ::  another round
     ::
     =^  cards  close  (maybe-sign-closing u.c close)
@@ -1285,6 +1287,7 @@
     ~&  >>  "%volt: confirmation event: {<event>}"
     `state
   ::
+  ::  TODO: use this spend subscription to initiate revocation/sweep flow
   ++  handle-spend-event
     |=  event=spend-event:rpc
     ^-  (quip card _state)
@@ -1298,6 +1301,8 @@
   ?~  btcp.prov  `state
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
+      ::  after each new block, check to see if funding utxos remain unspent
+      ::  REFACTOR: get block-info and check blockfilter for spends instead
       %new-block
     :_  %=  state
           btcp.prov  `u.btcp.prov(connected %.y)
@@ -1329,6 +1334,7 @@
   ?.  ?=([%& *] update)  `state
   ?-    -.p.update
       %address-info
+    ::  currently all address-info updates are from checking new blocks for funding outpoint spends
     (handle-address-info +.p.update)
   ::
       %tx-info
@@ -1359,9 +1365,11 @@
           1^0x20
           (bech32-decode:bolt +.address)
       ==
+    :: find the channel funded by this address
     =+  id=(~(get by wach.chan) script-pubkey)
     ?~  id  `state
     =+  channel=(~(got by live.chan) u.id)
+    ::  search the returned utxos for a match with the channel funding output
     =/  utxo=(unit utxo:bc)
       %-  ~(rep in utxos)
       |=  [output=utxo:bc acc=(unit utxo:bc)]
@@ -1371,17 +1379,19 @@
           ==
         `output
       acc
-    ::
+    ::  if the funding utxo is found
     ?:  ?=(^ utxo)
       =/  channel=chan:bolt
         %^  ~(update-onchain-state ^channel channel)
             height.u.utxo
           0
         block
+      ::  update the channel
       =^  cards  channel
         (on-channel-update channel u.utxo block)
       :_  state(live.chan (~(put by live.chan) u.id channel))
       %+  weld  cards
+      ::  if we're running LND, ask it to notify us when this utxo is spent
       ?.  own-provider  ~
       =-  ~[(provider-action -)]
       :*  %subscribe-spends
@@ -1399,10 +1409,15 @@
         height-hint=+(block)
       ==
     ::
+    ::  if the utxo is not found but the funding was confirmed, ie. it has now been spent
+    ::  REWRITE AND FINISH:
+    ::  get transactions in block
     ?:  ~(is-funded ^channel channel)
+      ::  if a coop close has been initiated for this channel
       =+  close=(~(get by shut.chan) u.id)
       ?^  close
         ::  cooperative close:
+        ::  poke btc-provider - block-info, raw-tx, tx-from-pos - get spending tx, check for honesty
         ::
         ?:  =(0 close-height.u.close)
           `state(shut.chan (~(put by shut.chan) u.id u.close(close-height block)))
@@ -1417,6 +1432,9 @@
       ::  revoked commitment?
       `state
     `state
+  ::
+  ::++  handle-id-from-pos
+  ::++  handle-tx-vals
   ::
   ++  on-channel-update
     |=  [channel=chan:bolt =utxo:bc block=@ud]
@@ -1677,7 +1695,6 @@
       our-fee  (min our-fee max-fee)
     ==
   ::  send next closing-signed
-  ::
   (send-closing-signed c close)
 ::
 ++  send-closing-signed

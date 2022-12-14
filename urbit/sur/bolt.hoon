@@ -256,6 +256,7 @@
       $:  our=(list commitment)
           her=(list commitment)
           height=@
+          ::  lookup=(map commitment secret)
       ==
       $=  updates
       $:  our=update-log

@@ -36,6 +36,9 @@
     ==
   =+  local-address=(p2wsh:script witness-script)
   =+  output-indexes=~
+  :: notes
+  :: don't necessarily need to move to the next commitment after every HTLC, could set timer to update periodically instead
+  :: use encode (extract-unsigned) or en to get tx to broadcast
   ~
 ::  +sweep-her-revoked-htlc:
 ::
