@@ -3,7 +3,7 @@
 ::
 /-  *volt, btc-provider
 /+  default-agent, dbug
-/+  bc=bitcoin, bolt11
+/+  bc=bitcoin, bolt11, b158
 /+  revocation=revocation-store, tx=transactions
 /+  keys=key-generation, secret=commitment-secret
 /+  bolt=utilities, channel, psbt, ring
@@ -1301,19 +1301,15 @@
   ?~  btcp.prov  `state
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
-      ::  after each new block, check to see if funding utxos remain unspent
-      ::  REFACTOR: get block-info and check blockfilter for spends instead
       %new-block
     :_  %=  state
           btcp.prov  `u.btcp.prov(connected %.y)
           chain      [block.status fee.status now.bowl]
         ==
-    %+  turn  ~(val by wach.chan)
-    |=  =id:bolt
-    %-  poke-btc-provider
-    :-  %address-info
-    %~  funding-address  channel
-    (~(got by live.chan) id)
+    =/  targets  ~(key by wach.chan)
+    =/  key  (take:byt:bcu:bc 16 blockhash.status)
+    ?.  (match:b158 blockfilter.status key targets)
+      ~  (poke-btc-provider [%get-block-txs blockhash.status])
   ::
       %connected
     :-  ~
@@ -1350,7 +1346,16 @@
   ::
       %block-info
     `state
+  ::
+      %block-txs
+    (handle-block-txs +.p.update)
   ==
+  ++  handle-block-txs
+    |=  $:  blockhash=hexb
+            txs=(list [hexb hexb])
+        ==
+    
+  ::
   ++  handle-address-info
     |=  $:  =address:bc
             utxos=(set utxo:bc)
@@ -1432,9 +1437,6 @@
       ::  revoked commitment?
       `state
     `state
-  ::
-  ::++  handle-id-from-pos
-  ::++  handle-tx-vals
   ::
   ++  on-channel-update
     |=  [channel=chan:bolt =utxo:bc block=@ud]
