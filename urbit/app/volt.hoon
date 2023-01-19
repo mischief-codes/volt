@@ -1350,12 +1350,73 @@
       %block-txs
     (handle-block-txs +.p.update)
   ==
+  ::
   ++  handle-block-txs
     |=  $:  blockhash=hexb
-            txs=(list [hexb hexb])
+            txs=(list rpc-tx)
         ==
-    
+    ^-  (quip card _state)
+    =/  updated=_state  state
+    =|  cards=(list card)
+    |-
+    ?~  txs  [cards updated]
+    =^  tx-cards  updated
+    %+  handle-potential-spend
+      updated
+    (decode-tx:psbt rawtx.i.txs)
+    %^  $
+      txs      (t.txs)
+      updated  updated
+      cards    (weld cards tx-cards)
+    ::  loop over txs
+    ::  de:psbt (or decode-tx?) them
+    ::  for each:
+    ::  check against tx:(keys of commit:revoc map)
+    ::    if yes, generate close and penalty sweep(s) - main and HTLC, hers and ours - and add 2-4(?)
+    ::    if no, check for txid.prevout.in[0] of decoded in wach.chan
+    ::      if yes, check in shut.chan
+    ::          TODO: change keys in wach.chan from scriptpubkey to txid to match prevout.psbt? otherwise:
+    ::          add a state if txid isn't available before wach needs to be populated?
+    ::          OR parse witness for script-sig? 
+    ::        if yes, it's a coop close, generate a coop sweep and return broadcast card
+    ::        if no, it's a force close, generate main and HTLC close sweeps and return broadcast card(s)
+    ::      if no, proceed to next tx
   ::
+  ++  handle-potential-spend
+    |=  [stat=_state =tx:psbt]
+    ^-  (quip card _state)
+    =/  funds=(map id:bolt outpoint:psbt)
+      %-  ~(run by live.chan)
+      |=  [c=chan:bolt]
+      `outpoint:psbt`[txid.funding.c pos.funding.c]
+    =/  prevout=outpoint:psbt  prevout:(rear vin.tx)
+    =/  match=(list [id:bolt outpoint:psbt])
+      %-  skim  ~(tap by funds)
+      |=([id:bolt =outpoint:psbt] =(outpoint prevout))
+    ::  no match, move on
+    ?~  match  `stat
+    ::  got a match, check the channel's revocations
+    =.  match  (snag 0 match)
+    =/  =psbt:psbt  (from-unsigned-tx:create:psbt tx)
+    =/  c=chan:bolt  (~(get by live.chan) i.match)
+    =/  revoked=(unit commitment:bolt)
+      %-  ~(rep in ~(key by lookup.commitments.u.c))
+      |=  [=commitment:bolt acc=(unit commitment:bolt)]
+      ?=  tx.commitment  psbt  acc  `commitment
+    ?^  revoked 
+      ::  got a match, create revocation spends for this commitment
+      =/  secret=@  (~(got by lookup.commitments.u.c) u.revoked)
+      ::  ...
+      :-  revocards
+      $=  stat
+        live.chan  (~(del by live.chan) i.match)
+        shut.can   (~(put by shut.chan) i.match closing-state)
+      ==
+    ::  check if there's a coop close in progress
+    ?:  =(state.u.c %closing)
+      ::  broadcast coop close spend
+
+
   ++  handle-address-info
     |=  $:  =address:bc
             utxos=(set utxo:bc)

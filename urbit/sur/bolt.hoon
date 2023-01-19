@@ -256,7 +256,7 @@
       $:  our=(list commitment)
           her=(list commitment)
           height=@
-          ::  lookup=(map commitment secret)
+          lookup=(map commitment @) ::  lookup from revoked commitments to revocation secrets
       ==
       $=  updates
       $:  our=update-log
