@@ -9,6 +9,7 @@
   |=  $:  c=chan
           commit=tx:tx:psbt
           secret=@
+          ::  get address from btc-wallet? keep self-contained? give option (or automatically detect btc-wallet status)?
           =sweep=address:bc
       ==
   ^-  (unit psbt:psbt)
