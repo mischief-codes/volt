@@ -1366,11 +1366,15 @@
     (decode-tx:psbt rawtx.i.txs)
     %^  $
       txs      (t.txs)
-      updated  updated
+      updated  (updated)  ::  don't need to do this?
       cards    (weld cards tx-cards)
   ::
   ++  handle-potential-spend
-    |=  [stat=_state =tx:psbt]
+    |=  $:
+          stat=_state
+          =tx:psbt
+          id=hexb:bc
+        ==
     ^-  (quip card _state)
     ::  check if this tx spends one of our channel funding txs
     =/  funds=(map id:bolt outpoint:psbt)
@@ -1386,15 +1390,23 @@
       `stat
     ::  got a match, check our revoked commitments for cheating
     =/  decoded=psbt:psbt  (from-unsigned-tx:create:psbt tx)
-    =/  c=chan:bolt  (~(get by live.chan) i:(snag 0 match))
+    =/  ch=chan:bolt  (~(get by live.chan) i:(snag 0 match))
     =/  revoked-match=(unit commitment:bolt)
-      %-  ~(rep in ~(key by lookup.commitments.u.c))
+      %-  ~(rep in ~(key by lookup.commitments.u.ch))
       |=  [=commitment:bolt acc=(unit commitment:bolt)]
       ?=  tx.commitment  decoded  acc  `commitment
     ?^  revoked-match
       ::  got a match, create revocation spends for this commitment
-      =/  secret=@  (~(got by lookup.commitments.u.c) u.revoked)
-      ::  ...
+      =/  rev-secret=@  (~(got by lookup.commitments.u.ch) u.revoked)
+      =/  sweep-tx
+        %:  sweep-her-revoked-commitment:sweep
+          c=ch
+          commit=tx
+          txid=id
+          secret=rev-secret
+          fee=u.fees.state
+          ::  get address from btc-wallet? keep self-contained? give option (or automatically detect btc-wallet status)?
+        ==
       :-  revocards
       $=  stat
         live.chan  (~(del by live.chan) i.match)
