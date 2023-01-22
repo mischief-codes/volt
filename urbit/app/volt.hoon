@@ -1363,7 +1363,7 @@
     =^  tx-cards  updated
     %+  handle-potential-spend
       updated
-    (decode-tx:psbt rawtx.i.txs)
+    (de:psbt rawtx.i.txs)
     %^  $
       txs      (t.txs)
       updated  (updated)  ::  don't need to do this?
@@ -1376,12 +1376,12 @@
           id=hexb:bc
         ==
     ^-  (quip card _state)
-    ::  check if this tx spends one of our channel funding txs
+    ::  check if this tx spends one of our channels
     =/  funds=(map id:bolt outpoint:psbt)
       %-  ~(run by live.chan)
       |=  [c=chan:bolt]
       `outpoint:psbt`[txid.funding.c pos.funding.c]
-    =/  prevout=outpoint:psbt  prevout:(rear vin.tx)
+    =+  =prevout:(rear vin.tx)
     =/  match=(list [id:bolt outpoint:psbt])
       %-  skim  ~(tap by funds)
       |=([id:bolt =outpoint:psbt] =(outpoint prevout))
@@ -1389,43 +1389,38 @@
     ::  no match, move on
       `stat
     ::  got a match, check our revoked commitments for cheating
-    =/  decoded=psbt:psbt  (from-unsigned-tx:create:psbt tx)
-    =/  ch=chan:bolt  (~(get by live.chan) i:(snag 0 match))
-    =/  revoked-match=(unit commitment:bolt)
+    =+  ch=(~(get by live.chan) i:(snag 0 match))
+    =/  revoked=(unit commitment:bolt)
       %-  ~(rep in ~(key by lookup.commitments.u.ch))
       |=  [=commitment:bolt acc=(unit commitment:bolt)]
-      ?=  tx.commitment  decoded  acc  `commitment
-    ?^  revoked-match
+      ?=  tx.commitment  tx  acc  `commitment
+    ?^  revoked
       ::  got a match, create revocation spends for this commitment
-      =/  rev-secret=@  (~(got by lookup.commitments.u.ch) u.revoked)
-      =/  sweep-tx
-        %:  sweep-her-revoked-commitment:sweep
-          c=ch
-          commit=tx
-          txid=id
-          secret=rev-secret
-          fee=u.fees.state
-          ::  get address from btc-wallet? keep self-contained? give option (or automatically detect btc-wallet status)?
-        ==
-      :-  revocards
+      =+  secret=(~(got by lookup.commitments.u.ch) u.revoked)
+      =/  sweep-tx=hexb:bc
+        (sweep-her-revoked-commitment:sweep ch tx txid secret u.fees.state)
+      :-  :~
+        (poke-btc-provider [%broadcast-tx encoded])
+        (give-update [%channel-state id.u.c %closing])
       $=  stat
         live.chan  (~(del by live.chan) i.match)
         shut.can   (~(put by shut.chan) i.match closing-state)
+        ::  TODO: update closing-state?
       ==
     ::  no match, check unrevoked remote commitments for a force-close
-    =/  unrevoked-match=(list commitment:bolt)
+    =/  unrevoked=(list commitment:bolt)
       %-  skim  her.commitments.u.c
-      |=  =commitment:bolt  =(tx.commitment decoded)
-    ?~  unrevoked-match
+      |=  =commitment:bolt  =(tx.commitment tx)
+    ?~  unrevoked
       ::  this is not any remote commit we've ever signed, confirm coop close in progress
       ?.  =(state.u.c %closing)
         ::  something Bad has happened and we're boned, but continue checking other txs
         ~&  >>  "ALERT POTENTIAL LOSS OF FUNDS"
         `stat
       ::  coop close completed
-      :-  (give-update)
+      :-  (give-update [%channel-state id.u.c %closed])
       $=  stat
-        live.chan
+        live.chan  (~(del by live.chan) i.match)
         shut.chan
       ==
     ::  this is a force-close, create spends

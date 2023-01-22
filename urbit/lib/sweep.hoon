@@ -14,10 +14,10 @@
           commit=tx:tx:psbt
           txid=hexb:bc
           secret=@
-          =sweep=address:bc
           fee=sats:bc
       ==
-  ^-  (unit psbt:psbt)
+  ^-  hexb:bc
+  ::  sweep her output with revocation
   =+  per-commitment-point=(priv-to-pub secret)
   =+  our-config=(~(config-for channel c) %local)
   =+  her-config=(~(config-for channel c) %remote)
@@ -48,11 +48,12 @@
   =+  our-balance  `balance.our.commit
   =|  local-input=input:psbt
   %=  local-input
-    prevout         [txid=id idx=local-idx]
-    witness-script  `local-witness-script
-    trusted-value   her-balance
     script-type     %p2wsh
+    trusted-value   her-balance
+    witness-script  `local-witness-script
+    prevout         [txid=id idx=local-idx]
   ==
+  ::  sweep our output
   =|  remote-input=input:psbt
   =.  trusted-value.remote-input  our-balance
   ?.  anchor-outputs.constraints.c
@@ -72,20 +73,35 @@
     witness-script  `remote-witness-script
     prevout         [txid=id idx=remote-idx]
   ==
+  ::  send to our localpubkey
+  ::  TODO: options for sweep address
   =|  =output:psbt
   %=  output
-    script-pubkey  ~ ::  TODO: destination for swept funds
     value          (sub (add our-balance her-balance) fee)
+    script-pubkey  (p2wpkh:script pub.multisig-key.our-config)
     ::  witness script?
   ==
+  ::  build transaction
   =|  tx=psbt:psbt
   %=  tx
-    inputs   ~[local-input remote-input]
-    outputs  
-  
+    inputs    ~[local-input remote-input]
+    outputs   ~[output]
+    nversion  2
   ==
   ::  sign and encode
-  tx
+  =/  local-sig  (~(one sign:psbt tx) 0 our-revocation-privkey)
+  =/  remote-sig (~(one sign:psbt tx) 1 priv.multisig-key.our-config)
+  =.  closing-tx
+    %:  ~(add-signature update:psbt tx)  0
+      revocation-pubkey
+    local-sig
+  ==
+  =.  closing-tx
+    %:  ~(add-signature update:psbt tx)  1
+      pub.multisig-key.our-config
+    remote-sig
+  ==
+  (extract:psbt tx)
 ::  +sweep-her-revoked-htlc:
 ::
 ++  sweep-her-revoked-htlc
