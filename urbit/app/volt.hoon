@@ -6,7 +6,7 @@
 /+  bc=bitcoin, bolt11, b158
 /+  revocation=revocation-store, tx=transactions
 /+  keys=key-generation, secret=commitment-secret
-/+  bolt=utilities, channel, psbt, ring
+/+  bolt=utilities, channel, psbt, ring, sweep
 |%
 +$  card  card:agent:gall
 +$  versioned-state
@@ -15,7 +15,7 @@
 ::
 +$  provider-state  [host=ship connected=?]
 ::
-+$  closing-state
++$  coop-close-state
   $:  initiator=ship
       max-fee=sats:bc
       our-fee=sats:bc
@@ -24,6 +24,12 @@
       her-sig=hexb:bc
       our-script=hexb:bc
       her-script=hexb:bc
+      close-height=@
+  ==
+::
++$  force-close-state
+  $:  initiator=ship
+      penalty=?
       close-height=@
   ==
 ::
@@ -45,7 +51,8 @@
           fund=(map id:bolt psbt:psbt)
           peer=(map ship (set id:bolt))
           wach=(map hexb:bc id:bolt)
-          shut=(map id:bolt closing-state)
+          shut=(map id:bolt coop-close-state)
+          dead=(map id:bolt force-close-state)
       ==
       $=  chain
       $:  block=@ud
@@ -366,7 +373,7 @@
       `state
     =+  c=(~(get by live.chan) chan-id)
     ?~  c  `state
-    =|  close=closing-state
+    =|  close=coop-close-state
     =.  close
       %=  close
         initiator   our.bowl
@@ -961,7 +968,7 @@
     ?~  close
       ::  counterparty initiated: ack shutdown, and if we're the funder, start closing negotiations
       ::
-      =|  close=closing-state
+      =|  close=coop-close-state
       =.  initiator.close   src.bowl
       =.  her-script.close  script-pubkey
       =.  our-script.close  ~(shutdown-script channel u.c)
@@ -1304,6 +1311,7 @@
       %new-block
     :_  %=  state
           btcp.prov  `u.btcp.prov(connected %.y)
+          ::  is the raw returned fee in sats/vB, not BTC/vkB?
           chain      [block.status fee.status now.bowl]
         ==
     =/  targets  ~(key by wach.chan)
@@ -1352,28 +1360,25 @@
   ==
   ::
   ++  handle-block-txs
-    |=  $:  blockhash=hexb
-            txs=(list rpc-tx)
-        ==
+    |=  [blockhash=hexb txs=(list rpc-tx)]
     ^-  (quip card _state)
     =/  updated=_state  state
     =|  cards=(list card)
     |-
     ?~  txs  [cards updated]
     =^  tx-cards  updated
-    %+  handle-potential-spend
-      updated
-    (de:psbt rawtx.i.txs)
-    %^  $
-      txs      (t.txs)
-      updated  (updated)  ::  don't need to do this?
-      cards    (weld cards tx-cards)
+      %^  handle-potential-spend
+          updated
+        txid.i.txs
+      (de:psbt rawtx.i.txs)
+    $(txs (t.txs) cards (weld cards tx-cards))
   ::
   ++  handle-potential-spend
     |=  $:
           stat=_state
+          txid=hexb:bc
           =tx:psbt
-          id=hexb:bc
+          block=@
         ==
     ^-  (quip card _state)
     ::  check if this tx spends one of our channels
@@ -1386,10 +1391,10 @@
       %-  skim  ~(tap by funds)
       |=([id:bolt =outpoint:psbt] =(outpoint prevout))
     ?~  match
-    ::  no match, move on
       `stat
     ::  got a match, check our revoked commitments for cheating
-    =+  ch=(~(get by live.chan) i:(snag 0 match))
+    =+  id=i:(snag 0 match)
+    =+  ch=(~(get by live.chan) id)
     =/  revoked=(unit commitment:bolt)
       %-  ~(rep in ~(key by lookup.commitments.u.ch))
       |=  [=commitment:bolt acc=(unit commitment:bolt)]
@@ -1398,23 +1403,22 @@
       ::  got a match, create revocation spends for this commitment
       =+  secret=(~(got by lookup.commitments.u.ch) u.revoked)
       =/  sweep-tx=hexb:bc
-        (sweep-her-revoked-commitment:sweep ch tx txid secret u.fees.state)
+        (sweep-revoked:sweep ch tx txid secret u.fees.state)
+      =/  =force-close-state  [ship.her.config.u.c %y 0]
       :-  :~
-        (poke-btc-provider [%broadcast-tx encoded])
-        (give-update [%channel-state id.u.c %closing])
+        (poke-btc-provider [%broadcast-tx sweep-tx])
+        (give-update [%channel-state id %closing])
       $=  stat
-        live.chan  (~(del by live.chan) i.match)
-        shut.can   (~(put by shut.chan) i.match closing-state)
-        ::  TODO: update closing-state?
+        live.chan  (~(del by live.chan) id)
+        shut.can   (~(put by dead.chan) id force-close-state)
       ==
-    ::  no match, check unrevoked remote commitments for a force-close
+    ::  check unrevoked remote commitments for a force-close
     =/  unrevoked=(list commitment:bolt)
       %-  skim  her.commitments.u.c
       |=  =commitment:bolt  =(tx.commitment tx)
     ?~  unrevoked
-      ::  this is not any remote commit we've ever signed, confirm coop close in progress
+      ::  confirm coop close in progress
       ?.  =(state.u.c %closing)
-        ::  something Bad has happened and we're boned, but continue checking other txs
         ~&  >>  "ALERT POTENTIAL LOSS OF FUNDS"
         `stat
       ::  coop close completed
@@ -1424,6 +1428,7 @@
         shut.chan
       ==
     ::  this is a force-close, create spends
+    `state
 
   ++  handle-address-info
     |=  $:  =address:bc
@@ -1626,7 +1631,7 @@
   [(send-message [%revoke-and-ack rev] src.bowl) cards]
 ::
 ++  send-shutdown
-  |=  [c=chan:bolt close=closing-state]
+  |=  [c=chan:bolt close=coop-close-state]
   |^  ^-  (quip card _c)
   ?>  (can-send-shutdown c)
   :_  (~(set-state channel c) %shutdown)
@@ -1734,7 +1739,7 @@
   ~[(provider-action [%settle-invoice preimage])]
 ::
 ++  maybe-sign-closing
-  |=  [c=chan:bolt close=closing-state]
+  |=  [c=chan:bolt close=coop-close-state]
   ^-  (quip card _close)
   =+  fee-rate=(current-feerate-per-kw)
   =/  [tx=psbt:psbt =signature:bolt]
@@ -1769,7 +1774,7 @@
   (send-closing-signed c close)
 ::
 ++  send-closing-signed
-  |=  [c=chan:bolt close=closing-state]
+  |=  [c=chan:bolt close=coop-close-state]
   ^-  (quip card _close)
   =|  msg=closing-signed:msg:bolt
   =/  [tx=psbt:psbt =signature:bolt]
