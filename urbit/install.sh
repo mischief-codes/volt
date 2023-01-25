@@ -16,7 +16,7 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 
-desk=''
+desk='/home/armitage/urbit/syx/volt'
 verbose=false
 watch=false
 excludes=ignore_files.txt
