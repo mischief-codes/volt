@@ -3,7 +3,7 @@
 ::
 /-  *volt, btc-provider
 /+  default-agent, dbug
-/+  bc=bitcoin, bolt11, b158
+/+  bc=bitcoin, bolt11, bip-b158
 /+  revocation=revocation-store, tx=transactions
 /+  keys=key-generation, secret=commitment-secret
 /+  bolt=utilities, channel, psbt, ring, sweep
@@ -1371,7 +1371,7 @@
           updated
         txid.i.txs
       (de:psbt rawtx.i.txs)
-    $(txs (t.txs) cards (weld cards tx-cards))
+    $(txs (t.txs), cards (weld cards tx-cards))
   ::
   ++  handle-potential-spend
     |=  $:
@@ -1388,27 +1388,27 @@
       `outpoint:psbt`[txid.funding.c pos.funding.c]
     =+  =prevout:(rear vin.tx)
     =/  match=(list [id:bolt outpoint:psbt])
-      %-  skim  ~(tap by funds)
+      %+  skim  ~(tap by funds)
       |=([id:bolt =outpoint:psbt] =(outpoint prevout))
-    ?~  match
-      `stat
+    ?~  match  `stat
     ::  got a match, check our revoked commitments for cheating
     =+  id=i:(snag 0 match)
     =+  ch=(~(get by live.chan) id)
     =/  revoked=(unit commitment:bolt)
-      %-  ~(rep in ~(key by lookup.commitments.u.ch))
+      %+  ~(rep in ~(key by lookup.commitments.u.ch))
       |=  [=commitment:bolt acc=(unit commitment:bolt)]
-      ?=  tx.commitment  tx  acc  `commitment
+      ?:  =(tx.commitment tx)  acc  `commitment
     ?^  revoked
       ::  got a match, create revocation spends for this commitment
       =+  secret=(~(got by lookup.commitments.u.ch) u.revoked)
       =/  sweep-tx=hexb:bc
-        (sweep-revoked:sweep ch tx txid secret u.fees.state)
+        (sweep-her-revoked-balances:sweep ch u.revoked txid secret u.fees.state)
       =/  =force-close-state  [ship.her.config.u.c %y 0]
-      :-  :~
-        (poke-btc-provider [%broadcast-tx sweep-tx])
-        (give-update [%channel-state id %closing])
-      $=  stat
+      :-  
+      :~  (poke-btc-provider [%broadcast-tx sweep-tx])
+          (give-update [%channel-state id %closing])
+      ==
+      %=  stat
         live.chan  (~(del by live.chan) id)
         shut.can   (~(put by dead.chan) id force-close-state)
       ==
@@ -1422,13 +1422,12 @@
         ~&  >>  "ALERT POTENTIAL LOSS OF FUNDS"
         `stat
       ::  coop close completed
-      :-  (give-update [%channel-state id.u.c %closed])
-      $=  stat
-        live.chan  (~(del by live.chan) i.match)
-        shut.chan
+      :-  ~[(give-update [%channel-state id %closed])]
+      %=  stat
+        live.chan  (~(del by live.chan) id)
       ==
     ::  this is a force-close, create spends
-    `state
+    `stat
 
   ++  handle-address-info
     |=  $:  =address:bc

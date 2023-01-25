@@ -6,7 +6,7 @@
 +$  txid      hexb:bc
 +$  hash      hexb:bc
 +$  preimage  hexb:bc
-+$  rpc-tx    [=txid rawtx=hexb]
++$  rpc-tx    [=txid rawtx=hexb:bc]
 ::
 +$  msats    msats:bolt
 +$  chan-id  id:bolt

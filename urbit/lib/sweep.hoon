@@ -11,108 +11,141 @@
 ++  sweep-her-revoked-balances
   =,  secp256k1:secp:crypto
   |=  $:  c=chan
-          commit=tx:tx:psbt
+          commit=commitment
           txid=hexb:bc
           secret=@
           fee=sats:bc
       ==
-  ^-  hexb:bc
+  |^  ^-  hexb:bc
   ::  sweep her output with revocation
-  =+  per-commitment-point=(priv-to-pub secret)
+  =+  per-commit=(priv-to-pub secret)
   =+  our-config=(~(config-for channel c) %local)
   =+  delay=to-self-delay:(~(config-for channel c) %remote)
   =/  her-delayed-pubkey=pubkey
     %+  derive-pubkey:keys
       pub.delayed-payment.basepoints.our-config
-    per-commitment-point
-  =/  our-revocation-privkey=privkey:keys
+    per-commit
+  =/  rev-priv=privkey:keys
     %:  derive-revocation-privkey:keys
       pub.revocation.basepoints.our-config
       prv.revocation.basepoints.our-config
-      per-commitment-point
+      per-commit
       secret
     ==
-  =+  revocation-pubkey=(priv-to-pub our-revocation-privkey)
-  =/  local-witness-script=script:btc-script:script
+  =+  rev-pub=(priv-to-pub rev-priv)
+  =/  local-witness=script:btc-script:script
     %^  local-output:script
-        revocation-pubkey
+        rev-pub
       her-delayed-pubkey
     delay
-  =+  local-address=(p2wsh:script local-witness-script)
-  =/  scriptpubkeys
-    (turn vout.commit |=(=out:tx:psbt script-pubkey.out))
-  =+  local-idx=(find scriptpubkeys ~[local-address])
-  =+  her-balance  `balance.her.commit
+  =/  scriptpubkeys=(list hexb:bc)
+    (turn vout.tx.commit |=(=out:tx:psbt script-pubkey.out))
+  =+  her-bal=balance.her.commit
   =|  inputs=(list input:psbt)
-  ?^  local-idx
-    =|  local-input=input:psbt
-    %=  local-input
-      script-type     %p2wsh
-      trusted-value   her-balance
-      witness-script  `local-witness-script
-      prevout         [txid=id idx=u.local-idx]
+  =.  inputs
+    %:  maybe-add-remote
+      her-bal
+      txid
+      scriptpubkeys
+      local-witness
     ==
-    =.  inputs  (snoc inputs local-input)
-  same
   ::  sweep our output
-  =|  remote-input=input:psbt
-  =+  our-balance  `balance.our.commit
-  =.  trusted-value.remote-input  our-balance
-  ?.  anchor-outputs.constraints.c
-    =+  remote-address=(p2wpkh:script pub.multisig-key.our-config)
-    =+  remote-idx=(find scriptpubkeys ~[remote-address])
-    ?^  remote-idx
-      %=  remote-input
-        script-type  %p2wpkh
-        prevout      [txid=id idx=u.remote-idx]
-      ==
-      =.  inputs  (snoc inputs remote-input)
-    same
-  =/  remote-witness-script=script:btc-script:script
-    %-  remote-output:script  pub.multisig-key.our-config
-  =+  remote-address=(p2wsh:script remote-witness-script)
-  =+  remote-idx=(find scriptpubkeys ~[remote-address])
-  ?^  remote-idx
-    %=  remote-input
-      nsequence       1
-      script-type     %p2wsh
-      witness-script  `remote-witness-script
-      prevout         [txid=id idx=u.remote-idx]
+  =+  our-bal=balance.our.commit
+  =+  localpub=pub.multisig-key.our-config
+  =+  anchors=anchor-outputs.constraints.c
+  =.  inputs
+    %:  maybe-add-local
+      our-bal
+      txid
+      scriptpubkeys
+      localpub
+      inputs
+      anchors
     ==
-    =.  inputs  (snoc inputs remote-input)
-  same
   ::  send to our localpubkey
   ::  TODO: options for sweep address
-  =+  tx-fee  (mul fee 186)
+  =|  =output:psbt
+  =+  tx-fee=(mul fee 186)
   ::  base size: 31B (output) + 82B (inputs) + 6B (version, counts)
   ::  witness size: 265B
   ::  virtual size: 186vB (rounded up)
-  =|  =output:psbt
-  %=  output
-    value          (sub (add our-balance her-balance) tx-fee)
-    script-pubkey  (p2wpkh:script pub.multisig-key.our-config)
-  ==
+  =.  value.output  (sub (add our-bal her-bal) tx-fee)
+  =.  script-pubkey.output  (p2wpkh:script localpub)
   ::  build transaction
   =|  tx=psbt:psbt
-  %=  tx
-    inputs    ~[local-input remote-input]
-    outputs   ~[output]
-    nversion  2
-  ==
+  =.  tx
+    %=  tx
+      inputs    inputs
+      outputs   ~[output]
+      nversion  2
+    ==
   ::  sign and encode
-  =/  local-sig  (~(one sign:psbt tx) 0 our-revocation-privkey)
-  =/  remote-sig (~(one sign:psbt tx) 1 priv.multisig-key.our-config)
-  =.  closing-tx
+  =/  local-sig   (~(one sign:psbt tx) 0 rev-priv ~)
+  =/  remote-sig  (~(one sign:psbt tx) 1 priv.multisig-key.our-config ~)
+  =.  tx
     %:  ~(add-signature update:psbt tx)  0
-      revocation-pubkey
+      rev-pub
     local-sig
-  ==
-  =.  closing-tx
+    ==
+  =.  tx
     %:  ~(add-signature update:psbt tx)  1
-      pub.multisig-key.our-config
+      localpub
     remote-sig
-  ==
-  (extract:psbt tx)
+    ==
+  (extract:psbt sweep-tx)
+  ++  maybe-add-remote
+    |=  $:  bal=sats:bc
+            id=hexb:bc
+            keys=(list hexb:bc)
+            wit=script:btc-script:script
+        ==
+    ^-  (list input:psbt)
+    =+  addr=(p2wsh:script wit)
+    =+  idx=(find keys ~[addr])
+    =|  =input:psbt
+    ?~  idx
+      ~
+    =+  wit-byts=(en:btc-script:script wit)
+    :~
+      %=  input
+        script-type     %p2wsh
+        trusted-value   `bal
+        witness-script  `wit-byts
+        prevout         [txid=id idx=u.idx]
+      ==
+    ==
+  ++  maybe-add-local
+    |=  $:  bal=sats:bc
+            id=hexb:bc
+            keys=(list hexb:bc)
+            pub=pubkey
+            in=(list input:psbt)
+            anchors=?
+        ==
+    ^-  (list input:psbt)
+    =/  anchor-script
+      (remote-output:script pub)
+    =/  addr  ?.  anchors
+      (p2wpkh:script pub)
+    (p2wsh:script anchor-script)
+    =+  idx=(find keys ~[addr])
+    ?~  idx
+      in
+    =|  =input:psbt
+    =.  trusted-balance.input  `bal
+    =.  prevout.input  [txid=id idx=u.idx]
+    %+  snoc  inputs
+      ?.  anchors
+        =.  script-type.input  %p2wpkh  
+        input
+      =/  wit-byts
+        (en:btc-script:script anchor-script)
+      %=  input
+        nsequence       1
+        script-type     %p2wsh
+        witness-script  `wit-byts
+      ==
+  --
 ::
 ++  sweep-her-revoked-htlc
   |=  $:  c=chan
