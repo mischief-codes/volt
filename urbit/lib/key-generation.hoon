@@ -115,4 +115,9 @@
   ++  r  (point-hash revocation-basepoint per-commitment-point)
   ++  c  (point-hash per-commitment-point revocation-basepoint)
   --
+::
+++  priv-to-hexb
+  |=  =privkey
+  ^-  hexb:bc
+  [wid=(met 3 privkey) dat=`@ux`privkey]
 --

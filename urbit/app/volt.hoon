@@ -1336,7 +1336,7 @@
   ?~  btcp.prov  `state
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?.  ?=([%& *] update)  `state
-  ?-    -.p.update
+  ?+    -.p.update  `state
       %address-info
     ::  currently all address-info updates are from checking new blocks for funding outpoint spends
     (handle-address-info +.p.update)
@@ -1360,7 +1360,7 @@
   ==
   ::
   ++  handle-block-txs
-    |=  [blockhash=hexb txs=(list rpc-tx)]
+    |=  [blockhash=hexb:bc txs=(list rpc-tx)]
     ^-  (quip card _state)
     =/  updated=_state  state
     =|  cards=(list card)
@@ -1371,54 +1371,65 @@
           updated
         txid.i.txs
       (de:psbt rawtx.i.txs)
-    $(txs (t.txs), cards (weld cards tx-cards))
+    $(txs t.txs, cards (weld cards tx-cards))
   ::
+  ::  hack to deal with conflicting outpoint types in different libraries
+  +$  outpoint  [txid=hexb:bc idx=@]
   ++  handle-potential-spend
     |=  $:
           stat=_state
           txid=hexb:bc
-          =tx:psbt
-          block=@
+          tx=psbt:psbt
         ==
     ^-  (quip card _state)
     ::  check if this tx spends one of our channels
-    =/  funds=(map id:bolt outpoint:psbt)
+    =/  funds=(map id:bolt outpoint)
       %-  ~(run by live.chan)
       |=  [c=chan:bolt]
-      `outpoint:psbt`[txid.funding.c pos.funding.c]
-    =+  =prevout:(rear vin.tx)
-    =/  match=(list [id:bolt outpoint:psbt])
+      [txid.funding-outpoint.c pos.funding-outpoint.c]
+    =+  prevout=prevout:(snag 0 vin.tx)
+    =/  match=(list [id:bolt outpoint])
       %+  skim  ~(tap by funds)
-      |=([id:bolt =outpoint:psbt] =(outpoint prevout))
-    ?~  match  `stat
+      |=([id:bolt =outpoint] =(outpoint prevout))
+    ?~  match
+      `stat
     ::  got a match, check our revoked commitments for cheating
-    =+  id=i:(snag 0 match)
-    =+  ch=(~(get by live.chan) id)
+    =+  id=(head (rear match))
+    =+  ch=(~(got by live.chan) id)
     =/  revoked=(unit commitment:bolt)
-      %+  ~(rep in ~(key by lookup.commitments.u.ch))
+      %-  ~(rep in ~(key by lookup.commitments.ch))
       |=  [=commitment:bolt acc=(unit commitment:bolt)]
-      ?:  =(tx.commitment tx)  acc  `commitment
+      ?:  =(tx.commitment tx)  `commitment  acc
     ?^  revoked
       ::  got a match, create revocation spends for this commitment
-      =+  secret=(~(got by lookup.commitments.u.ch) u.revoked)
+      =+  secret=(~(got by lookup.commitments.ch) u.revoked)
+      ::  TODO: change fees state from unit to default 0
+      ?~  fees.chain.state
+        `stat
       =/  sweep-tx=hexb:bc
-        (sweep-her-revoked-balances:sweep ch u.revoked txid secret u.fees.state)
-      =/  =force-close-state  [ship.her.config.u.c %y 0]
+        %:  sweep-her-revoked-balances:sweep
+          ch
+          u.revoked
+          txid
+          secret
+          u.fees.chain.state
+        ==
+      =/  =force-close-state  [ship.her.config.ch %.y 0]
       :-  
       :~  (poke-btc-provider [%broadcast-tx sweep-tx])
           (give-update [%channel-state id %closing])
       ==
       %=  stat
         live.chan  (~(del by live.chan) id)
-        shut.can   (~(put by dead.chan) id force-close-state)
+        shut.chan   (~(put by dead.chan) id force-close-state)
       ==
     ::  check unrevoked remote commitments for a force-close
     =/  unrevoked=(list commitment:bolt)
-      %-  skim  her.commitments.u.c
+      %+  skim  her.commitments.ch
       |=  =commitment:bolt  =(tx.commitment tx)
     ?~  unrevoked
       ::  confirm coop close in progress
-      ?.  =(state.u.c %closing)
+      ?.  =(state.ch %closing)
         ~&  >>  "ALERT POTENTIAL LOSS OF FUNDS"
         `stat
       ::  coop close completed

@@ -20,7 +20,8 @@
   ::  sweep her output with revocation
   =+  per-commit=(priv-to-pub secret)
   =+  our-config=(~(config-for channel c) %local)
-  =+  delay=to-self-delay:(~(config-for channel c) %remote)
+  =+  her-config=(~(config-for channel c) %remote)
+  =+  delay=to-self-delay:her-config
   =/  her-delayed-pubkey=pubkey
     %+  derive-pubkey:keys
       pub.delayed-payment.basepoints.our-config
@@ -42,8 +43,8 @@
     (turn vout.tx.commit |=(=out:tx:psbt script-pubkey.out))
   =+  her-bal=balance.her.commit
   =|  inputs=(list input:psbt)
-  =.  inputs
-    %:  maybe-add-remote
+  =^  has-local  inputs
+    %:  maybe-add-local
       her-bal
       txid
       scriptpubkeys
@@ -53,8 +54,8 @@
   =+  our-bal=balance.our.commit
   =+  localpub=pub.multisig-key.our-config
   =+  anchors=anchor-outputs.constraints.c
-  =.  inputs
-    %:  maybe-add-local
+  =^  has-remote  inputs
+    %:  maybe-add-remote
       our-bal
       txid
       scriptpubkeys
@@ -69,7 +70,10 @@
   ::  base size: 31B (output) + 82B (inputs) + 6B (version, counts)
   ::  witness size: 265B
   ::  virtual size: 186vB (rounded up)
-  =.  value.output  (sub (add our-bal her-bal) tx-fee)
+  =|  val=sats:bc
+  =?  val  has-local  (add val her-bal)
+  =?  val  has-remote  (add val our-bal)
+  =.  value.output  (sub val tx-fee)
   =.  script-pubkey.output  (p2wpkh:script localpub)
   ::  build transaction
   =|  tx=psbt:psbt
@@ -80,41 +84,47 @@
       nversion  2
     ==
   ::  sign and encode
-  =/  local-sig   (~(one sign:psbt tx) 0 rev-priv ~)
-  =/  remote-sig  (~(one sign:psbt tx) 1 priv.multisig-key.our-config ~)
-  =.  tx
-    %:  ~(add-signature update:psbt tx)  0
+  =?  tx  has-local
+    %:  ~(add-signature update:psbt tx)
+      0
       rev-pub
-    local-sig
+      %^  ~(one sign:psbt tx)
+          0
+        (priv-to-hexb:keys rev-priv)
+      ~
     ==
-  =.  tx
-    %:  ~(add-signature update:psbt tx)  1
+  =?  tx  has-remote
+    =/  remote-idx  ?:  has-local  1  0
+    %:  ~(add-signature update:psbt tx)
+      remote-idx
       localpub
-    remote-sig
+      %^  ~(one sign:psbt tx)
+          remote-idx
+        (priv-to-hexb:keys prv.multisig-key.our-config)
+      ~
     ==
-  (extract:psbt sweep-tx)
-  ++  maybe-add-remote
+  (extract:psbt tx)
+  ++  maybe-add-local
     |=  $:  bal=sats:bc
             id=hexb:bc
             keys=(list hexb:bc)
             wit=script:btc-script:script
         ==
-    ^-  (list input:psbt)
+    ^-  [? (list input:psbt)]
     =+  addr=(p2wsh:script wit)
     =+  idx=(find keys ~[addr])
     =|  =input:psbt
     ?~  idx
-      ~
+      [%.n ~]
     =+  wit-byts=(en:btc-script:script wit)
-    :~
-      %=  input
-        script-type     %p2wsh
-        trusted-value   `bal
-        witness-script  `wit-byts
-        prevout         [txid=id idx=u.idx]
-      ==
-    ==
-  ++  maybe-add-local
+    :-  %.y
+    :~  %=  input
+          script-type     %p2wsh
+          trusted-value   `bal
+          witness-script  `wit-byts
+          prevout         [txid=id idx=u.idx]
+    ==  ==
+  ++  maybe-add-remote
     |=  $:  bal=sats:bc
             id=hexb:bc
             keys=(list hexb:bc)
@@ -122,24 +132,23 @@
             in=(list input:psbt)
             anchors=?
         ==
-    ^-  (list input:psbt)
+    ^-  [? (list input:psbt)]
     =/  anchor-script
       (remote-output:script pub)
     =/  addr  ?.  anchors
       (p2wpkh:script pub)
     (p2wsh:script anchor-script)
     =+  idx=(find keys ~[addr])
-    ?~  idx
-      in
     =|  =input:psbt
-    =.  trusted-balance.input  `bal
+    ?~  idx
+      [%.n in]
+    =.  trusted-value.input  `bal
     =.  prevout.input  [txid=id idx=u.idx]
-    %+  snoc  inputs
+    :-  %.y
+    %+  snoc  in
       ?.  anchors
-        =.  script-type.input  %p2wpkh  
-        input
-      =/  wit-byts
-        (en:btc-script:script anchor-script)
+        input(script-type %p2wpkh)
+      =+  wit-byts=(en:btc-script:script anchor-script)
       %=  input
         nsequence       1
         script-type     %p2wsh
