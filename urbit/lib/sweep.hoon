@@ -4,19 +4,17 @@
 |%
 :: notes
   :: don't necessarily need to move to the next commitment after every HTLC, could set timer to update periodically instead
-  :: use encode (extract-unsigned) or en to get tx to broadcast
   :: could map/search by commitment height (encoded in nlocktime) instead of tx byts
-::  +sweep-her-revoked-commitment:
 ::
-++  sweep-her-revoked-balances
+++  revoked-commitment
   =,  secp256k1:secp:crypto
   |=  $:  c=chan
           commit=commitment
           txid=hexb:bc
-          secret=@
           fee=sats:bc
       ==
-  |^  ^-  hexb:bc
+  |^  ^-  (list psbt:psbt)
+  =+  secret=(~(got by lookup.commitments.c) commit)
   ::  sweep her output with revocation
   =+  per-commit=(priv-to-pub secret)
   =+  our-config=(~(config-for channel c) %local)
@@ -84,26 +82,29 @@
       nversion  2
     ==
   ::  sign and encode
+  =+  xrprv=(priv-to-hexb:keys rev-priv)
   =?  tx  has-local
-    %:  ~(add-signature update:psbt tx)
-      0
+    %^  ~(add-signature update:psbt tx)
+        0
       rev-pub
-      %^  ~(one sign:psbt tx)
-          0
-        (priv-to-hexb:keys rev-priv)
-      ~
-    ==
+    %^  ~(one sign:psbt tx)
+        0
+      xrprv
+    ~
   =?  tx  has-remote
     =/  remote-idx  ?:  has-local  1  0
-    %:  ~(add-signature update:psbt tx)
-      remote-idx
+    %^  ~(add-signature update:psbt tx)
+        remote-idx
       localpub
-      %^  ~(one sign:psbt tx)
-          remote-idx
-        (priv-to-hexb:keys prv.multisig-key.our-config)
-      ~
-    ==
-  (extract:psbt tx)
+    %^  ~(one sign:psbt tx)
+        remote-idx
+      (priv-to-hexb:keys prv.multisig-key.our-config)
+    ~
+  =+  txs=~[tx]
+  ?:  ?&(=(0 (lent sent-htlcs.commit)) =(0 (lent recd-htlcs.commit)))
+    txs
+  (weld txs (revoke-htlc-outs rev-pub xrprv))
+  ::
   ++  maybe-add-local
     |=  $:  bal=sats:bc
             id=hexb:bc
@@ -124,6 +125,7 @@
           witness-script  `wit-byts
           prevout         [txid=id idx=u.idx]
     ==  ==
+  ::
   ++  maybe-add-remote
     |=  $:  bal=sats:bc
             id=hexb:bc
@@ -154,22 +156,276 @@
         script-type     %p2wsh
         witness-script  `wit-byts
       ==
+  ::
+  ++  revoke-htlc-outs
+    ::  refactor to be less duplicative
+    |=  [rpub=pubkey rprv=hexb:bc]
+    ^-  (list psbt:psbt)
+    =/  our=(list psbt:psbt)
+      %+  turn  sent-htlcs.commit
+      |=  htlc=add-htlc-update
+      =|  =input:psbt
+      =+  val=(div amount-msats.htlc 1.000)
+      =/  wit
+        %:  htlc-witness:script
+          %sent
+          pub.htlc.basepoints.our.config.c
+          pub.htlc.basepoints.her.config.c
+          rpub
+          payment-hash.htlc
+          ~
+          anchor-outputs.our.config.c
+        ==
+      =?  nsequence.input
+        anchor-outputs.our.config.c
+      1
+      =.  input
+        %=  input
+          script-type     %p2wsh
+          prevout         [txid output-index.htlc]
+          trusted-value   `val
+          witness-script  `(en:btc-script:script wit)
+        ==
+      =|  =output:psbt
+      =.  value.output  (sub val fee) ::  TODO fee calc
+      =.  script-pubkey.output
+        (p2wpkh:script pub.multisig-key.our.config.c)
+      =|  tx=psbt:psbt
+      =.  tx
+        %=  tx
+          nversion  2
+          inputs    ~[input]
+          outputs   ~[output]
+        ==
+      %^  ~(add-signature update:psbt tx)
+          0
+        rpub
+      %^  ~(one sign:psbt tx)
+          0
+        rprv
+      ~
+    =/  his=(list psbt:psbt)
+      %+  turn  recd-htlcs.commit
+      |=  htlc=add-htlc-update
+      =|  =input:psbt
+      =+  val=(div amount-msats.htlc 1.000)
+      =/  wit
+        %:  htlc-witness:script
+          %received
+          pub.htlc.basepoints.our.config.c
+          pub.htlc.basepoints.her.config.c
+          rpub
+          payment-hash.htlc
+          `timeout.htlc
+          anchor-outputs.our.config.c
+        ==
+      =?  nsequence.input
+        anchor-outputs.our.config.c
+      1
+      =.  input  
+        %=  input
+          script-type     %p2wsh
+          prevout         [txid output-index.htlc]
+          trusted-value   `val
+          witness-script  `(en:btc-script:script wit)
+        ==
+      =|  =output:psbt
+      =.  value.output  (sub val fee) ::  TODO fee calc
+      =.  script-pubkey.output
+        (p2wpkh:script pub.multisig-key.our.config.c)
+      =|  tx=psbt:psbt
+      =.  tx
+        %=  tx
+          nversion  2
+          inputs    ~[input]
+          outputs   ~[output]
+        ==
+      %^  ~(add-signature update:psbt tx)
+          0
+        rpub
+      %^  ~(one sign:psbt tx)
+          0
+        rprv
+      ~
+    %+  weld  our  his      
   --
 ::
-++  sweep-her-revoked-htlc
+++  revoked-htlc-spend
+  =,  secp256k1:secp:crypto
   |=  $:  c=chan
-          commit=tx:tx:psbt
+          secret=@
+          val=sats:bc
+          txid=hexb:bc
+          fee=sats:bc
       ==
   ^-  psbt:psbt
-  *psbt:psbt
-  ::  check for sent and recd htlcs
-  ::  get indices from update
-  ::  sweep all with revocation sig
+  =+  per-commit=(priv-to-pub secret)
+  =+  our-config=(~(config-for channel c) %local)
+  =+  her-config=(~(config-for channel c) %remote)
+  =+  delay=to-self-delay.her-config
+  =/  her-pub=pubkey
+    %+  derive-pubkey:keys
+      pub.delayed-payment.basepoints.our-config
+    per-commit
+  =/  rev-priv=privkey:keys
+    %:  derive-revocation-privkey:keys
+      pub.revocation.basepoints.our-config
+      prv.revocation.basepoints.our-config
+      per-commit
+      secret
+    ==
+  =+  rev-pub=(priv-to-pub rev-priv)
+  =/  witness=script:btc-script:script
+    %^  htlc-spend:script
+        rev-pub
+      her-pub
+    delay
+  =|  =input:psbt
+  =.  input
+    %=  input
+      script-type     %p2wsh
+      prevout         [txid 0]
+      trusted-value   `val
+      witness-script  `(en:btc-script:script witness)
+    ==
+  =|  =output:psbt
+  =.  output
+    %=  output
+      ::  fee calc: base size 74B + witness 156B => 113vB
+      ::  TODO: double check this calc
+      ::  TODO: branch calc based on anchor outputs?
+      value          (sub val (mul fee 113))
+      script-pubkey  (p2wpkh:script pub.multisig-key.our-config)
+    ==
+  =|  sweep=psbt:psbt
+  =.  sweep
+    %=  sweep
+      inputs    ~[input]
+      outputs   ~[output]
+      nversion  2
+    ==
+  %^  ~(add-signature update:psbt sweep)
+      0
+    rev-pub
+  %^  ~(one sign:psbt sweep)
+      0
+    (priv-to-hexb:keys rev-priv)
+  ~
 ::
-++  sweep-our-commitment
+++  his-valid-commitment
   |=  $:  c=chan
+          com=commitment
+          secrets=(map hexb:bc hexb:bc)
+          fee=sats:bc
+          txid=hexb:bc
       ==
   ^-  psbt:psbt
-  *psbt:psbt
+  ?~  recd-htlcs.com
+    *psbt:psbt
+  ::  TODO: keep payment preimages map current (shift spent preimages to another piece of state) to optimize this search
+  =|  sweep=psbt:psbt
+  =|  =output:psbt
+  =|  preimages=(list hexb:bc)
+  =.  script-pubkey.output
+    (p2wpkh:script pub.multisig-key.our-config)
+  =/  to-spend=(list [input:psbt hexb:bc])
+    %+  murn  recd-htlc.com
+    |=  msg=add-htlc-update
+    =+  preimage=(~(get by secrets) payment-hash.msg)
+    ?~  preimage
+      ~
+    =/  witness=hexb:bc
+      %-  en:btc-script:script
+      %:  htlc-offered:script
+        pub.htlc.basepoints.our.config.c
+        pub.htlc.basepoints.her.config.c
+        pub.revocation.basepoints.our.config.c
+        payment-hash.msg
+        anchor-outputs.our.config.c
+      ==
+    =+  amount-sats=(msats-to-sats amount-msats.msg)
+    =|  =input:psbt
+    :_  preimage
+    %=  input
+      script-type           %p2wsh
+      witness-script        `witness
+      trusted-value         `amount-sats
+      prevout               [txid output-index.msg]
+    ==
+  =.  inputs.sweep  (turn to-spend |=([i=input:psbt hexb:bc] i))
+  =+  total-value=(roll (turn inputs.sweep |=(i=input:psbt trusted-value.i) add)
+  ::  per input: 41 base + 240 witness => 101vB
+  ::  other: 39 base + 2 witness => 40vB
+  :: =+  vbytes=(add 40 (mul 101 (lent inputs.sweep)))
+  =+  n-in=(lent inputs.sweep)
+  =.  value.output  total-value
+  =.  outputs.sweep  ~[output]
+  ::  one sig and one preimage per input + current estimated size
+  =+  vbytes=(add (mul n-in 66) (estimated-size:psbt sweep))
+  =.  value.output  (sub total-value (mul fee vbytes))
+  =.  outputs.sweep  ~[output]
+  =+  i=0
+  |-
+  ?:  =(i n-in)
+    (extract:psbt sweep)
+  =.  sweep
+    %^  ~(add-signature update:psbt sweep)
+        i
+      pub.htlc.basepoints.our.config.c
+    %^  ~(one sign:psbt sweep)
+        i
+      (priv-to-hexb:keys prv.htlc.basepoints.our.config.c
+    ~
+  =+  f-in=~(finalize txin:psbt (snag i inputs.sweep)))
+  =.  inputs.sweep
+    %^  snap
+        inputs.sweep
+      i
+    %=  f-in
+      final-script-witness  `(into final-script-witness 2 +.(snag i to-spend))
+    ==
+  $(i +(i))
 ::
+++  timeout-his-recd-htlc
+  |=  $:  c=chan
+          com=commitment
+          msg=add-htlc-update
+      ==
+  ^-  psbt:psbt
+  =|  =input:psbt
+  =/  witness=hexb:bc
+    %-  en:btc-script:script
+    %:  htlc-received:script
+      pub.htlc.basepoints.our.config.c
+      pub.htlc.basepoints.her.config.c
+      pub.revocation.basepoints.our.config.c
+      payment-hash.msg
+      timeout.msg
+      anchor-outputs.our.config.c
+    ==
+  =+  amount-sats=(msats-to-sats amount-msats.msg)
+  =+  outpoint=[(txid:psbt (extract-unsigned:psbt tx.com)) output-index.msg]
+  =.  input
+    %=  input
+      script-type     %p2wsh
+      trusted-value   `amount-sats
+      witness-script  `witness
+      prevout         outpoint
+    ==
+  =|  =output:psbt
+  =.  output.script-pubkey  (p2wpkh:script pub.multisig-key.our-config)
+  =.  output.value  `amount-sats
+  =|  sweep=psbt:psbt
+  %=  sweep
+    inputs   ~[input]
+    outputs  ~[output]
+  ==
+::
+++  our-force-close
+  |=  $:  c=chan
+          com=commitment
+          fee=sats:bc
+      ==
+  ^-  (pair (list psbt:psbt) (list hexb:bc))
+  *(pair (list psbt:psbt) (list hexb:bc))
 --
