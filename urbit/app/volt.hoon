@@ -5,7 +5,7 @@
 /+  default-agent, dbug
 /+  bc=bitcoin, bolt11, bip-b158
 /+  revocation=revocation-store, tx=transactions
-/+  keys=key-generation, secret=commitment-secret
+/+  key-gen=key-generation, secret=commitment-secret
 /+  bolt=utilities, channel, psbt, ring, sweep
 |%
 +$  card  card:agent:gall
@@ -34,7 +34,11 @@
       close-height=@
   ==
 +$  outpoint  [txid=hexb:bc idx=@]
-+$  pending-timeout  [cltv=@ud tx=psbt:psbt pk=hexb:bc]
++$  pending-timelock
+  $:  height=@ud
+      tx=psbt:psbt
+      keys=(unit pair:key:bolt)
+  ==
 ::
 +$  state-0
   $:  %0
@@ -67,7 +71,8 @@
       $:  outgoing=(map hexb:bc forward-request)
           incoming=(map hexb:bc payment-request)
           preimages=(map hexb:bc hexb:bc)
-          onchain=(map hexb:bc pending-timeout)
+          onchain=(map hexb:bc pending-timelock)
+          waiting=(map htlc-id:bolt psbt:psbt)
       ==
   ==
 --
@@ -84,7 +89,7 @@
 ++  on-init
   ^-  (quip card _this)
   =+  seed=(~(rad og eny.bowl) (bex 256))
-  =+  keypair=(generate-keypair:^keys seed %main %node-key)
+  =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   =+  state=*state-0
   ~&  >  '%volt initialized successfully'
   `this(state state(our.keys keypair))
@@ -1314,18 +1319,18 @@
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
       %new-block
-    =/  upd
-      %=  state
+    =/  upd=state-0
+      %_  state
         btcp.prov  `u.btcp.prov(connected %.y)
         chain      [block.status fee.status now.bowl]
       ==
-    =/  [exp unexp]
+    =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
-      |=  [hexb:bc pending-timeout]
-      (gte block.status cltv.pending-timeout)
-    =^  cards  upd  (handle-exp-htlcs upd exp)
+      |=  [hexb:bc =pending-timelock]
+      (gte block.status height.pending-timelock)
+    =^  cards  upd  (handle-exp-htlcs upd (turn exp tail))
     =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
-      (turn unexp |=([spk=hexb:bc [@ id:bolt]] spk))
+      (turn unexp |=([spk=hexb:bc pending-timelock] spk))
     =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
     :_  upd
     ?.  (match:bip-b158 blockfilter.status key targets)
@@ -1345,25 +1350,26 @@
   ::
   ++  handle-exp-htlcs
     |=  $:  stat=_state
-            htlcs=(list [hexb:bc [@ psbt:psbt]])
+            htlcs=(list pending-timelock)
         ==
     ^-  (quip card _state)
     :-  %+  turn  htlcs
-        |=  [hexb:bc [@ tx=psbt:psbt]]
+        |=  [@ tx=psbt:psbt koi=(unit pair:key:bolt)]
         =+  out=(snag 0 outputs.tx)
-        =+  size=(add 33 (estimated-size:psbt tx))
-        =+  minus-fees=(sub trusted-value.out (mul size fee.chain.state))
-        =.  outputs.tx  ~[out(trusted-value minus-fees)]
+        =+  vbyts=(add 33 (estimated-size:psbt tx))
+        =+  minus-fees=(sub value.out (mul vbyts (need fees.chain.stat)))
+        =.  outputs.tx  ~[out(value minus-fees)]
         %-  poke-btc-provider
-        :-  %broadcast-tx
-        %-  extract:psbt
-        %^  ~(add-signature update:psbt tx)
-            0
-          pub.htlc.basepoints.our.config.c
-        %^  ~(one sign:psbt tx)
-            0
-          (priv-to-hexb:keys prv.htlc.basepoints.our.config.c)
-        ~
+          :-  %broadcast-tx
+          %-  extract:psbt
+            %^  ~(add-signature update:psbt tx)
+                0
+              pub:(need koi)
+            
+            %^  ~(one sign:psbt tx)
+                0
+              (priv-to-hexb:key-gen prv:(need koi))
+            ~
     |-
     ?~  htlcs
       stat
@@ -1404,7 +1410,7 @@
   ::
   ::  TODO: make sure this matches whatever changes made to rpc
       %fee
-    `state(fees.chain `fee.p.update)
+    `state(fees.chain `(abs:si (need (toi:rd fee.p.update))))
   ==
   ::
   +$  spend
@@ -1433,12 +1439,12 @@
     ^-  (quip card _state)
     =+  chk=(check-watched txs)
     ::  TODO: timeout sends, handle our force close
-    ?~  fees.chain
-      :_  state
-      :~
-        (poke-btc-provider [%fee +(block.chain)])
-        (poke-btc-provider [%block-txs blockhash])
-      ==
+    :: ?~  fees.chain
+    ::   :_  state
+    ::   :~
+    ::     (poke-btc-provider [%fee +(block.chain)])
+    ::     (poke-btc-provider [%block-txs blockhash])
+    ::   ==
     =/  upd=_state  state
     =^  cards  upd  (handle-revoked upd rev.chk)
     =+  rev-htlcs=(revoked-htlcs rev.chk)
@@ -1447,14 +1453,17 @@
     =^  remote-force-cards  upd
       (handle-remote-closed upd their-force.chk)
     =^  coop-cards  upd  (resolve-coop upd coop.chk)
-    ::
+    =^  local-force-cards  upd
+      (handle-local-closed upd our-force.chk)
     =.  cards
       %-  zing
       :~  cards
           rev-htlc-cards
           remote-force-cards
           coop-cards
+          local-force-cards
       ==
+    [cards upd]
   ::
   ++  check-watched
     |=  txs=(list rpc-tx)
@@ -1524,7 +1533,7 @@
         ch
         com.i.rev
         txid.i.rev
-        u.fees.chain
+        (need fees.chain)
       ==
     =/  force=force-close-state
       [ship.her.config.ch %.y com.i.rev 0]
@@ -1534,11 +1543,10 @@
       |=  tx=psbt:psbt
       (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
     =.  ch  (~(set-state channel ch) %force-closing)
-    %=  $
-      rev             t.rev
-      live.chan.stat  (~(put by live.chan) id.i.rev)
-      dead.chan.stat  (~(put by dead.chan) id.i.rev force)
+    =:  live.chan.stat  (~(put by live.chan.stat) id.i.rev ch)
+        dead.chan.stat  (~(put by dead.chan.stat) id.i.rev force)
     ==
+    $(rev t.rev)
   ::
   ++  revoked-htlcs
     |=  rev=(list spend)
@@ -1589,7 +1597,7 @@
         secret
         value:(snag 0 vout.tx)
         txid.outpoint.u.match
-        u.fees.chain
+        (need fees.chain)
       ==
     =.  htlcs  (~(del in htlcs) u.match)
     =.  cards
@@ -1605,26 +1613,30 @@
     ?~  close
       [cards stat]
     =+  ch=(~(got by live.chan) id.i.close)
-    =/  sweep=psbt:psbt
+    =/  tx=psbt:psbt
       %:  his-valid-commitment:sweep
         ch
         com.i.close
         preimages.payments
-        u.fees.chain
+        (need fees.chain)
       ==
     =.  cards
       %+  weld  cards
         :~  (give-update [%channel-state id.i.close %force-closing])
-            (poke-btc-provider [%broadcast-tx (extract:psbt sweep)])
+            (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
         ==
     =.  ch  (~(set-state channel ch) %force-closing)
-    =/  sent=(list [hexb:bc [@ hexb:bc]])
-      %+  turn  ~(tap by sent-htlc-idx.com.i.close)
+    =/  sent=(list [hexb:bc pending-timelock])
+      %+  turn  ~(tap by sent-htlc-index.com.i.close)
         |=  [idx=@ msg=add-htlc-update:bolt]
+        ^-  [hexb:bc pending-timelock]
         :-  script-pubkey:(snag idx vout.tx.com.i.close)
-        [timeout.msg (timeout-his-recd-htlc:sweep ch com.i.close msg)]
+        :*  timeout.msg
+            (remote-recd-htlc:sweep ch com.i.close msg)
+            `htlc.basepoints.our.config.ch
+        ==
     =/  force=force-close-state
-      [ship.her.config.ch %.y com.i.rev 0]
+      [ship.her.config.ch %.y com.i.close 0]
     %=  $
       close                  t.close
       live.chan.stat         (~(put by live.chan) id.i.close ch)
@@ -1639,17 +1651,57 @@
     |-
     ?~  close
       [cards stat]
-    =+  ch=(~(get by live.chan) i.close)
+    =+  ch=(~(got by live.chan) i.close)
     =.  ch  (~(set-state channel ch) %closed)
-    =+  closing=(~(get by shut.chan) i.close)
+    =+  closing=(~(got by shut.chan) i.close)
     =.  close-height.closing  block.chain
     =.  cards  %+  snoc  cards
       (give-update [%channel-state i.close %closed])
-    %=  $
-      close      t.close
-      live.chan  (~(put by live.chan) i.close ch)
-      shut.chan  (~(put by shut.chan) i.close closing)
+    =:  live.chan.stat  (~(put by live.chan.stat) i.close ch)
+        shut.chan.stat  (~(put by shut.chan.stat) i.close closing)
     ==
+    $(close t.close)
+  ::
+  ++  handle-local-closed
+    |=  [stat=_state close=(list spend)]
+    ^-  (quip card _state)
+    =|  cards=(list card)
+    |-
+    ?~  close
+      [cards stat]
+    =+  c=(~(got by live.chan) id.i.close)
+    =+  delay-height=(add to-self-delay.our.config.c block.chain)
+    =+  spend-local=(local-our-output:sweep c com.i.close)
+    =/  sent=(map hexb:bc pending-timelock)
+      %-  ~(run by (local-sent-htlcs:sweep c com.i.close))
+      |=  [height=@ =psbt:psbt]
+      ^-  pending-timelock
+      [height psbt ~]
+    =+  res=(local-recd-htlcs:sweep c com.i.close preimages.payments.stat)
+    =.  cards
+      %+  welp  cards
+      (turn -.res |=(tx=hexb:bc (poke-btc-provider [%broadcast-tx tx])))
+    =/  updated  (~(uni by onchain.payments.stat) sent)
+    =.  updated
+      %-  ~(uni by updated)
+      %-  ~(run by -.+.res)
+      |=  =psbt:psbt
+      ^-  pending-timelock
+      [delay-height psbt `multisig-key.our.config.c]
+    =?  updated  ?=(^ spend-local)
+      %+  ~(put by updated)
+        -.u.spend-local
+      :*  delay-height
+          +.u.spend-local
+          `delayed-payment.basepoints.our.config.c
+      ==
+    =.  cards
+      %+  snoc  cards
+      (give-update [%channel-state id.i.close %force-closing])
+    =:  onchain.payments.stat  updated
+        waiting.payments.stat  (~(uni by waiting.payments.stat) +.+.res)
+    ==
+    $(close t.close)
   ::
   :: ++  handle-potential-spend
   ::   |=  $:
@@ -2125,8 +2177,8 @@
         funding-locked-received  %.n
         htlc-minimum-msats       1
         anchor-outputs           %.y
-        multisig-key             (generate-keypair:^keys seed network %multisig)
-        basepoints               (generate-basepoints:^keys seed network)
+        multisig-key             (generate-keypair:key-gen seed network %multisig)
+        basepoints               (generate-basepoints:key-gen seed network)
     ::
         max-htlc-value-in-flight-msats
       (sats-to-msats:bolt funding-sats)
@@ -2144,7 +2196,7 @@
       dust-limit-sats:const:bolt
     ::
         per-commitment-secret-seed
-      prv:(generate-keypair:^keys seed network %revocation-root)
+      prv:(generate-keypair:key-gen seed network %revocation-root)
     ==
   ?>  (validate-config:bolt -.local-config funding-sats)
   local-config
