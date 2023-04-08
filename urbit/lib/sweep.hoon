@@ -186,7 +186,7 @@
           witness-script  `(en:btc-script:script wit)
         ==
       =|  =output:psbt
-      =.  value.output  (sub val fee) ::  TODO fee calc
+      =.  value.output  (sub val fee)
       =.  script-pubkey.output
         (p2wpkh:script pub.multisig-key.our.config.c)
       =|  tx=psbt:psbt
@@ -196,6 +196,10 @@
           inputs    ~[input]
           outputs   ~[output]
         ==
+      =.  value.output
+        %-  sub  value.output
+        (mul fee (add 33 (estimated-size:psbt tx)))
+      =.  outputs.tx  ~[output]
       %^  ~(add-signature update:psbt tx)
           0
         rpub
@@ -228,7 +232,7 @@
           witness-script  `(en:btc-script:script wit)
         ==
       =|  =output:psbt
-      =.  value.output  (sub val fee) ::  TODO fee calc
+      =.  value.output  (sub val fee)
       =.  script-pubkey.output
         (p2wpkh:script pub.multisig-key.our.config.c)
       =|  tx=psbt:psbt
@@ -238,6 +242,10 @@
           inputs    ~[input]
           outputs   ~[output]
         ==
+      =.  value.output
+        %-  sub  value.output
+        (mul fee (add 33 (estimated-size:psbt tx)))
+      =.  outputs.tx  ~[output]
       %^  ~(add-signature update:psbt tx)
           0
         rpub
