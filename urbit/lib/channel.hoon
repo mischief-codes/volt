@@ -1256,6 +1256,10 @@
       her.commitments
     ~(advance commitment-chain her.commitments.c)
   ::
+      lookup.commitments.c
+    %-  ~(put by lookup.commitments.c)  remote-commit
+    per-commitment-secret.revoke-and-ack
+  ::
       our.updates  our-log
       her.updates  her-log
   ==

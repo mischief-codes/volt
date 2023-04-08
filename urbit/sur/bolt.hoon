@@ -3,12 +3,13 @@
 ::
 /-  bc=bitcoin, psbt
 |%
-+$  id       @ud
++$  id       @ud  ::  channel ID
 +$  htlc-id  @ud
 +$  blocks   @ud  ::  number of blocks
 +$  msats    @ud  ::  millisats
 +$  commitment-number  @
 ::
+::  TODO: unify key types
 +$  pubkey     point
 +$  privkey    @
 +$  signature  hexb:bc

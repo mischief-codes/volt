@@ -55,7 +55,7 @@
 ++  magic      0x70.7362.74ff
 ::
 +$  sats       @
-+$  keyid      @
+:: +$  keyid      @
 +$  key        hexb:bc
 +$  value      hexb:bc
 +$  pubkey     hexb:bc
@@ -98,6 +98,8 @@
 ::
 +$  input
   $:  in:tx
+      ::  TODO: distinguish between larval input and optional input - subgroup according to exclusivity and reason for unit
+      ::  TODO: any mutual exclusives type as such
       non-witness-utxo=(unit tx:tx)
       witness-utxo=(unit out:tx)
       redeem-script=(unit hexb:bc)
@@ -111,12 +113,14 @@
       ::
       =script-type
       num-sigs=@                ::  number required sigs for multisig
+      ::  TODO: if ordering is irrelevant until finalization, change from list to set
       pubkeys=(list pubkey)     ::  pubkeys for multisig
       trusted-value=(unit sats)
   ==
 ::
 +$  output
   $:  out:tx
+      ::  see above mutual exclusivity?
       redeem-script=(unit hexb:bc)
       witness-script=(unit hexb:bc)
       hd-keypaths=(map pubkey keyinfo)

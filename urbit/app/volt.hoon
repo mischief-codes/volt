@@ -1,7 +1,7 @@
 ::  volt.hoon
 ::  Lightning channel management agent
 ::
-/-  *volt, btc-provider
+/-  volt, btc-provider
 /+  default-agent, dbug
 /+  bc=bitcoin, bolt11, bip-b158
 /+  revocation=revocation-store, tx=transactions
@@ -65,7 +65,7 @@
       $=  chain
       $:  block=@ud
           fees=(unit sats:bc)
-          time=@da
+          time=@da  :: TODO use $time instead of @da because bunt is unix convertible
       ==
       $=  payments
       $:  outgoing=(map hexb:bc forward-request)
@@ -89,6 +89,7 @@
 ++  on-init
   ^-  (quip card _this)
   =+  seed=(~(rad og eny.bowl) (bex 256))
+  ::  TODO: deeply autistic, refactor
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   =+  state=*state-0
   ~&  >  '%volt initialized successfully'
@@ -122,12 +123,12 @@
       (handle-message:hc !<(message:bolt vase))
     ==
   [cards this]
-::
+::  per the precepts, route on wire before sign
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   ?+    -.sign  (on-agent:def wire sign)
-      %kick
+      %kick  :: TODO: rewrite as ?+
     ?:  ?=(%set-provider -.wire)
       :_  this(volt.prov [~ src.bowl %.n])
       (watch-provider:hc src.bowl)
@@ -137,7 +138,7 @@
       (watch-btc-provider:hc src.bowl)
     ::
     `this
-  ::
+  ::  TODO: potential injection attack, validate that marks come in on their correct wires
       %fact
     =^  cards  state
       ?+    p.cage.sign  `state
@@ -154,7 +155,7 @@
         (handle-bitcoin-update:hc !<(update:btc-provider q.cage.sign))
       ==
     [cards this]
-  ::
+  ::  TODO: inclue src.bowl for debugging, rewrite as ?+
       %watch-ack
     ?:  ?=(%set-provider -.wire)
       ?~  p.sign
@@ -238,7 +239,7 @@
   ++  open-channel
     |=  [who=ship =funding=sats:bc =push=msats =network:bolt]
     ^-  (quip card _state)
-    ?~  btcp.prov
+    ?~  btcp.prov  :: TODO: larval core pattern, avoid these checks everywhere
       ~&  >>>  "%volt: no btc-provider set"
       `state
     ?:  (gth funding-sats max-funding-sats:const:bolt)
@@ -323,6 +324,7 @@
     ::  TODO: check tx is complete
     ::
     =/  funding-output=output:^psbt
+      ::  (funding-output:tx [pub.multisig-key.our pub.multisig-key.her funding-sats.u.oc]:u.c)
       %^    funding-output:tx
           pub.multisig-key.our.u.c
         pub.multisig-key.her.u.c
@@ -333,7 +335,7 @@
       =+  i=0
       |-
       ?~  outs  ~
-      =+  out=(head outs)
+      =+  out=(head outs)  :: use i.outs
       ?:  ?&  =(value.out value.funding-output)
               =(script-pubkey.out script-pubkey.funding-output)
           ==
@@ -344,9 +346,9 @@
     =+  funding-txid=(txid:^psbt (extract-unsigned:^psbt u.funding-tx))
     %-  (slog leaf+"funding-txid={<funding-txid>}" ~)
     ::
-    =+  ^=  new-channel
+    =+  ^=  new-channel  :: just use =/
       ^-  chan:bolt
-      %:  new:channel
+      %:  new:channel    :: shorten "documentation" faces, and/or move to comment
         local-channel-config=our.u.c
         remote-channel-config=her.u.c
         funding-outpoint=[funding-txid u.funding-out-pos funding-sats.u.oc.u.c]
@@ -358,7 +360,7 @@
       ==
     =^  sig  new-channel
       %-  ~(sign-first-commitment channel new-channel)
-        first-per-commitment-point.u.ac.u.c
+      first-per-commitment-point.u.ac.u.c
     ::
     =|  =funding-created:msg:bolt
     =.  funding-created
@@ -380,9 +382,9 @@
     ^-  (quip card _state)
     ?:  (~(has by shut.chan) chan-id)
       ~&  >>>  "%volt: channel already closing"
-      `state
+      `state  :: should probably crash,
     =+  c=(~(get by live.chan) chan-id)
-    ?~  c  `state
+    ?~  c  `state :: should probably crash, or at least report
     =|  close=coop-close-state
     =.  close
       %=  close
@@ -395,7 +397,8 @@
       live.chan  (~(put by live.chan) chan-id u.c)
       shut.chan  (~(put by shut.chan) chan-id close)
     ==
-  ::
+  :: TODO: formalise error handling to the client, possibly an /errors subscription
+  :: also ensure no state is modified after error processing
   ++  send-payment
     |=  =payreq
     ^-  (quip card _state)
@@ -611,7 +614,8 @@
   ++  handle-open-channel
     |=  =open-channel:msg:bolt
     ^-  (quip card _state)
-    =+  open-channel
+    =+  open-channel :: TODO: use =,
+    ::  todo: factor out constraints w/ command
     ?:  (gth funding-sats max-funding-sats:const:bolt)
       ~|  "%volt: must set funding-sats to less than 2^24 sats"
         !!
@@ -655,7 +659,7 @@
     ::      the funder's amount for the initial commitment transaction is not
     ::      sufficient for full fee payment.
     ::
-    =+  ^=  commit-fees
+    =+  ^=  commit-fees :: ident or use =/
       %.  %remote
       %~  got  by
       %:  commitment-fee:tx
@@ -1319,6 +1323,7 @@
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
       %new-block
+    ::  just =. here and in handle-exp-htlcs
     =/  upd=state-0
       %_  state
         btcp.prov  `u.btcp.prov(connected %.y)
@@ -1418,8 +1423,9 @@
         com=commitment:bolt
         txid=hexb:bc
     ==
+    ::  TODO: change some of these to sets
   +$  checked-block
-    $:  rest=(list idx=@)
+    $:  rest=(list @)  ::  indices in tx list
         rev=(list spend)
         our-force=(list spend)
         their-force=(list spend)
@@ -1445,6 +1451,7 @@
     ::     (poke-btc-provider [%fee +(block.chain)])
     ::     (poke-btc-provider [%block-txs blockhash])
     ::   ==
+    ::  just =.
     =/  upd=_state  state
     =^  cards  upd  (handle-revoked upd rev.chk)
     =+  rev-htlcs=(revoked-htlcs rev.chk)
@@ -1456,6 +1463,7 @@
     =^  local-force-cards  upd
       (handle-local-closed upd our-force.chk)
     =.  cards
+      ::  :;  weld is faster
       %-  zing
       :~  cards
           rev-htlc-cards
@@ -1465,6 +1473,7 @@
       ==
     [cards upd]
   ::
+  ::  add comments
   ++  check-watched
     |=  txs=(list rpc-tx)
     ^-  checked-block
@@ -1550,8 +1559,8 @@
   ::
   ++  revoked-htlcs
     |=  rev=(list spend)
-    ^-  (set rev-out)
     =|  out=(set rev-out)
+    ^+  out
     |-
     ?~  rev
       out
@@ -1622,19 +1631,19 @@
       ==
     =.  cards
       %+  weld  cards
-        :~  (give-update [%channel-state id.i.close %force-closing])
-            (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
-        ==
+      :~  (give-update [%channel-state id.i.close %force-closing])
+          (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
+      ==
     =.  ch  (~(set-state channel ch) %force-closing)
     =/  sent=(list [hexb:bc pending-timelock])
       %+  turn  ~(tap by sent-htlc-index.com.i.close)
-        |=  [idx=@ msg=add-htlc-update:bolt]
-        ^-  [hexb:bc pending-timelock]
-        :-  script-pubkey:(snag idx vout.tx.com.i.close)
-        :*  timeout.msg
-            (remote-recd-htlc:sweep ch com.i.close msg)
-            `htlc.basepoints.our.config.ch
-        ==
+      |=  [idx=@ msg=add-htlc-update:bolt]
+      ^-  [hexb:bc pending-timelock]
+      :-  script-pubkey:(snag idx vout.tx.com.i.close)
+      :*  timeout.msg
+          (remote-recd-htlc:sweep ch com.i.close msg)
+          `htlc.basepoints.our.config.ch
+      ==
     =/  force=force-close-state
       [ship.her.config.ch %.y com.i.close 0]
     %=  $
@@ -1655,7 +1664,8 @@
     =.  ch  (~(set-state channel ch) %closed)
     =+  closing=(~(got by shut.chan) i.close)
     =.  close-height.closing  block.chain
-    =.  cards  %+  snoc  cards
+    =.  cards
+      %+  snoc  cards
       (give-update [%channel-state i.close %closed])
     =:  live.chan.stat  (~(put by live.chan.stat) i.close ch)
         shut.chan.stat  (~(put by shut.chan.stat) i.close closing)
@@ -2154,7 +2164,7 @@
   :_  (~(set-state channel c) %open)
   ~[(give-update [%channel-state id.c %open])]
 ::  TODO: estimate fee based on network state, target ETA, desired confs
-::
+::  TODO: remove trap
 ++  current-feerate-per-kw
   |.
   ^-  sats:bc

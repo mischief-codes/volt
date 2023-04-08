@@ -137,9 +137,9 @@
     ^-  [? (list input:psbt)]
     =/  anchor-script
       (remote-output:script pub)
-    =/  addr  ?.  anchors
-      (p2wpkh:script pub)
-    (p2wsh:script anchor-script)
+    =/  addr
+      ?.  anchors  (p2wpkh:script pub)
+      (p2wsh:script anchor-script)
     =+  idx=(find keys ~[addr])
     =|  =input:psbt
     ?~  idx
@@ -176,9 +176,8 @@
           ~
           anchor-outputs.our.config.c
         ==
-      =?  nsequence.input
-        anchor-outputs.our.config.c
-      1
+      =?  nsequence.input  anchor-outputs.our.config.c
+        1
       =.  input
         %=  input
           script-type     %p2wsh
@@ -219,9 +218,8 @@
           `timeout.htlc
           anchor-outputs.our.config.c
         ==
-      =?  nsequence.input
-        anchor-outputs.our.config.c
-      1
+      =?  nsequence.input  anchor-outputs.our.config.c
+        1
       =.  input  
         %=  input
           script-type     %p2wsh
@@ -247,7 +245,7 @@
           0
         rprv
       ~
-    %+  weld  our  his      
+    (weld our his)
   --
 ::
 ++  revoked-htlc-spend
@@ -354,7 +352,7 @@
       trusted-value         `amount-sats
       prevout               [txid output-index.msg]
     ==
-  =.  inputs.sweep  (turn to-spend |=([i=input:psbt hexb:bc] i))
+  =.  inputs.sweep  (turn to-spend head)
   =/  total-value
     (roll (turn inputs.sweep |=(i=input:psbt (need trusted-value.i))) add)
   ::  per input: 41 base + 240 witness => 101vB
@@ -367,7 +365,7 @@
   =+  vbyts=(add (mul n-in 66) (estimated-size:psbt sweep))
   =.  value.output  (sub total-value (mul fee vbyts))
   =.  outputs.sweep  ~[output]
-  =+  i=0
+  =|  i=@ud
   |-
   ?:  =(i n-in)
     sweep
