@@ -1,8 +1,12 @@
 ::  sur/bolt.hoon
 ::  Datatypes to implement Lightning BOLT RFCs.
-::
 /-  bc=bitcoin, psbt
 |%
+:: TODO
+::  ++  dyad
+::  |$  a
+::  [our-view=? our=a her=a]
+::  TODO: remove =foo=type turn into foo=type
 +$  id       @ud  ::  channel ID
 +$  htlc-id  @ud
 +$  blocks   @ud  ::  number of blocks
@@ -136,7 +140,7 @@
       recd-htlc-index=(map @ add-htlc-update)
   ==
 ::  +update: event that updates a commitment
-::
+::  TODO: use |% and =<  to namespace individual cases of $update better, e.g add:update
 +$  update
   $%  [%add-htlc add-htlc-update]
       [%settle-htlc settle-htlc-update]
@@ -192,7 +196,7 @@
       fee-rate=sats:bc
   ==
 ::  +update-log: append-only sequence of commitment updates
-::
+::  TODO: refactor to use ordered map
 +$  update-log
   $:  list=(list update)
       update-index=(map @ update)
@@ -334,7 +338,7 @@
     ==
   ::
   ::  htlc messages
-  ::
+  ::  TODO: naming conflict with add-htlc-update, this is moronic
   +$  update-add-htlc
     $:  =channel=id
         =htlc-id

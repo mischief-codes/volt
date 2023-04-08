@@ -55,9 +55,12 @@
     $:  code=@ud
         message=@t
     ==
-  ::
+  ::  TODO: +each sucks
+  ::  $%  [%res p=result]
+  ::      [%err p=error]
+  ::  == 
   +$  response  (each result error)
-  ::
+  ::  TODO: inconsistent use of @ud/@
   +$  route-hint
     $:  node-id=pubkey
         =chan-id
@@ -115,7 +118,7 @@
         failure-reason=payment-failure-reason
         creation-time=@da
     ==
-  ::
+  ::  TODO: set bunt?
   +$  payment-status
     $?  %'UNKNOWN'
         %'IN_FLIGHT'
@@ -132,38 +135,39 @@
         %'FAILURE_REASON_INCORRECT_PAYMENT_DETAILS'
         %'FAILURE_REASON_INSUFFICIENT_BALANCE'
     ==
-  ::
+  :: TODO: .total, .confirmed, .unconfirmed
   +$  wallet-balance-response
     $:  total-balance=msats
         confirmed-balance=msats
         unconfirmed-balance=msats
     ==
+  ::  TODO: wut?? just remove, inline type in $%
   ::
   +$  add-hold-invoice-response
     $:  payment-request=cord
     ==
-  ::
+  ::  TODO: clarify meaning of r-hash
   +$  add-invoice-response
     $:  r-hash=hexb:bc
         payment-request=cord
         add-index=@ud
         payment-address=hexb:bc
     ==
-  ::
+  ::  also TODO: use =<  and |% to namespace invoice related types
   +$  invoice
     $:  memo=cord
         r-preimage=(unit preimage)
         =r=hash
         =value=msats
         settled=?
-        creation-date=@da
+        creation-date=@da  :: TODO: check for existence of bugs in @da -> unix conversion as the bijection can be weird
         settle-date=@da
         expiry=@dr
         payment-request=cord
         add-index=@ud
         settle-index=@ud
         =amt-paid=msats
-        state=invoice-state
+        state=invoice-state  :: state -> status
     ==
   ::
   +$  invoice-state
@@ -179,7 +183,7 @@
         block-height=@
         tx-index=@
     ==
-  ::
+  :: TODO: too much 'spending' in faces?
   +$  spend-event
     $:  =spending=outpoint
         raw-spending-tx=hexb:bc
@@ -234,7 +238,7 @@
         [%confirmation-event confirmation-event:rpc]
         [%spend-event spend-event:rpc]
     ==
-  ::
+  ::  TODO: see above remove each
   +$  update  (each result error)
   ::
   +$  status  ?(%connected %disconnected)
@@ -259,7 +263,7 @@
   --
 ::
 ::  client types
-::
+::  TODO: actually use this type?
 +$  payreq  cord
 ::
 +$  payment-request
