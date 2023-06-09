@@ -134,67 +134,79 @@
       fee-per-kw=sats:bc
       dust-limit=sats:bc
       cltvs=(list blocks)
-      sent-htlcs=(list add-htlc-update)
-      recd-htlcs=(list add-htlc-update)
-      sent-htlc-index=(map @ add-htlc-update)
-      recd-htlc-index=(map @ add-htlc-update)
+      sent-htlcs=(list add-htlc:update)
+      recd-htlcs=(list add-htlc:update)
+      sent-htlc-index=(map @ add-htlc:update)
+      recd-htlc-index=(map @ add-htlc:update)
   ==
 ::  +update: event that updates a commitment
-::  TODO: use |% and =<  to namespace individual cases of $update better, e.g add:update
-+$  update
-  $%  [%add-htlc add-htlc-update]
-      [%settle-htlc settle-htlc-update]
-      [%fail-htlc fail-htlc-update]
-      [%fail-malformed-htlc fail-malformed-htlc-update]
-      [%fee-update fee-update]
-  ==
-+$  update-shared-fields
-  $:  index=@
-      ::  commitment number which included this update
-      ::  determines whether an HTLC is fully 'locked-in'
-      $=  add-height
-      $:  our=commitment-number
-          her=commitment-number
-      ==
-      ::  commitment number which removed the parent update
-      ::  updates can be removed once these heights are below
-      ::  both commitment chains
-      $=  rem-height
-      $:  our=commitment-number
-          her=commitment-number
-      ==
-  ==
-+$  update-parent-fields
-  $:  parent=htlc-id
-      payment-hash=hexb:bc
-      =amount=msats
-  ==
-+$  add-htlc-update
-  $:  update-shared-fields
-      =htlc-id
-      payment-hash=hexb:bc
-      timeout=blocks
-      =amount=msats
-      output-index=@
-  ==
-+$  settle-htlc-update
-  $:  update-shared-fields
-      update-parent-fields
-      preimage=hexb:bc
-  ==
-+$  fail-htlc-update
-  $:  update-shared-fields
-      update-parent-fields
-      reason=@t
-  ==
-+$  fail-malformed-htlc-update
-  $:  update-shared-fields
-      update-parent-fields
-  ==
-+$  fee-update
-  $:  update-shared-fields
-      fee-rate=sats:bc
-  ==
+++  update
+  =<  update
+  |%
+  ::
+  +$  update
+    $%  [%add-htlc add-htlc]
+        [%settle-htlc settle-htlc]
+        [%fail-htlc fail-htlc]
+        [%fail-malformed-htlc fail-malformed-htlc]
+        [%fee fee]
+    ==
+  ::
+  +$  shared-fields
+    $:  index=@
+        ::  commitment number which included this update
+        ::  determines whether an HTLC is fully 'locked-in'
+        $=  add-height
+        $:  our=commitment-number
+            her=commitment-number
+        ==
+        ::  commitment number which removed the parent update
+        ::  updates can be removed once these heights are below
+        ::  both commitment chains
+        $=  rem-height
+        $:  our=commitment-number
+            her=commitment-number
+        ==
+    ==
+    ::
+  +$  parent-fields
+    $:  parent=htlc-id
+        payment-hash=hexb:bc
+        =amount=msats
+    ==
+  ::
+  +$  add-htlc
+    $:  shared-fields
+        =htlc-id
+        payment-hash=hexb:bc
+        timeout=blocks
+        =amount=msats
+        output-index=@
+    ==
+  ::
+  +$  settle-htlc
+    $:  shared-fields
+        parent-fields
+        preimage=hexb:bc
+    ==
+  ::
+  +$  fail-htlc
+    $:  shared-fields
+        parent-fields
+        reason=@t
+    ==
+  ::
+  +$  fail-malformed-htlc
+    $:  shared-fields
+        parent-fields
+    ==
+  ::
+  +$  fee
+    $:  shared-fields
+        fee-rate=sats:bc
+    ==
+  --
+  ::
 ::  +update-log: append-only sequence of commitment updates
 ::  TODO: refactor to use ordered map
 +$  update-log
@@ -274,7 +286,7 @@
 ::  +htlc: added-htlc with script-pubkey for commitment generation
 ::
 +$  htlc
-  $:  add-htlc-update
+  $:  add-htlc:update
       script-pubkey=hexb:bc
   ==
 ::  +msg: BOLT spec messages between peers
@@ -338,7 +350,6 @@
     ==
   ::
   ::  htlc messages
-  ::  TODO: naming conflict with add-htlc-update, this is moronic
   +$  update-add-htlc
     $:  =channel=id
         =htlc-id

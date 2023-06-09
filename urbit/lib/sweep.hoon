@@ -163,7 +163,8 @@
     ^-  (list psbt:psbt)
     =/  our=(list psbt:psbt)
       %+  turn  sent-htlcs.commit
-      |=  htlc=add-htlc-update
+      |=  htlc=add-htlc:update
+      ^-  psbt:psbt
       =|  =input:psbt
       =+  val=(div amount-msats.htlc 1.000)
       =/  wit
@@ -197,7 +198,7 @@
           outputs   ~[output]
         ==
       =.  value.output
-        %-  sub  value.output
+        %+  sub  value.output
         (mul fee (add 33 (estimated-size:psbt tx)))
       =.  outputs.tx  ~[output]
       %^  ~(add-signature update:psbt tx)
@@ -209,7 +210,8 @@
       ~
     =/  his=(list psbt:psbt)
       %+  turn  recd-htlcs.commit
-      |=  htlc=add-htlc-update
+      |=  htlc=add-htlc:update
+      ^-  psbt:psbt
       =|  =input:psbt
       =+  val=(div amount-msats.htlc 1.000)
       =/  wit
@@ -243,8 +245,9 @@
           outputs   ~[output]
         ==
       =.  value.output
-        %-  sub  value.output
+        %+  sub  value.output
         (mul fee (add 33 (estimated-size:psbt tx)))
+      ::  TODO: account for too high fee
       =.  outputs.tx  ~[output]
       %^  ~(add-signature update:psbt tx)
           0
@@ -334,7 +337,7 @@
     (p2wpkh:script pub.multisig-key.our.config.c)
   =/  to-spend=(list [input:psbt hexb:bc])
     %+  murn  recd-htlcs.com
-    |=  msg=add-htlc-update
+    |=  msg=add-htlc:update
     ^-  (unit [input:psbt hexb:bc])
     =+  preimage=(~(get by secrets) payment-hash.msg)
     ?~  preimage
@@ -394,7 +397,7 @@
 ++  remote-recd-htlc
   |=  $:  c=chan
           com=commitment
-          msg=add-htlc-update
+          msg=add-htlc:update
       ==
   ^-  psbt:psbt
   =|  =input:psbt
@@ -468,7 +471,7 @@
     ~(tap in ~(key by recd-htlc-index.com))
   %-  malt
   %+  turn  sent-htlcs.com
-  |=  msg=add-htlc-update
+  |=  msg=add-htlc:update
   ^-  [hexb:bc @ psbt:psbt]
   =/  tx=psbt:psbt
     %:  ~(make-htlc-tx channel c)
@@ -504,14 +507,14 @@
   =/  htlc-idxs
     %+  weld  ~(tap in ~(key by sent-htlc-index.com))
     ~(tap in ~(key by recd-htlc-index.com))
-  =/  [with-preimage=(list add-htlc-update) without=(list add-htlc-update)]
+  =/  [with-preimage=(list add-htlc:update) without=(list add-htlc:update)]
     %+  skid  recd-htlcs.com
-    |=  [msg=add-htlc-update]
+    |=  [msg=add-htlc:update]
     ?~  (~(get by secrets) payment-hash.msg)  %.n  %.y
   =/  success=(map hexb:bc [hexb:bc psbt:psbt])
     %-  malt
     %+  turn  with-preimage
-    |=  msg=add-htlc-update
+    |=  msg=add-htlc:update
     ^-  [hexb:bc [hexb:bc psbt:psbt]]
     =+  preimage=(~(get by secrets) payment-hash.msg)
     =/  tx=psbt:psbt
@@ -564,7 +567,7 @@
   =/  pending=(map htlc-id psbt:psbt)
     %-  malt
     %+  turn  without
-    |=  msg=add-htlc-update
+    |=  msg=add-htlc:update
     ^-  [htlc-id psbt:psbt]
     =/  tx=psbt:psbt
       %:  ~(make-htlc-tx channel c)

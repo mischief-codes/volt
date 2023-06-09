@@ -242,9 +242,9 @@
         ['add_index' (su dim:ag)]
         ['settle_index' (su dim:ag)]
         ['amt_paid_msat' (su dim:ag)]
-        ['state' invoice-state]
+        ['state' state]
     ==
-    ++  invoice-state  (cu invoice-state:rpc:volt so)
+    ++  state  (cu state:invoice:rpc:volt so)
     ++  unix-date      (cu from-unix (su dim:ag))
     ++  seconds        (cu |=(a=@ (mul a ~s1)) (su dim:ag))
     --
@@ -437,6 +437,6 @@
     (strand-fail:strand %json-parse-error ~)
   %-  pure:m
     ?:  =(status 200)
-      [%& (result:dejs act u.jon)]
-      [%| (error:dejs u.jon)]
+      [%res (result:dejs act u.jon)]
+    [%err (error:dejs u.jon)]
 --

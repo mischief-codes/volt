@@ -354,7 +354,7 @@
 ::
 ++  htlc
   |=  $:  =direction
-          htlc=add-htlc-update
+          htlc=add-htlc:update
           =commitment=outpoint
           =delayed=pubkey
           =other-revocation=pubkey

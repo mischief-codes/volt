@@ -1,7 +1,7 @@
 ::  volt.hoon
 ::  Lightning channel management agent
 ::
-/-  volt, btc-provider
+/-  *volt, btc-provider
 /+  default-agent, dbug
 /+  bc=bitcoin, bolt11, bip-b158
 /+  revocation=revocation-store, tx=transactions
@@ -65,7 +65,7 @@
       $=  chain
       $:  block=@ud
           fees=(unit sats:bc)
-          time=@da  :: TODO use $time instead of @da because bunt is unix convertible
+          time=@da  :: TODO use $time instead of @da because bunt is unix convertible - EVERYWHERE using @da
       ==
       $=  payments
       $:  outgoing=(map hexb:bc forward-request)
@@ -89,7 +89,7 @@
 ++  on-init
   ^-  (quip card _this)
   =+  seed=(~(rad og eny.bowl) (bex 256))
-  ::  TODO: deeply autistic, refactor
+  ::  TODO: already have *state-0 (state)
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   =+  state=*state-0
   ~&  >  '%volt initialized successfully'
@@ -128,6 +128,7 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   ?+    -.sign  (on-agent:def wire sign)
+      ::  TODO: wire then sign
       %kick  :: TODO: rewrite as ?+
     ?:  ?=(%set-provider -.wire)
       :_  this(volt.prov [~ src.bowl %.n])
@@ -398,7 +399,7 @@
       shut.chan  (~(put by shut.chan) chan-id close)
     ==
   :: TODO: formalise error handling to the client, possibly an /errors subscription
-  :: also ensure no state is modified after error processing
+  :: also ensure no state is modified after error processing - subsidiary to nested core rewrite
   ++  send-payment
     |=  =payreq
     ^-  (quip card _state)
@@ -1637,7 +1638,7 @@
     =.  ch  (~(set-state channel ch) %force-closing)
     =/  sent=(list [hexb:bc pending-timelock])
       %+  turn  ~(tap by sent-htlc-index.com.i.close)
-      |=  [idx=@ msg=add-htlc-update:bolt]
+      |=  [idx=@ msg=add-htlc:update:bolt]
       ^-  [hexb:bc pending-timelock]
       :-  script-pubkey:(snag idx vout.tx.com.i.close)
       :*  timeout.msg
@@ -2036,7 +2037,7 @@
     maybe-forward
   [(zing cards) state]
   ++  maybe-forward
-    |=  [h=add-htlc-update:bolt state=_state]
+    |=  [h=add-htlc:update:bolt state=_state]
     ^-  (quip card _state)
     ?~  volt.prov  `state
     ?.  own-provider
@@ -2062,9 +2063,9 @@
   ^-  (quip card chan:bolt)
   =+  commitment=(~(oldest-unrevoked-commitment channel c) %remote)
   ?~  commitment  `c
-  =/  with-preimages=(list add-htlc-update:bolt)
+  =/  with-preimages=(list add-htlc:update:bolt)
     %+  skim  recd-htlcs.u.commitment
-    |=  h=add-htlc-update:bolt
+    |=  h=add-htlc:update:bolt
     ^-  ?
     (~(has by preimages.payments) payment-hash.h)
   ?~  with-preimages  `c

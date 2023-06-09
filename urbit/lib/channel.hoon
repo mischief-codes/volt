@@ -265,7 +265,7 @@
             (gte local-tail our.rem-height.u)
         ==
       ?-    -.u
-          %fee-update
+          %fee
         acc(a (~(remove-update log a.acc) index.u))
       ::
           %settle-htlc
@@ -291,7 +291,7 @@
 ::  +htlc-potential-indices: find set of indices with same script and value
 ::
 ++  htlc-potential-indices
-  |=  [htlc=add-htlc-update =commitment =direction keys=commitment-keys]
+  |=  [htlc=add-htlc:update =commitment =direction keys=commitment-keys]
   ^-  (list @)
   =+  ^=  address
     ^-  hexb:bc
@@ -343,20 +343,20 @@
     recd-htlc-index  (build-index hers)
   ==
   ++  cltv-lte
-    |=  [a=add-htlc-update b=add-htlc-update]
+    |=  [a=add-htlc:update b=add-htlc:update]
     (lte timeout.a timeout.b)
   ::
   ++  build-index
-    |=  htlcs=(list add-htlc-update)
-    ^-  (map @ add-htlc-update)
+    |=  htlcs=(list add-htlc:update)
+    ^-  (map @ add-htlc:update)
     %+  roll  htlcs
-    |=  [h=add-htlc-update acc=(map @ add-htlc-update)]
+    |=  [h=add-htlc:update acc=(map @ add-htlc:update)]
     (~(put by acc) output-index.h h)
   ::
   ++  add-output-index
     |=  sender=owner
-    |=  [htlc=add-htlc-update idx=(set @)]
-    ^-  (pair add-htlc-update (set @))
+    |=  [htlc=add-htlc:update idx=(set @)]
+    ^-  (pair add-htlc:update (set @))
     =+  ^=  direction
       ?:  =(owner.commitment sender)
         %sent
@@ -466,8 +466,8 @@
       her-balance=msats
       our-removals=(set @)
       her-removals=(set @)
-      our-htlcs=(list add-htlc-update)
-      her-htlcs=(list add-htlc-update)
+      our-htlcs=(list add-htlc:update)
+      her-htlcs=(list add-htlc:update)
       ours-pending-lock-in=(list update)
       hers-pending-lock-in=(list update)
       ours-in-flight=@
@@ -596,11 +596,11 @@
     ^-  (each evaluation-state evaluation-error)
     ?+  -.update   (evaluate-remove update ours state)
       %add-htlc    (evaluate-add update ours state)
-      %fee-update  (evaluate-fee update ours state)
+      %fee  (evaluate-fee update ours state)
     ==
   ::
   ++  apply-constraints
-    |=  [update=add-htlc-update ours=? state=evaluation-state]
+    |=  [update=add-htlc:update ours=? state=evaluation-state]
     ^-  (unit evaluation-error)
     =+  who=?:(ours %local %remote)
     =+  config=(config-for who)
@@ -727,7 +727,7 @@
   ++  evaluate-fee
     |=  [=update ours=? state=evaluation-state]
     ^-  (each evaluation-state evaluation-error)
-    ?>  ?=([%fee-update *] update)
+    ?>  ?=([%fee *] update)
     =+  ^=  add-height
       ?:  =(%local whose.state)
         our.add-height.update
@@ -741,7 +741,7 @@
   --
 ::
 ++  is-htlc-dust
-  |=  [ctx-owner=owner fee-per-kw=sats:bc htlc-owner=owner h=add-htlc-update]
+  |=  [ctx-owner=owner fee-per-kw=sats:bc htlc-owner=owner h=add-htlc:update]
   ^-  ?
   %:  is-trimmed:tx
     direction=?:(=(ctx-owner htlc-owner) %sent %received)
@@ -754,8 +754,8 @@
 ++  commitment-weight
   |=  $:  whose=owner
           fee-rate=sats:bc
-          our=(list add-htlc-update)
-          her=(list add-htlc-update)
+          our=(list add-htlc:update)
+          her=(list add-htlc:update)
       ==
   |^  ^-  @
   =+  n-ours=(lent (skip our (is-dust %local)))
@@ -769,7 +769,7 @@
   (mul n-hers htlc-output-weight:tx)
   ++  is-dust
     |=  sender=owner
-    |=  h=add-htlc-update
+    |=  h=add-htlc:update
     ^-  ?
     (is-htlc-dust whose fee-rate sender h)
   --
@@ -861,7 +861,7 @@
       =?  our.add-height.this  =(whose %local)   next-height
       =?  her.add-height.this  =(whose %remote)  next-height
       this
-    ?:  ?=([%fee-update *] this)
+    ?:  ?=([%fee *] this)
       =?  our.add-height.this  =(whose %local)   next-height
       =?  our.rem-height.this  =(whose %local)   next-height
       =?  her.add-height.this  =(whose %remote)  next-height
@@ -1002,7 +1002,7 @@
     ==
   $(i +(i))
   ++  sign-one
-    |=  [whose=owner htlc=add-htlc-update]
+    |=  [whose=owner htlc=add-htlc:update]
     ^-  signature
     %^  %~  one  sign:psbt
         %:  make-htlc-tx
@@ -1025,14 +1025,14 @@
   |-
   ?.  ok      ok
   ?:  =(i n)  ok
-  =/  htlc-and-owner=(unit (pair add-htlc-update owner))
+  =/  htlc-and-owner=(unit (pair add-htlc:update owner))
     ?:  (~(has by sent-htlc-index.ctx) i)
       `[(~(got by sent-htlc-index.ctx) i) %local]
     ?:  (~(has by recd-htlc-index.ctx) i)
       `[(~(got by recd-htlc-index.ctx) i) %remote]
     ~
   ?~  htlc-and-owner  $(i +(i))
-  =/  [htlc=add-htlc-update whose=owner]
+  =/  [htlc=add-htlc:update whose=owner]
     u.htlc-and-owner
   ?:  (is-htlc-dust owner.ctx fee-per-kw.ctx whose htlc)
     $(i +(i))
@@ -1256,17 +1256,17 @@
       her.commitments
     ~(advance commitment-chain her.commitments.c)
   ::
-      lookup.commitments.c
-    %-  ~(put by lookup.commitments.c)  remote-commit
+      lookup.commitments
+    %+  ~(put by lookup.commitments.c)  u.remote-commit
     per-commitment-secret.revoke-and-ack
   ::
-      our.updates  our-log
-      her.updates  her-log
+    our.updates  our-log
+    her.updates  her-log
   ==
 ::  +can-add-htlc: can HTLC be added to the current commitment?
 ::
 ++  can-add-htlc
-  |=  [whose=owner update=add-htlc-update]
+  |=  [whose=owner update=add-htlc:update]
   ^-  ?
   ::  try appending the htlc to the appropriate log
   =/  test=chan
@@ -1302,7 +1302,7 @@
   |=  h=update-add-htlc:msg
   ^-  (pair update-add-htlc:msg chan)
   ~|  %cannot-add-htlc
-  =|  update=add-htlc-update
+  =|  update=add-htlc:update
   =.  update
     %=  update
       payment-hash  payment-hash.h
@@ -1323,7 +1323,7 @@
   ^-  (pair update-add-htlc:msg chan)
   ~|  %cannot-add-htlc
   ?>  =(htlc-id.h htlc-count.her.updates.c)
-  =|  update=add-htlc-update
+  =|  update=add-htlc:update
   =.  update
     %=  update
       payment-hash  payment-hash.h
@@ -1348,7 +1348,7 @@
   ?>  ?=([%add-htlc *] u.htlc)
   ?<  (~(has in modified-htlcs.her.updates.c) htlc-id)
   ?>  =(payment-hash.u.htlc (sha256:bcu:bc preimage))
-  =|  update=settle-htlc-update
+  =|  update=settle-htlc:update
   =.  update
     %=  update
       amount-msats  amount-msats.u.htlc
@@ -1370,7 +1370,7 @@
   ?~  htlc  ~|(%unknown-htlc !!)
   ?>  ?=([%add-htlc *] u.htlc)
   ?<  (~(has in modified-htlcs.our.updates.c) htlc-id)
-  =|  update=settle-htlc-update
+  =|  update=settle-htlc:update
   =.  update
     %=  update
       amount-msats  amount-msats.u.htlc
@@ -1393,7 +1393,7 @@
   ?~  htlc  ~|(%unknown-htlc !!)
   ?>  ?=([%add-htlc *] u.htlc)
   ?<  (~(has in modified-htlcs.her.updates.c) htlc-id)
-  =|  update=fail-htlc-update
+  =|  update=fail-htlc:update
   =.  update
     %=  update
       amount-msats  amount-msats.u.htlc
@@ -1415,7 +1415,7 @@
   ?~  htlc  ~|(%unknown-htlc !!)
   ?>  ?=([%add-htlc *] u.htlc)
   ?<  (~(has in modified-htlcs.our.updates.c) htlc-id)
-  =|  update=fail-htlc-update
+  =|  update=fail-htlc:update
   =.  update
     %=  update
       amount-msats  amount-msats.u.htlc
@@ -1434,14 +1434,14 @@
   ^-  chan
   ?.  initiator.constraints.c
     ~|(%cannot-update-fee !!)
-  =|  update=fee-update
+  =|  update=fee:update
   =.  update
     %=  update
       index     update-count.our.updates.c
       fee-rate  feerate
     ==
   %=  c
-    our.updates  (~(append-update log our.updates.c) [%fee-update update])
+    our.updates  (~(append-update log our.updates.c) [%fee:update update])
   ==
 ::  +receive-update-fee: process a remote feerate update
 ::
@@ -1450,19 +1450,19 @@
   ^-  chan
   ?:  initiator.constraints.c
     ~|(%cannot-update-fee !!)
-  =|  update=fee-update
+  =|  update=fee:update
   =.  update
     %=  update
       index     update-count.her.updates.c
       fee-rate  feerate
     ==
   %=  c
-    her.updates  (~(append-update log her.updates.c) [%fee-update update])
+    her.updates  (~(append-update log her.updates.c) [%fee:update update])
   ==
 ::  +make-htlc-tx: construct HTLC transaction for signing and verifying
 ::
 ++  make-htlc-tx
-  |=  $:  htlc=add-htlc-update
+  |=  $:  htlc=add-htlc:update
           =direction
           =commitment
           keys=commitment-keys
@@ -1521,7 +1521,7 @@
   ++  commitment-htlcs
     ;:  welp
       %+  turn  local-htlcs
-      |=  h=add-htlc-update
+      |=  h=add-htlc:update
       :-  h
       %-  p2wsh:script
       %:  htlc-offered:script
@@ -1533,7 +1533,7 @@
       ==
     ::
       %+  turn  remote-htlcs
-      |=  h=add-htlc-update
+      |=  h=add-htlc:update
       :-  h
       %-  p2wsh:script
       %:  htlc-received:script
@@ -1649,7 +1649,7 @@
 ++  can-pay
   |=  =amount=msats
   ^-  ?
-  =|  update=add-htlc-update
+  =|  update=add-htlc:update
   =.  update
     %=  update
       index         update-count.our.updates.c
@@ -1661,7 +1661,7 @@
 ++  can-receive
   |=  =amount=msats
   ^-  ?
-  =|  update=add-htlc-update
+  =|  update=add-htlc:update
   =.  update
     %=  update
       index         update-count.her.updates.c

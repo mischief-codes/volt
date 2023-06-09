@@ -297,8 +297,8 @@
   |=  [=wire =response:rpc:volt]
   ^-  (quip card _state)
   ?-  -.response
-    %&  (handle-rpc-result wire +.response)
-    %|  (handle-rpc-error wire +.response)
+    %res  (handle-rpc-result wire +.response)
+    %err  (handle-rpc-error wire +.response)
   ==
 ::
 ++  handle-rpc-result

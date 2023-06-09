@@ -55,11 +55,11 @@
     $:  code=@ud
         message=@t
     ==
-  ::  TODO: +each sucks
-  ::  $%  [%res p=result]
-  ::      [%err p=error]
-  ::  == 
-  +$  response  (each result error)
+  ::
+  +$  response
+    $%  [%res p=result]
+        [%err p=error]
+    ==
   ::  TODO: inconsistent use of @ud/@
   +$  route-hint
     $:  node-id=pubkey
@@ -118,8 +118,8 @@
         failure-reason=payment-failure-reason
         creation-time=@da
     ==
-  ::  TODO: set bunt?
   +$  payment-status
+    $~  %'UNKNOWN'
     $?  %'UNKNOWN'
         %'IN_FLIGHT'
         %'SUCCEEDED'
@@ -154,8 +154,12 @@
         payment-address=hexb:bc
     ==
   ::  also TODO: use =<  and |% to namespace invoice related types
-  +$  invoice
-    $:  memo=cord
+  ++  invoice
+    =<  invoice
+    |%
+    ::
+    +$  invoice
+      $:  memo=cord
         r-preimage=(unit preimage)
         =r=hash
         =value=msats
@@ -167,15 +171,16 @@
         add-index=@ud
         settle-index=@ud
         =amt-paid=msats
-        state=invoice-state  :: state -> status
-    ==
-  ::
-  +$  invoice-state
-    $?  %'OPEN'
-        %'SETTLED'
-        %'CANCELED'
-        %'ACCEPTED'
-    ==
+        =state  :: state -> status
+      ==
+    ::
+    +$  state
+      $?  %'OPEN'
+          %'SETTLED'
+          %'CANCELED'
+          %'ACCEPTED'
+      ==
+    --
   ::
   +$  confirmation-event
     $:  raw-tx=hexb:bc
