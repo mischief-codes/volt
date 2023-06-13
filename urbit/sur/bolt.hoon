@@ -7,10 +7,11 @@
 ::  |$  a
 ::  [our-view=? our=a her=a]
 ::  TODO: remove =foo=type turn into foo=type
-+$  id       @ud  ::  channel ID
-+$  htlc-id  @ud
-+$  blocks   @ud  ::  number of blocks
-+$  msats    @ud  ::  millisats
+    ::  EXCEPT where this pattern is used to distinguish sat- and msat-denominated values
++$  id       @  ::  channel ID
++$  htlc-id  @
++$  blocks   @  ::  number of blocks
++$  msats    @  ::  millisats
 +$  commitment-number  @
 ::
 ::  TODO: unify key types
@@ -20,7 +21,7 @@
 ::
 +$  network   ?(network:bc %regtest)
 +$  point     point:secp:crypto
-+$  outpoint  [=txid:bc pos=@ud =sats:bc]
++$  outpoint  [=txid:bc pos=@ =sats:bc]
 +$  witness   (list hexb:bc)
 ::
 +$  owner      ?(%remote %local)
@@ -78,7 +79,7 @@
       to-self-delay=blocks
       =dust-limit=sats:bc
       =max-htlc-value-in-flight=msats
-      max-accepted-htlcs=@ud
+      max-accepted-htlcs=@
       =initial=msats
       =reserve=sats:bc
       =htlc-minimum=msats
@@ -118,13 +119,13 @@
   $:  height=commitment-number
       =owner
       $=  our
-      $:  msg-idx=@ud
-          htlc-idx=@ud
+      $:  msg-idx=@
+          htlc-idx=@
           balance=msats
       ==
       $=  her
-      $:  msg-idx=@ud
-          htlc-idx=@ud
+      $:  msg-idx=@
+          htlc-idx=@
           balance=msats
       ==
       tx=psbt:psbt
@@ -309,7 +310,7 @@
         feerate-per-kw=sats:bc
         to-self-delay=blocks
         cltv-expiry-delta=blocks
-        max-accepted-htlcs=@ud
+        max-accepted-htlcs=@
         =basepoints
         =first-per-commitment=point
         =shutdown-script=pubkey
@@ -324,7 +325,7 @@
         =htlc-minimum=msats
         minimum-depth=blocks
         to-self-delay=blocks
-        max-accepted-htlcs=@ud
+        max-accepted-htlcs=@
         =funding=pubkey
         =basepoints
         =first-per-commitment=point
@@ -335,7 +336,7 @@
   +$  funding-created
     $:  temporary-channel-id=@
         funding-txid=hexb:bc
-        funding-idx=@u
+        funding-idx=@
         =signature
     ==
   ::
@@ -361,7 +362,7 @@
   +$  commitment-signed
     $:  =channel=id
         sig=signature
-        num-htlcs=@ud
+        num-htlcs=@
         htlc-sigs=(list signature)
     ==
   ::

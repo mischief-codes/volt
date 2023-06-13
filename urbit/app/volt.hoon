@@ -35,7 +35,7 @@
   ==
 +$  outpoint  [txid=hexb:bc idx=@]
 +$  pending-timelock
-  $:  height=@ud
+  $:  height=@
       tx=psbt:psbt
       keys=(unit pair:key:bolt)
   ==
@@ -63,9 +63,9 @@
           dead=(map id:bolt force-close-state)
       ==
       $=  chain
-      $:  block=@ud
+      $:  block=@
           fees=(unit sats:bc)
-          time=@da  :: TODO use $time instead of @da because bunt is unix convertible - EVERYWHERE using @da
+          =time
       ==
       $=  payments
       $:  outgoing=(map hexb:bc forward-request)
@@ -89,11 +89,9 @@
 ++  on-init
   ^-  (quip card _this)
   =+  seed=(~(rad og eny.bowl) (bex 256))
-  ::  TODO: already have *state-0 (state)
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
-  =+  state=*state-0
   ~&  >  '%volt initialized successfully'
-  `this(state state(our.keys keypair))
+  `this(our.keys keypair)
 ::
 ++  on-save
   ^-  vase
@@ -615,7 +613,7 @@
   ++  handle-open-channel
     |=  =open-channel:msg:bolt
     ^-  (quip card _state)
-    =+  open-channel :: TODO: use =,
+    =,  open-channel
     ::  todo: factor out constraints w/ command
     ?:  (gth funding-sats max-funding-sats:const:bolt)
       ~|  "%volt: must set funding-sats to less than 2^24 sats"
@@ -1210,7 +1208,7 @@
 ++  handle-provider-update
   |=  =update:provider
   |^  ^-  (quip card _state)
-  ?:  ?=([%| *] update)
+  ?:  ?=([%err *] update)
     ~&  >>>  "%volt: provider-error {<update>}"
     `state
   ?+    +<.update  `state
@@ -1264,9 +1262,9 @@
     `state
   ::
   ++  handle-hold-invoice
-    |=  result=add-hold-invoice-response:rpc
+    |=  result=cord
     ^-  (quip card _state)
-    =+  payreq=(de:bolt11 payment-request.result)
+    =+  payreq=(de:bolt11 result)
     ?~  payreq
       ~&  >>>  "%volt: invalid invoice payreq"
       `state
@@ -1275,7 +1273,7 @@
       ~&  >>>  "%volt: unknown invoice payment hash"
       `state
     :_  state
-    ~[(volt-action [%take-invoice payment-request.result] payee.u.request)]
+    ~[(volt-action [%take-invoice result] payee.u.request)]
   ::
   ++  handle-invoice-update
     |=  result=invoice:rpc
@@ -1324,21 +1322,18 @@
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
       %new-block
-    ::  just =. here and in handle-exp-htlcs
-    =/  upd=state-0
-      %_  state
-        btcp.prov  `u.btcp.prov(connected %.y)
-        chain      [block.status fee.status now.bowl]
-      ==
+    =.  btcp.prov  `u.btcp.prov(connected %.y)
+    =.  chain      [block.status fee.status now.bowl]
     =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
       |=  [hexb:bc =pending-timelock]
       (gte block.status height.pending-timelock)
-    =^  cards  upd  (handle-exp-htlcs upd (turn exp tail))
+    =>  .(state `state-0`state)
+    =^  cards  state  (handle-exp-htlcs (turn exp tail))
     =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
       (turn unexp |=([spk=hexb:bc pending-timelock] spk))
     =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
-    :_  upd
+    :_  state
     ?.  (match:bip-b158 blockfilter.status key targets)
       cards
     (snoc cards (poke-btc-provider [%block-txs blockhash.status]))
@@ -1355,15 +1350,13 @@
   ==
   ::
   ++  handle-exp-htlcs
-    |=  $:  stat=_state
-            htlcs=(list pending-timelock)
-        ==
+    |=  htlcs=(list pending-timelock)
     ^-  (quip card _state)
     :-  %+  turn  htlcs
         |=  [@ tx=psbt:psbt koi=(unit pair:key:bolt)]
         =+  out=(snag 0 outputs.tx)
         =+  vbyts=(add 33 (estimated-size:psbt tx))
-        =+  minus-fees=(sub value.out (mul vbyts (need fees.chain.stat)))
+        =+  minus-fees=(sub value.out (mul vbyts (need fees.chain)))
         =.  outputs.tx  ~[out(value minus-fees)]
         %-  poke-btc-provider
           :-  %broadcast-tx
@@ -1377,12 +1370,11 @@
               (priv-to-hexb:key-gen prv:(need koi))
             ~
     |-
+    ^-  _state
     ?~  htlcs
-      stat
-    %=  $
-      htlcs                  t.htlcs
-      onchain.payments.stat  (~(del by onchain.payments.stat) -.i.htlcs)
-    ==
+      state
+    =.  onchain.payments  (~(del by onchain.payments) -.i.htlcs)
+    $(htlcs t.htlcs)
   --
 ::
 ++  handle-bitcoin-update
@@ -1452,27 +1444,23 @@
     ::     (poke-btc-provider [%fee +(block.chain)])
     ::     (poke-btc-provider [%block-txs blockhash])
     ::   ==
-    ::  just =.
-    =/  upd=_state  state
-    =^  cards  upd  (handle-revoked upd rev.chk)
-    =+  rev-htlcs=(revoked-htlcs rev.chk)
-    =^  rev-htlc-cards  upd
-      (check-revoked-htlcs upd rev-htlcs txs)
-    =^  remote-force-cards  upd
-      (handle-remote-closed upd their-force.chk)
-    =^  coop-cards  upd  (resolve-coop upd coop.chk)
-    =^  local-force-cards  upd
-      (handle-local-closed upd our-force.chk)
+    =^  cards  state  (handle-revoked rev.chk)
+    =/  rev-htlc-cards
+      (check-revoked-htlcs (revoked-htlcs rev.chk) txs)
+    =^  remote-force-cards  state
+      (handle-remote-closed their-force.chk)
+    =^  coop-cards  state  (resolve-coop coop.chk)
+    =^  local-force-cards  state
+      (handle-local-closed our-force.chk)
     =.  cards
-      ::  :;  weld is faster
-      %-  zing
-      :~  cards
-          rev-htlc-cards
-          remote-force-cards
-          coop-cards
-          local-force-cards
+      ;:  weld
+        cards
+        rev-htlc-cards
+        remote-force-cards
+        coop-cards
+        local-force-cards
       ==
-    [cards upd]
+    [cards state]
   ::
   ::  add comments
   ++  check-watched
@@ -1529,12 +1517,12 @@
     $(txs t.txs, i +(i), our-force.chk upd)
   ::
   ++  handle-revoked
-    |=  [stat=_state rev=(list spend)]
+    |=  rev=(list spend)
     ^-  (quip card _state)
     =|  cards=(list card)
     |-
     ?~  rev
-      [cards stat]
+      [cards state]
     =+  ch=(~(got by live.chan) id.i.rev)
     =.  cards  %+  snoc  cards
       (give-update [%channel-state id.i.rev %force-closing])
@@ -1553,8 +1541,8 @@
       |=  tx=psbt:psbt
       (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
     =.  ch  (~(set-state channel ch) %force-closing)
-    =:  live.chan.stat  (~(put by live.chan.stat) id.i.rev ch)
-        dead.chan.stat  (~(put by dead.chan.stat) id.i.rev force)
+    =:  live.chan  (~(put by live.chan) id.i.rev ch)
+        dead.chan  (~(put by dead.chan) id.i.rev force)
     ==
     $(rev t.rev)
   ::
@@ -1579,17 +1567,16 @@
     $(rev t.rev)
   ::
   ++  check-revoked-htlcs
-    |=  $:  stat=_state 
-            htlcs=(set rev-out)
+    |=  $:  htlcs=(set rev-out)
             txs=(list rpc-tx)
         ==
-    ^-  (quip card _state)
+    ^-  (list card)
     ?.  (gth ~(wyt in htlcs) 0)
-      `stat
+      ~
     =|  cards=(list card)
     |-
     ?~  txs
-      [cards stat]
+      cards
     =+  tx=(de:psbt rawtx.i.txs)
     =+  prevout=prevout:(snag 0 vin.tx)
     =/  match=(unit rev-out)
@@ -1616,12 +1603,12 @@
     $(txs t.txs)
   ::
   ++  handle-remote-closed
-    |=  [stat=_state close=(list spend)]
+    |=  close=(list spend)
     ^-  (quip card _state)
     =|  cards=(list card)
     |-
     ?~  close
-      [cards stat]
+      [cards state]
     =+  ch=(~(got by live.chan) id.i.close)
     =/  tx=psbt:psbt
       %:  his-valid-commitment:sweep
@@ -1647,20 +1634,19 @@
       ==
     =/  force=force-close-state
       [ship.her.config.ch %.y com.i.close 0]
-    %=  $
-      close                  t.close
-      live.chan.stat         (~(put by live.chan) id.i.close ch)
-      dead.chan.stat         (~(put by dead.chan) id.i.close force)
-      onchain.payments.stat  (~(gas by onchain.payments.stat) sent)
+    =:  live.chan         (~(put by live.chan) id.i.close ch)
+        dead.chan         (~(put by dead.chan) id.i.close force)
+        onchain.payments  (~(gas by onchain.payments) sent)
     ==
+    $(close t.close)
   ::
   ++  resolve-coop
-    |=  [stat=_state close=(list id:bolt)]
+    |=  close=(list id:bolt)
     ^-  (quip card _state)
     =|  cards=(list card)
     |-
     ?~  close
-      [cards stat]
+      [cards state]
     =+  ch=(~(got by live.chan) i.close)
     =.  ch  (~(set-state channel ch) %closed)
     =+  closing=(~(got by shut.chan) i.close)
@@ -1668,18 +1654,18 @@
     =.  cards
       %+  snoc  cards
       (give-update [%channel-state i.close %closed])
-    =:  live.chan.stat  (~(put by live.chan.stat) i.close ch)
-        shut.chan.stat  (~(put by shut.chan.stat) i.close closing)
+    =:  live.chan  (~(put by live.chan) i.close ch)
+        shut.chan  (~(put by shut.chan) i.close closing)
     ==
     $(close t.close)
   ::
   ++  handle-local-closed
-    |=  [stat=_state close=(list spend)]
+    |=  close=(list spend)
     ^-  (quip card _state)
     =|  cards=(list card)
     |-
     ?~  close
-      [cards stat]
+      [cards state]
     =+  c=(~(got by live.chan) id.i.close)
     =+  delay-height=(add to-self-delay.our.config.c block.chain)
     =+  spend-local=(local-our-output:sweep c com.i.close)
@@ -1688,11 +1674,11 @@
       |=  [height=@ =psbt:psbt]
       ^-  pending-timelock
       [height psbt ~]
-    =+  res=(local-recd-htlcs:sweep c com.i.close preimages.payments.stat)
+    =+  res=(local-recd-htlcs:sweep c com.i.close preimages.payments)
     =.  cards
       %+  welp  cards
       (turn -.res |=(tx=hexb:bc (poke-btc-provider [%broadcast-tx tx])))
-    =/  updated  (~(uni by onchain.payments.stat) sent)
+    =/  updated  (~(uni by onchain.payments) sent)
     =.  updated
       %-  ~(uni by updated)
       %-  ~(run by -.+.res)
@@ -1709,8 +1695,8 @@
     =.  cards
       %+  snoc  cards
       (give-update [%channel-state id.i.close %force-closing])
-    =:  onchain.payments.stat  updated
-        waiting.payments.stat  (~(uni by waiting.payments.stat) +.+.res)
+    =:  onchain.payments  updated
+        waiting.payments  (~(uni by waiting.payments) +.+.res)
     ==
     $(close t.close)
   ::
@@ -1788,7 +1774,7 @@
     |=  $:  =address:bc
             utxos=(set utxo:bc)
             used=?
-            block=@ud
+            block=@
         ==
     ^-  (quip card _state)
     ?.  ?=([%bech32 *] address)  `state
@@ -1867,7 +1853,7 @@
     `state
   ::
   ++  on-channel-update
-    |=  [channel=chan:bolt =utxo:bc block=@ud]
+    |=  [channel=chan:bolt =utxo:bc block=@]
     ^-  (quip card _channel)
     ?+    state.channel  `channel
         %open
@@ -2165,7 +2151,6 @@
   :_  (~(set-state channel c) %open)
   ~[(give-update [%channel-state id.c %open])]
 ::  TODO: estimate fee based on network state, target ETA, desired confs
-::  TODO: remove trap
 ++  current-feerate-per-kw
   |.
   ^-  sats:bc

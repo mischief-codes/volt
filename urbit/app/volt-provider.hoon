@@ -231,13 +231,13 @@
       %open-channel
     ~&  >  "open channel: {<chan-id.channel-update>}"
     :_  state
-    :-  (give-update [%& %channel-update channel-update])
+    :-  (give-update [%res %channel-update channel-update])
         (no-content id)
   ::
       %closed-channel
     ~&  >  "channel closed: {<chan-id.channel-update>}"
     :_  state
-    :-  (give-update [%& %channel-update channel-update])
+    :-  (give-update [%res %channel-update channel-update])
         (no-content id)
   ::
       %active-channel
@@ -245,7 +245,7 @@
     =/  ix=@ud  output-index.channel-update
     ~&  >  "active channel: {<txid>}:{<ix>}"
     :_  state
-    :-  (give-update [%& %channel-update channel-update])
+    :-  (give-update [%res %channel-update channel-update])
         (no-content id)
   ::
       %inactive-channel
@@ -253,7 +253,7 @@
     =/  ix=@ud  output-index.channel-update
     ~&  >  "inactive channel: {<txid>}:{<ix>}"
     :_  state
-    :-  (give-update [%& %channel-update channel-update])
+    :-  (give-update [%res %channel-update channel-update])
         (no-content id)
   ::
       %pending-channel
@@ -261,7 +261,7 @@
     =/  ix=@ud  output-index.channel-update
     ~&  >  "pending channel: {<txid>}:{<ix>}"
     :_  state
-    :-  (give-update [%& %channel-update channel-update])
+    :-  (give-update [%res %channel-update channel-update])
         (no-content id)
   ==
 ::
@@ -269,28 +269,28 @@
   |=  [id=@ta =payment:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (give-update [%& %payment-update payment])
+  :-  (give-update [%res %payment-update payment])
       (no-content id)
 ::
 ++  handle-invoice-update
   |=  [id=@ta =invoice:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (give-update [%& %invoice-update invoice])
+  :-  (give-update [%res %invoice-update invoice])
       (no-content id)
 ::
 ++  handle-confirmation-notification
   |=  [id=@ta =confirmation-event:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (give-update [%& %confirmation-event confirmation-event])
+  :-  (give-update [%res %confirmation-event confirmation-event])
       (no-content id)
 ::
 ++  handle-spend-notification
   |=  [id=@ta =spend-event:rpc:volt]
   ^-  (quip card _state)
   :_  state
-  :-  (give-update [%& %spend-event spend-event])
+  :-  (give-update [%res %spend-event spend-event])
       (no-content id)
 ::
 ++  handle-rpc-response
@@ -309,7 +309,7 @@
     ?>  ?=([%get-info *] result)
     :_  state(connected.host-info %.y, node-info +.result)
     :~  (give-status %connected)
-        (give-update [%& %node-info +.result])
+        (give-update [%res %node-info +.result])
         (give-info +.result)
     ==
   ::
@@ -326,7 +326,7 @@
     ?>  ?=([%add-hold-invoice *] result)
     :_  state(connected.host-info %.y)
     :~  (give-status %connected)
-        (give-update [%& %hold-invoice +.result])
+        (give-update [%res %hold-invoice +.result])
     ==
   ::
       %settle-invoice
@@ -355,7 +355,7 @@
   ^-  (quip card _state)
   %-  (slog leaf+"RPC Error: {(trip message.error)}" ~)
   :_  state
-  ~[(give-update [%| %rpc-error error])]
+  ~[(give-update [%err %rpc-error error])]
 ::
 ++  do-rpc
   |=  =action:rpc:volt
@@ -413,9 +413,9 @@
 ++  give-update
   |=  =update
   ^-  card
-  %-  ?:  ?=(%& -.update)
+  %-  ?:  ?=(%res -.update)
         same
-      ~&(>> "volt-provider: error: {<p.update>}" same)
+      ~&(>> "volt-provider: error: {<update>}" same)
   [%give %fact ~[/clients] %volt-provider-update !>(update)]
 ::
 ++  give-info
@@ -423,7 +423,7 @@
   ^-  card
   :*  %give
       %fact  ~[/status]
-      %volt-provider-update  !>([%& %node-info info])
+      %volt-provider-update  !>([%res %node-info info])
   ==
 ::
 ++  give-status

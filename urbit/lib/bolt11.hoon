@@ -42,7 +42,7 @@
 ::
 +$  invoice
   $:  =network
-      timestamp=@da
+      timestamp=time
       payment-hash=hexb:bc
       payment-secret=(unit hexb:bc)
       =signature

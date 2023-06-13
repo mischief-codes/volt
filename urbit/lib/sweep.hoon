@@ -376,7 +376,7 @@
   =+  vbyts=(add (mul n-in 66) (estimated-size:psbt sweep))
   =.  value.output  (sub total-value (mul fee vbyts))
   =.  outputs.sweep  ~[output]
-  =|  i=@ud
+  =|  i=@
   |-
   ?:  =(i n-in)
     sweep

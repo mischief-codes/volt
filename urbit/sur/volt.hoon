@@ -24,7 +24,7 @@
     $%  [%get-info ~]
         [%wallet-balance ~]
         [%open-channel node=pubkey local-amount=sats:bc push-amount=sats:bc]
-        [%close-channel funding-txid=txid output-index=@ud]
+        [%close-channel funding-txid=txid output-index=@]
         [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
         $:  %add-hold-invoice
           =amt=msats
@@ -44,7 +44,7 @@
         [%open-channel channel-point]
         [%close-channel ~]
         [%send-payment ~]
-        [%add-hold-invoice add-hold-invoice-response]
+        [%add-hold-invoice payment-request=cord]
         [%settle-invoice ~]
         [%cancel-invoice ~]
         [%subscribe-confirms ~]
@@ -52,7 +52,7 @@
     ==
   ::
   +$  error
-    $:  code=@ud
+    $:  code=@
         message=@t
     ==
   ::
@@ -60,13 +60,12 @@
     $%  [%res p=result]
         [%err p=error]
     ==
-  ::  TODO: inconsistent use of @ud/@
   +$  route-hint
     $:  node-id=pubkey
         =chan-id
-        fee-base-msat=@ud
-        fee-proportional-usat=@ud
-        cltv-expiry-delta=@ud
+        fee-base-msat=@
+        fee-proportional-usat=@
+        cltv-expiry-delta=@
     ==
   ::
   +$  channel-update
@@ -100,12 +99,12 @@
   ::
   +$  channel-point
     $:  funding-txid=txid
-        output-index=@ud
+        output-index=@
     ==
   ::
   +$  pending-channel
     $:  =txid
-        output-index=@ud
+        output-index=@
     ==
   ::
   +$  payment
@@ -116,7 +115,7 @@
         request=cord
         status=payment-status
         failure-reason=payment-failure-reason
-        creation-time=@da
+        =creation=time
     ==
   +$  payment-status
     $~  %'UNKNOWN'
@@ -135,25 +134,18 @@
         %'FAILURE_REASON_INCORRECT_PAYMENT_DETAILS'
         %'FAILURE_REASON_INSUFFICIENT_BALANCE'
     ==
-  :: TODO: .total, .confirmed, .unconfirmed
   +$  wallet-balance-response
-    $:  total-balance=msats
-        confirmed-balance=msats
-        unconfirmed-balance=msats
+    $:  total=msats
+        confirmed=msats
+        unconfirmed=msats
     ==
-  ::  TODO: wut?? just remove, inline type in $%
   ::
-  +$  add-hold-invoice-response
-    $:  payment-request=cord
-    ==
-  ::  TODO: clarify meaning of r-hash
   +$  add-invoice-response
-    $:  r-hash=hexb:bc
+    $:  r-hash=hexb:bc :: payment hash matching this invoice, name taken from LND RPC
         payment-request=cord
-        add-index=@ud
+        add-index=@
         payment-address=hexb:bc
     ==
-  ::  also TODO: use =<  and |% to namespace invoice related types
   ++  invoice
     =<  invoice
     |%
@@ -164,12 +156,12 @@
         =r=hash
         =value=msats
         settled=?
-        creation-date=@da  :: TODO: check for existence of bugs in @da -> unix conversion as the bijection can be weird
-        settle-date=@da
+        creation-date=time
+        settle-date=time
         expiry=@dr
         payment-request=cord
-        add-index=@ud
-        settle-index=@ud
+        add-index=@
+        settle-index=@
         =amt-paid=msats
         =state  :: state -> status
       ==
@@ -186,9 +178,8 @@
     $:  raw-tx=hexb:bc
         block-hash=hexb:bc
         block-height=@
-        tx-index=@
+        tx-index=@u
     ==
-  :: TODO: too much 'spending' in faces?
   +$  spend-event
     $:  =spending=outpoint
         raw-spending-tx=hexb:bc
@@ -213,7 +204,7 @@
   +$  command
     $%  [%set-url api-url=@t]
         [%open-channel to=pubkey local-amt=sats:bc push-amt=sats:bc]
-        [%close-channel funding-txid=txid output-index=@ud]
+        [%close-channel funding-txid=txid output-index=@]
         [%send-payment payreq=@t timeout=(unit @dr) fee-limit=(unit sats:bc)]
     ==
   ::
@@ -234,7 +225,7 @@
   ::
   +$  result
     $%  [%node-info =node-info]
-        [%hold-invoice add-hold-invoice-response:rpc]
+        [%hold-invoice payment-request=cord]
         [%invoice-added add-invoice-response:rpc]
         [%invoice-update invoice:rpc]
         [%channel-update channel-update:rpc]
@@ -243,8 +234,11 @@
         [%confirmation-event confirmation-event:rpc]
         [%spend-event spend-event:rpc]
     ==
-  ::  TODO: see above remove each
-  +$  update  (each result error)
+  ::
+  +$  update
+    $%  [%res result]
+        [%err error]
+    ==
   ::
   +$  status  ?(%connected %disconnected)
   --
@@ -255,20 +249,19 @@
   |%
   +$  action
     $%  [%new-wallet seed=(unit hexb:bc)]
-        [%get-public-key path=(list @u)]
-        [%get-address path=(list @u)]
-        [%sign-digest path=(list @u) hash=hexb:bc]
+        [%get-public-key path=(list @)]
+        [%get-address path=(list @)]
+        [%sign-digest path=(list @) hash=hexb:bc]
     ==
   ::
   +$  result
-    $%  [%public-key path=(list @u) =pubkey]
-        [%address path=(list @u) =address:bc]
-        [%signature path=(list @u) signature=hexb:bc]
+    $%  [%public-key path=(list @) =pubkey]
+        [%address path=(list @) =address:bc]
+        [%signature path=(list @) signature=hexb:bc]
     ==
   --
 ::
 ::  client types
-::  TODO: actually use this type?
 +$  payreq  cord
 ::
 +$  payment-request
