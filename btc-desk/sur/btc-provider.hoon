@@ -7,6 +7,21 @@
       block=@ud
       clients=(set ship)
   ==
++$  host-info-2
+  $:  api=(unit api-state)
+      src=(unit ship)
+      connected=?
+      =network
+      block=@ud
+      clients=(set ship)
+  ==
++$  api-state  [url=@t port=@t local=?]
+:: +$  api-state
+::   $%  [%unset ~]
+::       [%setting-ext targ=ship]
+::       [%set-loc =api-data]
+::       [%set-ext src=ship =api-data]
+::   ==
 +$  whitelist
   $:  public=?
       kids=?
@@ -21,12 +36,14 @@
       [%groups groups=(set resource:resource)]
   ==
 +$  command
-  $%  [%set-credentials api-url=@t =network]
+  $%  [%set-credentials url=@t port=@t local=? =network]
+      [%set-external src=@p =network]
       [%add-whitelist wt=whitelist-target]
       [%remove-whitelist wt=whitelist-target]
       [%set-interval inte=@dr]
   ==
 +$  action
+  %+  pair  id=@uvH
   $%  [%address-info =address]
       [%tx-info txid=hexb]
       [%raw-tx txid=hexb]
@@ -39,9 +56,12 @@
       [%fee block=@ud]
       [%psbt psbt=@t]
       [%block-txs blockhash=hexb]
+      [%mine-empty miner=address nblocks=@]
+      [%mine-trans miner=address txs=(list hexb)]
   ==
 ::
 +$  result
+  $:  id=@uvH
   $%  [%address-info =address utxos=(set utxo) used=? block=@ud]
       [%tx-info =info:tx]
       [%raw-tx txid=hexb rawtx=hexb]
@@ -53,17 +73,26 @@
       [%fee fee=@rd]
       [%psbt psbt=@t]
       [%block-txs blockhash=hexb txs=(list [txid=hexb rawtx=hexb])]
-  ==
-+$  error
-  $%  [%not-connected status=@ud]
-      [%bad-request status=@ud]
-      [%no-auth status=@ud]
-      [%rpc-error ~]
-  ==
+  ==  ==
+++  error
+  =<  error
+  |%
+  ::
+  +$  error
+    $:  id=@uvH
+    $%  [%not-connected status=@ud]
+        [%bad-request status=@ud]
+        [%no-auth status=@ud]
+        [%rpc-error (unit rpc-error)]
+    ==  ==
+  ::
+  +$  rpc-error  [id=@t code=@t message=@t]
+  --
 +$  update  (each result error)
 +$  status
   $%  [%connected =network block=@ud fee=(unit sats)]
       [%new-block =network block=@ud fee=(unit sats) blockhash=hexb blockfilter=hexb]
+      [%new-rpc url=@t port=@t =network]
       [%disconnected ~]
   ==
 ::
@@ -82,6 +111,8 @@
         [%get-fee block=@ud]
         [%update-psbt psbt=@t]
         [%get-block-txs blockhash=hexb]
+        [%mine-empty miner=address nblocks=@]
+        [%mine-trans miner=address txs=(list hexb)]
     ==
   ::
   +$  result
@@ -98,7 +129,7 @@
         [%get-fee fee=@rd]
         [%update-psbt psbt=@t]
         [%get-block-txs blockhash=hexb txs=(list [txid=hexb rawtx=hexb])]
+        [%error id=@t code=@t message=@t]
     ==
   --
 --
-::

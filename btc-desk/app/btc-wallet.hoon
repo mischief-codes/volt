@@ -224,9 +224,7 @@
         ^-  (list card)
         =/  wir=wire  /set-provider/(scot %p who)
         =/  priv-wir=wire  (welp wir %priv^~)
-        :+  [%pass wir %agent who^%btc-provider %leave ~]
-          [%pass priv-wir %agent who^%btc-provider %leave ~]
-        ~
+        :-  [%pass wir %agent who^%btc-provider %leave ~]  ~
       --
     ::
         %check-provider
@@ -313,8 +311,9 @@
         ?~(tb [~ ~] [tb note.comm])
       :_  state(poym po)
       ?~  tb  ~
+      %-  zing
       %+  turn  txis.u.tb
-      |=(=txi (poke-provider:hc %raw-tx txid.utxo.txi))
+      |=(=txi (poke-provider:hc [(request-id:hc dat.txid.utxo.txi) %raw-tx txid.utxo.txi]))
     ::
     ::  overwrites any payment being built in poym
     ::
@@ -337,13 +336,14 @@
         %broadcast-tx
       ?~  prov  ~|("Provider not connected" !!)
       =+  signed=(from-cord:hxb:bcu txhex.comm)
+      =+  txid=(get-id:txu:bc (decode:txu:bc signed))
       =/  tx-match=?
         ?~  txbu.poym  %.n
-        =((get-id:txu:bc (decode:txu:bc signed)) ~(get-txid txb:bl u.txbu.poym))
+        =(txid ~(get-txid txb:bl u.txbu.poym))
       :-  ?.  tx-match
             %-  (slog leaf+"txid didn't match txid in wallet")
             [(give-update:hc %error %broadcast-fail)]~
-          ~[(poke-provider:hc [%broadcast-tx signed])]
+          (poke-provider:hc [(request-id:hc dat.txid) %broadcast-tx signed])
       ?.  tx-match  state
       ?~  txbu.poym  state
       state(signed-tx.u.txbu.poym `signed)
@@ -436,8 +436,9 @@
         ?~(tb [~ ~] [tb note.poym])
       :_  state(poym po)
       ?~  tb  [(give-update:hc %error %insufficient-balance)]~
+      %-  zing
       %+  turn  txis.u.tb
-      |=(=txi (poke-provider:hc [%raw-tx txid.utxo.txi]))
+      |=(=txi (poke-provider:hc [(request-id:hc dat.txid.utxo.txi) %raw-tx txid.utxo.txi]))
       ::
       ++  generate-txbu
         |=  [=xpub:bc payee=(unit ship) feyb=sats txos=(list txo)]
@@ -475,7 +476,7 @@
       ?>  (piym-matches pay)
       :_  (update-pend-piym txid.act pay(pend `txid.act))
       ?~  prov  ~
-      ~[(poke-provider:hc [%tx-info txid.act])]
+      (poke-provider:hc [(request-id:hc dat.txid.act) %tx-info txid.act])
       ::
       ++  piym-matches
         |=  p=payment
@@ -672,7 +673,7 @@
       :_  state
       :-  (give-update:hc %broadcast-success ~)
       ?~  prov  ~
-      :-  (poke-provider:hc [%tx-info txid.intr])
+      %+  welp  (poke-provider:hc [(request-id:hc dat.txid.intr) %tx-info txid.intr])
       ?~  txbu.poym  ~
       ?~  payee.u.txbu.poym  ~
       :_  ~
@@ -693,20 +694,20 @@
   ?+    -.sign  (on-agent:def wire sign)
       %watch-ack
     ?~  p.sign  `this
-    %-  (slog leaf+"connection rejected by provider ({<src.bowl>})" u.p.sign)
+    %-  (slog leaf+"btc-wallet: connection rejected by provider ({<src.bowl>})" u.p.sign)
     `this
   ::
-      %kick
-    ?~  prov  `this
-    ?.  ?&  ?=(%set-provider -.wire)
-            =(host.u.prov src.bowl)
-        ==
-      `this
-    :_  this(prov [~ src.bowl %.n])
-    %-  zing
-    :~  (watch-provider:hc src.bowl)
-        (give-update:hc %change-provider `[src.bowl %.n])^~
-    ==
+    ::   %kick
+    :: ?~  prov  `this
+    :: ?.  ?&  ?=(%set-provider -.wire)
+    ::         =(host.u.prov src.bowl)
+    ::     ==
+    ::   `this
+    :: :_  this(prov [~ src.bowl %.n])
+    :: %-  zing
+    :: :~  (watch-provider:hc src.bowl)
+    ::     (give-update:hc %change-provider `[src.bowl %.n])^~
+    :: ==
   ::
       %fact
     =^  cards  state
@@ -750,7 +751,7 @@
     =^  cards  state
       ?~  prov  `state
       ?.  =(host.u.prov src.bowl)  `state
-      ?-  -.s
+      ?+  -.s  `state
           %new-block
         %:  on-connected
           u.prov        network.s
@@ -794,6 +795,7 @@
           btc-state  [block fee now.bowl]
         ==
     %-  zing
+    ^-  (list (list card))
     :~  retry-ahistorical-txs
         (retry-pend-piym net)
         (retry-block-info blocks)
@@ -817,27 +819,31 @@
     ::
     ++  retry-ahistorical-txs
       ^-  (list card)
+      %-  zing
       %+  turn  ~(tap in ahistorical-txs)
       |=  =txid
-      (poke-provider:hc [%tx-info txid])
+      (poke-provider:hc [(request-id:hc dat.txid) %tx-info txid])
     ::
     ::  +retry-pend-piym: check whether txids in pend-piym are in mempool
     ::
     ++  retry-pend-piym
       |=  =network
       ^-  (list card)
+      %-  zing
       %+  murn  ~(tap by pend.piym)
       |=  [=txid p=payment]
+      ^-  (unit (list card))
       =/  w  (~(get by walts) xpub.p)
       ?~  w  ~
       ?.  =(network network.u.w)  ~
-      `(poke-provider:hc [%tx-info txid])
+      `(poke-provider:hc [(request-id:hc dat.txid) %tx-info txid])
     ::
     ++  retry-block-info
       |=  blocks=(list @ud)
+      %-  zing
       %+  turn  blocks
       |=  block=@ud
-      (poke-provider:hc %block-info `block)
+      (poke-provider:hc [(request-id:hc block) %block-info `block])
     ::
     ++  retry-poym
       |=  =network
@@ -846,25 +852,29 @@
       =/  w  (~(get by walts) xpub.u.txbu.poym)
       ?~  w  ~
       ?.  =(network network.u.w)  ~
-      %+  weld
-        ?~  signed-tx.u.txbu.poym  ~
-        ~[(poke-provider:hc [%broadcast-tx u.signed-tx.u.txbu.poym])]
-      %+  turn  txis.u.txbu.poym
-      |=  =txi
-      (poke-provider:hc [%raw-tx ~(get-txid txb:bl u.txbu.poym)])
+      %+  welp
+        =/  signed  signed-tx.u.txbu.poym
+        ?~  signed  *(list card)
+        (poke-provider:hc [(request-id:hc dat.u.signed) %broadcast-tx u.signed])
+      %-  zing
+        %+  turn  txis.u.txbu.poym
+        |=  =txi
+        =+  txid=~(get-txid txb:bl u.txbu.poym)
+        (poke-provider:hc [(request-id:hc dat.txid) %raw-tx txid])
     ::
     ::  +retry-txs: get info on txs without enough confirmations
     ::
     ++  retry-txs
       |=  =network
       ^-  (list card)
+      %-  zing
       %+  murn  ~(tap by history)
       |=  [=txid =hest]
       =/  w  (~(get by walts) xpub.hest)
       ?~  w  ~
       ?.  =(network network.u.w)  ~
       ?:  (gte confs.hest confs.u.w)  ~
-      `(poke-provider:hc [%tx-info txid])
+      `(poke-provider:hc [(request-id:hc dat.txid) %tx-info txid])
     ::
     ++  retry-scans
       |=  =network
@@ -888,9 +898,10 @@
       ?.  =(network network.w)  ~
       ^-  (unit (list card))
       :-  ~
+      %-  zing
       %+  turn  ~(tap by wach.w)
       |=  [a=address *]
-      (poke-provider:hc [%address-info a])
+      (poke-provider:hc [(request-id:hc `@`+.a) %address-info a])
     --
   ::
   ++  handle-provider-update
@@ -900,7 +911,7 @@
     ?:  =(~ prov)  `state
     ?.  =(host:(need prov) src.bowl)  `state
     ?.  ?=(%.y -.upd)  `state
-    ?+  -.p.upd  `state
+    ?+  -.+.p.upd  `state
         %address-info
       ::  located in the helper in Scan Logic to keep all of that unified
       ::
@@ -916,7 +927,7 @@
     ::
         %raw-tx
       :_  state
-      ~[(poke-internal:hc [%add-poym-raw-txi +.p.upd])]
+      ~[(poke-internal:hc [%add-poym-raw-txi +.+.p.upd])]
     ::
         %broadcast-tx
       :_  state
@@ -970,7 +981,7 @@
         ^-  [(list card) (set txid)]
         ?:  (~(has by history) txid.u)
           [cad ah]
-        :-  [(poke-provider:hc [%tx-info txid.u]) cad]
+        :-  (welp (poke-provider:hc [(request-id:hc dat.txid.u) %tx-info txid.u]) cad)
         (~(put by ah) txid.u)
       ::  if the wallet+chyg is being scanned, update the scan batch
       ::
@@ -1121,6 +1132,7 @@
   ^-  (unit (list card))
   ?.  =(network network.w)  ~
   :-  ~
+  %-  zing
   %+  turn
     %~  tap  in
     %^  all-match:bip-b158:bc
@@ -1130,8 +1142,8 @@
     |=  [a=address *]
     [a (to-script-pubkey:adr:bc a)]
   |=  [a=address spk=hexb]
-  ^-  card
-  (poke-provider [%address-info a])
+  ^-  (list card)
+  (poke-provider [(request-id `@`+.a) %address-info a])
 ::
 ++  handle-tx-info
   ~/  %handle-tx-info
@@ -1158,10 +1170,11 @@
     (~(uni in our-inputs) our-outputs)
   ::
   =/  addr-info-cards=(list card)
+    %-  zing
     %+  turn  ~(tap in our-addrs)
     |=  a=address
-    ^-  card
-    (poke-provider [%address-info a])
+    ^-  (list card)
+    (poke-provider [(request-id `@`+.a) %address-info a])
   ?:  =(0 ~(wyt in our-addrs))  `state
   =/  =xpub
     xpub.w:(need (address-coords:bl (snag 0 ~(tap in our-addrs)) ~(val by walts)))
@@ -1233,7 +1246,8 @@
   =.  w
     |-  ?~  as  w
     $(as t.as, w (~(update-address wad:bl w chyg) -.i.as +.i.as))
-  :-  (turn as |=([a=address *] (poke-provider [%address-info a])))
+  :-  %-  zing
+    (turn as |=([a=address *] (poke-provider [(request-id `@`+.a) %address-info a])))
   %_    state
       scans
     (~(put by scans) [xpub chyg] b)
@@ -1244,11 +1258,12 @@
 ::
 ++  poke-provider
   |=  act=action:bp
-  ^-  card
+  ^-  (list card)
   ?~  prov  ~|("provider not set" !!)
-  :*  %pass  /[(scot %da now.bowl)]
-      %agent  [host.u.prov %btc-provider]
-      %poke   %btc-provider-action  !>([act])
+  =/  =dock  [our.bowl %btc-provider]
+  =+  id=(scot %ux -.act)
+  :~  [%pass /[id] %agent dock %watch /clients/[id]]
+      [%pass /[id] %agent dock %poke %btc-provider-action !>(act)]
   ==
 ::
 ++  poke-peer
@@ -1298,9 +1313,7 @@
   =/  =dock  [who %btc-provider]
   =/  wir=wire  /set-provider/(scot %p who)
   =/  priv-wire=^wire  (welp wir [%priv ~])
-  :+  [%pass wir %agent dock %watch /clients]
-    [%pass priv-wire %agent dock %watch /clients/(scot %p our.bowl)]
-  ~
+  :-  [%pass wir %agent dock %watch /clients]  ~
 ::
 ++  give-initial
   ^-  card
@@ -1380,4 +1393,9 @@
 ++  gall-scry
   |*  [=mold app=@tas =path]
   .^(mold %gx (weld /(scot %p our.bowl)/[app]/(scot %da now.bowl) path))
+::
+++  request-id
+  |=  salt=@
+  ^-  @
+  (shas salt eny.bowl)
 --

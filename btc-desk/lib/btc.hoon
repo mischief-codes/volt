@@ -392,10 +392,17 @@
   ==
 ::
 ++  gen-request
- |=  [=host-info:bp ract=action:rpc-types:bp]
+ |=  [=api-state:bp ract=action:rpc-types:bp]
   ^-  request:http
+  =/  target
+    %-  crip
+    :~  'http://'
+        ?:  local.api-state  '127.0.0.1'  url.api-state
+        ':'
+        port.api-state
+    ==
   %+  rpc-action-to-http
-  api-url.host-info  ract
+  target  ract
 ::
 ++  rpc
   =,  dejs:format
@@ -404,43 +411,52 @@
     |=  res=response:json-rpc
     |^  ^-  result:rpc-types:bp
     ~|  -.res
-    ?>  ?=(%result -.res)
-    ?+  id.res  ~|([%unsupported-result id.res] !!)
-        %get-address-info
-      [id.res (address-info res.res)]
-      ::
-        %get-tx-vals
-      [id.res (tx-vals res.res)]
-      ::
-        %get-raw-tx
-      [id.res (raw-tx res.res)]
-      ::
-        %broadcast-tx
-      [%broadcast-tx (broadcast-tx res.res)]
-      ::
-        %get-block-count
-      [id.res (ni res.res)]
-      ::
-        %get-block-info
-      [id.res (block-info res.res)]
-      ::
-        %get-histogram
-      [id.res ((ar (ar ni)) res.res)]
-      ::
-        %get-block-headers
-      [id.res (block-headers res.res)]
-      ::
-        %get-tx-from-pos
-      [id.res (tx-from-pos res.res)]
-      ::
-        %get-fee
-      [id.res (ne res.res)]
-      ::
-        %update-psbt
-      [id.res (so res.res)]
-      ::
-        %get-block-txs
-      [id.res (block-txs res.res)]
+    :: ?.  =(%result -.res)
+    ::   ?:  =(%error -.res)
+    ::     [%error id.res code.res message.res]
+    ::   [%error '' '' '']
+    ?+  -.res  [%error '' '' '']
+        %error
+      [%error id.res code.res message.res]
+    ::
+        %result
+      ?+  id.res  ~&([%unsupported-result id.res] [%error '' '' ''])
+          %get-address-info
+        [id.res (address-info res.res)]
+        ::
+          %get-tx-vals
+        [id.res (tx-vals res.res)]
+        ::
+          %get-raw-tx
+        [id.res (raw-tx res.res)]
+        ::
+          %broadcast-tx
+        [%broadcast-tx (broadcast-tx res.res)]
+        ::
+          %get-block-count
+        [id.res (ni res.res)]
+        ::
+          %get-block-info
+        [id.res (block-info res.res)]
+        ::
+          %get-histogram
+        [id.res ((ar (ar ni)) res.res)]
+        ::
+          %get-block-headers
+        [id.res (block-headers res.res)]
+        ::
+          %get-tx-from-pos
+        [id.res (tx-from-pos res.res)]
+        ::
+          %get-fee
+        [id.res (ne res.res)]
+        ::
+          %update-psbt
+        [id.res (so res.res)]
+        ::
+          %get-block-txs
+        [id.res (block-txs res.res)]
+      ==
     ==
     ::
     ++  address-info
@@ -585,6 +601,22 @@
     %-  get-request
     %+  mk-url  '/getblocktxs/'
     (to-cord:hxb:bcu blockhash.ract)
+    ::
+      %mine-empty
+    %+  post-request
+    %+  mk-url  '/mineblocks'  ''
+    %-  pairs
+    :~  [%miner s+(to-cord:adr:bc miner.ract)]
+        [%nblocks (numb nblocks.ract)]
+    ==
+    ::
+      %mine-trans
+    %+  post-request
+    %+  mk-url  '/minetxs'  ''
+    %-  pairs
+    :~  [%miner s+(to-cord:adr:bc miner.ract)]
+        [%txs a+(turn txs.ract |=(=hexb:bc s+(to-cord:hxb:bcu hexb)))]
+    ==
   ==
   ++  mk-url
     |=  [base=@t params=@t]

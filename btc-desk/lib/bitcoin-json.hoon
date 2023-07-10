@@ -65,6 +65,7 @@
     ?-  -.sta
       %connected    (connected sta)
       %new-block    (new-block sta)
+      %new-rpc      ~
       %disconnected  ~
     ==
   ::
