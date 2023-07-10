@@ -51,6 +51,7 @@
       $:  btcp=(unit provider-state)
           volt=(unit provider-state)
           info=node-info
+          pend=(map @ action:btc-provider)
       ==
       $=  chan
       $:  live=(map id:bolt chan:bolt)
@@ -121,57 +122,101 @@
       (handle-message:hc !<(message:bolt vase))
     ==
   [cards this]
-::  per the precepts, route on wire before sign
+::
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
-  ?+    -.sign  (on-agent:def wire sign)
-      ::  TODO: wire then sign
-      %kick  :: TODO: rewrite as ?+
-    ?:  ?=(%set-provider -.wire)
-      :_  this(volt.prov [~ src.bowl %.n])
-      (watch-provider:hc src.bowl)
-    ::
-    ?:  ?=(%set-btc-provider -.wire)
-      :_  this(btcp.prov [~ src.bowl %.n])
-      (watch-btc-provider:hc src.bowl)
-    ::
-    `this
-  ::  TODO: potential injection attack, validate that marks come in on their correct wires
-      %fact
-    =^  cards  state
-      ?+    p.cage.sign  `state
-          %volt-provider-status
+  =^  cards  state
+    ?+    wire  !!
+        [%provider-status ~]
+      ?~  volt.prov
+        `state
+      ?>  =(src.bowl host.u.volt.prov)
+      ?+    -.sign  !!
+          %kick
+        :_  state(volt.prov [~ src.bowl %.n])
+        (watch-provider:hc src.bowl)
+      ::
+          %watch-ack
+        ?~  p.sign
+          `state
+        =/  =tank  leaf+"subscribe to provider {<src.bowl>} {<dap.bowl>} failed"
+        %-  (slog tank u.p.sign)
+        `state(volt.prov ~)
+      ::
+          %fact
+        ?.  =(%volt-provider-status p.cage.sign)  
+          `state
         (handle-provider-status:hc !<(status:provider q.cage.sign))
+      ==
+    ::
+        [%provider-updates ~]
+      ?~  volt.prov
+        `state
+      ?>  =(src.bowl host.u.volt.prov)
+      ?+    -.sign  !!
+          %kick
+        :_  state(volt.prov [~ src.bowl %.n])
+        (watch-provider:hc src.bowl)
       ::
-          %volt-provider-update
+          %watch-ack
+        ?~  p.sign
+          `state
+        =/  =tank  leaf+"subscribe to provider {<src.bowl>} {<dap.bowl>} failed"
+        %-  (slog tank u.p.sign)
+        `state(volt.prov ~)
+      ::
+          %fact
+        ?.  =(%volt-provider-update p.cage.sign)  
+          `state
         (handle-provider-update:hc !<(update:provider q.cage.sign))
+      ==
+    ::
+        [%btc-provider ~]
+      ?~  btcp.prov  
+        `state
+      ?>  =(src.bowl host.u.btcp.prov)
+      ?+  -.sign  !!
+          %kick
+        :_  state(btcp.prov [~ src.bowl %.n])
+        (watch-btc-provider:hc src.bowl)
       ::
-          %btc-provider-status
+          %watch-ack
+        ?~  p.sign
+          `state
+        =/  =tank  leaf+"subscribe to btc provider {<src.bowl>} {<dap.bowl>} failed"
+        %-  (slog tank u.p.sign)
+        `state(btcp.prov ~)
+      ::
+          %fact
+        ?.  =(p.cage.sign %btc-provider-status)
+          `state
         (handle-bitcoin-status:hc !<(status:btc-provider q.cage.sign))
+      ==
+    ::
+        [%btc-provider %priv ~]
+      ?~  btcp.prov  
+        `state
+      ?>  =(src.bowl host.u.btcp.prov)
+      ?+    -.sign  !!
+          %kick
+        :_  state(btcp.prov [~ src.bowl %.n])
+        (watch-btc-provider:hc src.bowl)
       ::
-          %btc-provider-update
+          %watch-ack
+        ?~  p.sign
+          `state
+        =/  =tank  leaf+"subscribe to btc provider {<src.bowl>} {<dap.bowl>} failed"
+        %-  (slog tank u.p.sign)
+        `state(btcp.prov ~)
+      ::
+          %fact
+        ?.  =(p.cage.sign %btc-provider-update)
+          `state
         (handle-bitcoin-update:hc !<(update:btc-provider q.cage.sign))
       ==
-    [cards this]
-  ::  TODO: inclue src.bowl for debugging, rewrite as ?+
-      %watch-ack
-    ?:  ?=(%set-provider -.wire)
-      ?~  p.sign
-        `this
-      =/  =tank  leaf+"subscribe to provider {<dap.bowl>} failed"
-      %-  (slog tank u.p.sign)
-      `this(volt.prov ~)
-    ::
-    ?:  ?=(%set-btc-provider -.wire)
-      ?~  p.sign
-        `this
-      =/  =tank  leaf+"subscribe to btc provider {<dap.bowl>} failed"
-      %-  (slog tank u.p.sign)
-      `this(btcp.prov ~)
-    ::
-    `this
-  ==
+    ==
+  [cards this]
 ::
 ++  on-watch
   |=  =path
@@ -334,28 +379,27 @@
       =+  i=0
       |-
       ?~  outs  ~
-      =+  out=(head outs)  :: use i.outs
-      ?:  ?&  =(value.out value.funding-output)
-              =(script-pubkey.out script-pubkey.funding-output)
+      ?:  ?&  =(value.i.outs value.funding-output)
+              =(script-pubkey.i.outs script-pubkey.funding-output)
           ==
         (some i)
-      $(outs (tail outs), i +(i))
+      $(outs t.outs, i +(i))
     ?>  ?=(^ funding-out-pos)
     ::
     =+  funding-txid=(txid:^psbt (extract-unsigned:^psbt u.funding-tx))
     %-  (slog leaf+"funding-txid={<funding-txid>}" ~)
     ::
-    =+  ^=  new-channel  :: just use =/
+    =/  new-channel=chan:bolt
       ^-  chan:bolt
-      %:  new:channel    :: shorten "documentation" faces, and/or move to comment
-        local-channel-config=our.u.c
-        remote-channel-config=her.u.c
-        funding-outpoint=[funding-txid u.funding-out-pos funding-sats.u.oc.u.c]
-        initial-feerate=feerate-per-kw.u.oc.u.c
-        initiator=initiator.u.c
-        anchor-outputs=anchor-outputs.our.u.c
-        capacity=funding-sats.u.oc.u.c
-        funding-tx-min-depth=minimum-depth.u.ac.u.c
+      %:  new:channel
+        our.u.c  :: local channel config
+        her.u.c  :: remote channel config
+        [funding-txid u.funding-out-pos funding-sats.u.oc.u.c]  :: funding outpoint
+        feerate-per-kw.u.oc.u.c  :: initial feerate
+        initiator.u.c  :: channel initiator
+        anchor-outputs.our.u.c  :: option anchor outputs
+        funding-sats.u.oc.u.c  :: channel capacity
+        minimum-depth.u.ac.u.c  :: required confirmations for funding tx
       ==
     =^  sig  new-channel
       %-  ~(sign-first-commitment channel new-channel)
@@ -658,7 +702,7 @@
     ::      the funder's amount for the initial commitment transaction is not
     ::      sufficient for full fee payment.
     ::
-    =+  ^=  commit-fees :: ident or use =/
+    =/  commit-fees=sats:bc
       %.  %remote
       %~  got  by
       %:  commitment-fee:tx
@@ -882,8 +926,14 @@
       sats.funding-outpoint.c
     =.  c  (~(receive-first-commitment channel c) signature.msg)
     =.  c  (~(set-state channel c) %opening)
+    =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
+    =+  id=(request-id dat.tx)
+    =/  =action:btc-provider  [id %broadcast-tx tx]
     :_
       %=    state
+          pend.prov
+        (~(put by pend.prov) id action)
+      ::
           live.chan
         (~(put by live.chan) channel-id.msg c)
       ::
@@ -896,8 +946,7 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
       ==
-    =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
-    :~  (poke-btc-provider [%broadcast-tx tx])
+    :~  (poke-btc-provider action)
         (give-update [%channel-state id.c %opening])
     ==
   ::
@@ -987,7 +1036,7 @@
       =.  our-script.close  ~(shutdown-script channel u.c)
       =^  cards-1  u.c      (send-shutdown u.c close)
       =^  cards-2  close    (maybe-sign-closing u.c close)
-      :: just remove this assertion to fix bug in non-funder-initiated closing?
+      :: test: removing assertion fixes bug in non-funder-initiated closing, doesn't introduce new one
       :: ?>  =(~ cards-2)
       :-  cards-1
       %=  state
@@ -1054,13 +1103,16 @@
       ::
       =.  u.c  (~(set-state channel u.c) %closing)
       =+  encoded=(extract:psbt closing-tx)
+      =+  id=(request-id dat.encoded)
+      =/  =action:btc-provider  [id %broadcast-tx encoded]
       :_  %=  state
             live.chan  (~(put by live.chan) id.u.c u.c)
             shut.chan  (~(put by shut.chan) id.u.c close)
+            pend.prov  (~(put by pend.prov) id action)
           ==
       ;:  welp
         cards
-        :~  (poke-btc-provider [%broadcast-tx encoded])
+        :~  (poke-btc-provider action)
             (give-update [%channel-state id.u.c %closing])
         ==
       ==
@@ -1333,10 +1385,12 @@
     =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
       (turn unexp |=([spk=hexb:bc pending-timelock] spk))
     =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
-    :_  state
     ?.  (match:bip-b158 blockfilter.status key targets)
-      cards
-    (snoc cards (poke-btc-provider [%block-txs blockhash.status]))
+      [cards state]
+    =+  id=(request-id dat.blockhash.status)
+    =/  =action:btc-provider  [id %block-txs blockhash.status]
+    :_  state(pend.prov (~(put by pend.prov) id action))
+    (snoc cards (poke-btc-provider action))
   ::
       %connected
     :-  ~
@@ -1352,28 +1406,34 @@
   ++  handle-exp-htlcs
     |=  htlcs=(list pending-timelock)
     ^-  (quip card _state)
-    :-  %+  turn  htlcs
-        |=  [@ tx=psbt:psbt koi=(unit pair:key:bolt)]
-        =+  out=(snag 0 outputs.tx)
-        =+  vbyts=(add 33 (estimated-size:psbt tx))
-        =+  minus-fees=(sub value.out (mul vbyts (need fees.chain)))
-        =.  outputs.tx  ~[out(value minus-fees)]
-        %-  poke-btc-provider
-          :-  %broadcast-tx
-          %-  extract:psbt
-            %^  ~(add-signature update:psbt tx)
-                0
-              pub:(need koi)
-            
-            %^  ~(one sign:psbt tx)
-                0
-              (priv-to-hexb:key-gen prv:(need koi))
-            ~
+    =|  cards=(list card)
     |-
-    ^-  _state
     ?~  htlcs
-      state
-    =.  onchain.payments  (~(del by onchain.payments) -.i.htlcs)
+      [cards state]
+    =+  tx=tx.i.htlcs
+    =+  keys=keys.i.htlcs
+    =+  out=(snag 0 outputs.tx)
+    =+  vbyts=(add 33 (estimated-size:psbt tx))
+    =+  minus-fees=(sub value.out (mul vbyts (need fees.chain)))
+    =.  outputs.tx  ~[out(value minus-fees)]
+    =/  encoded=hexb:bc
+      %-  extract:psbt
+      %^  ~(add-signature update:psbt tx)
+          0
+        pub:(need keys)
+      
+      %^  ~(one sign:psbt tx)
+          0
+        (priv-to-hexb:key-gen prv:(need keys))
+      ~
+    =+  id=(request-id dat.encoded)
+    =/  =action:btc-provider  [id %broadcast-tx encoded]
+    =.  state
+      %=  state
+        onchain.payments  (~(del by onchain.payments) -.i.htlcs)
+        pend.prov         (~(put by pend.prov) id action)
+      ==
+    =.  cards  (snoc cards (poke-btc-provider action))
     $(htlcs t.htlcs)
   --
 ::
@@ -1383,10 +1443,10 @@
   ?~  btcp.prov  `state
   ?.  =(host.u.btcp.prov src.bowl)  `state
   ?.  ?=([%& *] update)  `state
-  ?+    -.p.update  `state
+  ?+    -.+.p.update  `state
       %address-info
     ::  currently all address-info updates are from checking new blocks for funding outpoint spends
-    (handle-address-info +.p.update)
+    (handle-address-info +.+.p.update)
   ::
       %tx-info
     `state
@@ -1404,7 +1464,7 @@
     `state
   ::
       %block-txs
-    (handle-block-txs +.p.update)
+    (handle-block-txs +.+.p.update)
   ::
   ::  TODO: make sure this matches whatever changes made to rpc
       %fee
@@ -1437,7 +1497,7 @@
     |=  [blockhash=hexb:bc txs=(list rpc-tx)]
     ^-  (quip card _state)
     =+  chk=(check-watched txs)
-    ::  TODO: timeout sends, handle our force close
+    ::  TODO: timeout sends
     :: ?~  fees.chain
     ::   :_  state
     ::   :~
@@ -1445,7 +1505,7 @@
     ::     (poke-btc-provider [%block-txs blockhash])
     ::   ==
     =^  cards  state  (handle-revoked rev.chk)
-    =/  rev-htlc-cards
+    =^  rev-htlc-cards  state
       (check-revoked-htlcs (revoked-htlcs rev.chk) txs)
     =^  remote-force-cards  state
       (handle-remote-closed their-force.chk)
@@ -1481,7 +1541,7 @@
           chk(their-htlc (snoc their-htlc.chk tx))
         chk(our-htlc (snoc our-htlc.chk prevout))
       $(txs t.txs, i +(i), chk upd)
-    ::  TODO: change this to not use live.chan, or differentiate unlocked/used lives from others
+    ::  TODO: change this to not use live.chan, or differentiate unlocked/used live-chans from others
     =/  funds=(map id:bolt outpoint)
       %-  ~(run by live.chan)
       |=  [c=chan:bolt]
@@ -1535,14 +1595,22 @@
       ==
     =/  force=force-close-state
       [ship.her.config.ch %.y com.i.rev 0]
-    =.  cards
-      %+  weld  cards
+    =/  reqs=(list [@ action:btc-provider])
       %+  turn  txs
       |=  tx=psbt:psbt
-      (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
+      ^-  [@ action:btc-provider]
+      =+  encoded=(extract:psbt tx)
+      =+  id=(request-id dat.encoded)
+      [id [id %broadcast-tx encoded]]
+    =.  cards
+      %+  weld  cards
+      %+  turn  reqs
+      |=  [@ =action:btc-provider]
+      (poke-btc-provider action)
     =.  ch  (~(set-state channel ch) %force-closing)
     =:  live.chan  (~(put by live.chan) id.i.rev ch)
         dead.chan  (~(put by dead.chan) id.i.rev force)
+        pend.prov  (~(gas by pend.prov) reqs)
     ==
     $(rev t.rev)
   ::
@@ -1570,13 +1638,13 @@
     |=  $:  htlcs=(set rev-out)
             txs=(list rpc-tx)
         ==
-    ^-  (list card)
+    ^-  (quip card _state)
     ?.  (gth ~(wyt in htlcs) 0)
-      ~
+      `state
     =|  cards=(list card)
     |-
     ?~  txs
-      cards
+      [cards state]
     =+  tx=(de:psbt rawtx.i.txs)
     =+  prevout=prevout:(snag 0 vin.tx)
     =/  match=(unit rev-out)
@@ -1597,9 +1665,11 @@
         (need fees.chain)
       ==
     =.  htlcs  (~(del in htlcs) u.match)
-    =.  cards
-      %+  snoc  cards
-      (poke-btc-provider [%broadcast-tx (extract:psbt sweep)])
+    =+  encoded=(extract:psbt sweep)
+    =+  id=(request-id dat.encoded)
+    =/  =action:btc-provider  [id %broadcast-tx encoded]
+    =.  cards  (snoc cards (poke-btc-provider action))
+    =.  pend.prov  (~(put by pend.prov) id action)
     $(txs t.txs)
   ::
   ++  handle-remote-closed
@@ -1617,10 +1687,13 @@
         preimages.payments
         (need fees.chain)
       ==
+    =+  encoded=(extract:psbt tx)
+    =+  id=(request-id dat.encoded)
+    =/  =action:btc-provider  [id %broadcast-tx encoded]
     =.  cards
       %+  weld  cards
       :~  (give-update [%channel-state id.i.close %force-closing])
-          (poke-btc-provider [%broadcast-tx (extract:psbt tx)])
+          (poke-btc-provider action)
       ==
     =.  ch  (~(set-state channel ch) %force-closing)
     =/  sent=(list [hexb:bc pending-timelock])
@@ -1637,6 +1710,7 @@
     =:  live.chan         (~(put by live.chan) id.i.close ch)
         dead.chan         (~(put by dead.chan) id.i.close force)
         onchain.payments  (~(gas by onchain.payments) sent)
+        pend.prov         (~(put by pend.prov) id action)
     ==
     $(close t.close)
   ::
@@ -1675,9 +1749,14 @@
       ^-  pending-timelock
       [height psbt ~]
     =+  res=(local-recd-htlcs:sweep c com.i.close preimages.payments)
+    =/  acts=(list action:btc-provider)
+      (turn -.res |=(tx=hexb:bc [(request-id dat.tx) %broadcast-tx tx]))
     =.  cards
       %+  welp  cards
-      (turn -.res |=(tx=hexb:bc (poke-btc-provider [%broadcast-tx tx])))
+      (turn acts |=(=action:btc-provider (poke-btc-provider action)))
+    =.  pend.prov
+      %-  ~(gas by pend.prov)
+      (turn acts |=(=action:btc-provider [p.action action]))
     =/  updated  (~(uni by onchain.payments) sent)
     =.  updated
       %-  ~(uni by updated)
@@ -2269,7 +2348,7 @@
   |=  who=@p
   ^-  (list card)
   =/  =dock     [who %btc-provider]
-  =/  wir=wire  /set-btc-provider/[(scot %p who)]
+  =/  wir=wire  /btc-provider
   :+
     :*  %pass   wir
         %agent  dock
@@ -2300,4 +2379,9 @@
   |=  =update
   ^-  card
   [%give %fact ~[/all] %volt-update !>(update)]
+::
+++  request-id
+  |=  salt=@
+  ^-  @
+  (shas salt eny.bowl)
 --

@@ -40,17 +40,16 @@
 ::
 ++  local-output
   |=  [=revocation=pubkey =local-delayed=pubkey delay=@ud]
-      ==
- ^-  script:btc-script
- :~  %op-if
-     [%op-pushdata 33^(compress-point revocation-pubkey)]
-     %op-else
-     [%op-pushdata (flip:byt:bcu 2^delay)]
-     %op-checksequenceverify
-     %op-drop
-     [%op-pushdata 33^(compress-point local-delayed-pubkey)]
-     %op-endif
-     %op-checksig
+  ^-  script:btc-script
+  :~  %op-if
+      [%op-pushdata 33^(compress-point revocation-pubkey)]
+      %op-else
+      [%op-pushdata (flip:byt:bcu 2^delay)]
+      %op-checksequenceverify
+      %op-drop
+      [%op-pushdata 33^(compress-point local-delayed-pubkey)]
+      %op-endif
+      %op-checksig
   ==
 ::
 ++  remote-output

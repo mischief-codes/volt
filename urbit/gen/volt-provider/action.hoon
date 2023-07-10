@@ -2,7 +2,7 @@
 /-  *volt
 ::
 :-  %say
-|=  $:  [now=@da eny=@uvJ =beak]
+|=  $:  [now=time eny=@uvJ =beak]
         [[act=action:provider ~] ~]
 ==
 [%volt-provider-action act]
