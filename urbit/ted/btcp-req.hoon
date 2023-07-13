@@ -26,5 +26,6 @@
     (pure:m +.update)
   ~&  >  "%volt: attempt {<try>} at %btc-provider action failed with"
   ~&  >  "{<+.+.update>}"
+  ;<  ~  bind:m  (leave-our:io /btcp-update/[id])
   ^$(try +(try))
 --
