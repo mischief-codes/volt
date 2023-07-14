@@ -162,9 +162,9 @@
     |=  [rpub=pubkey rprv=hexb:bc]
     ^-  (list psbt:psbt)
     =/  our=(list psbt:psbt)
-      %+  turn  sent-htlcs.commit
+      %+  murn  sent-htlcs.commit
       |=  htlc=add-htlc:update
-      ^-  psbt:psbt
+      ^-  (unit psbt:psbt)
       =|  =input:psbt
       =+  val=(div amount-msats.htlc 1.000)
       =/  wit
@@ -187,7 +187,6 @@
           witness-script  `(en:btc-script:script wit)
         ==
       =|  =output:psbt
-      =.  value.output  (sub val fee)
       =.  script-pubkey.output
         (p2wpkh:script pub.multisig-key.our.config.c)
       =|  tx=psbt:psbt
@@ -197,10 +196,10 @@
           inputs    ~[input]
           outputs   ~[output]
         ==
-      =.  value.output
-        %+  sub  value.output
-        (mul fee (add 33 (estimated-size:psbt tx)))
+      =/  fee  (mul fee (add 33 (estimated-size:psbt tx)))
+      ?:  (gte fee value.output)  ~
       =.  outputs.tx  ~[output]
+      :-  ~
       %^  ~(add-signature update:psbt tx)
           0
         rpub
@@ -209,9 +208,9 @@
         rprv
       ~
     =/  his=(list psbt:psbt)
-      %+  turn  recd-htlcs.commit
+      %+  murn  recd-htlcs.commit
       |=  htlc=add-htlc:update
-      ^-  psbt:psbt
+      ^-  (unit psbt:psbt)
       =|  =input:psbt
       =+  val=(div amount-msats.htlc 1.000)
       =/  wit
@@ -234,7 +233,6 @@
           witness-script  `(en:btc-script:script wit)
         ==
       =|  =output:psbt
-      =.  value.output  (sub val fee)
       =.  script-pubkey.output
         (p2wpkh:script pub.multisig-key.our.config.c)
       =|  tx=psbt:psbt
@@ -244,11 +242,11 @@
           inputs    ~[input]
           outputs   ~[output]
         ==
-      =.  value.output
-        %+  sub  value.output
-        (mul fee (add 33 (estimated-size:psbt tx)))
-      ::  TODO: account for too high fee
+      =/  fee  (mul fee (add 33 (estimated-size:psbt tx)))
+      ::  TODO: don't just skip, save with lower feerate to watch for and try then
+      ?:  (gte fee value.output)  ~
       =.  outputs.tx  ~[output]
+      :-  ~
       %^  ~(add-signature update:psbt tx)
           0
         rpub

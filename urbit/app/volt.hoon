@@ -1400,6 +1400,7 @@
     `state(btcp.prov %.n)
   ::
       %new-rpc
+    ::  TODO: check network
     `state
   ==
   ::
@@ -1449,7 +1450,6 @@
       %block-txs
     (handle-block-txs +.+.result)
   ::
-  ::  TODO: make sure this matches whatever changes made to rpc
       %fee
     `state(fees.chain `(abs:si (need (toi:rd fee.+.+.result))))
   ::
