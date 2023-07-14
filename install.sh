@@ -40,7 +40,7 @@ fi
 desk="$1"
 
 sync_files () {
-  rsync -r --exclude-from="${excludes}" ./* "${desk}"/
+  rsync -r --exclude-from="${excludes}" ./urbit/* "${desk}"/
 }
 
 if $watch ; then

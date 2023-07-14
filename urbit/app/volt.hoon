@@ -48,7 +48,7 @@
           their=(map pubkey:bolt ship)
       ==
       $=  prov
-      $:  btcp=(unit provider-state)
+      $:  btcp=?
           volt=(unit provider-state)
           info=node-info
           pend=(map @ action:btc-provider)
@@ -92,7 +92,8 @@
   =+  seed=(~(rad og eny.bowl) (bex 256))
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   ~&  >  '%volt initialized successfully'
-  `this(our.keys keypair)
+  :_  this(our.keys keypair)
+  [%pass /btc-provider %agent our.bowl^%btc-provider %watch /clients]~
 ::
 ++  on-save
   ^-  vase
@@ -173,20 +174,18 @@
       ==
     ::
         [%btc-provider ~]
-      :: ?~  btcp.prov  
-      ::   `state
-      :: ?>  =(src.bowl host.u.btcp.prov)
+      ?>  =(our.bowl src.bowl)
       ?+  -.sign  !!
-      ::     %kick
-      ::   :_  state(btcp.prov [~ src.bowl %.n])
-      ::   (watch-btc-provider:hc src.bowl)
-      :: ::
+          %kick
+        :_  state(btcp.prov %.n)
+        (watch-btc-provider:hc src.bowl)
+      ::
           %watch-ack
         ?~  p.sign
           `state
         =/  =tank  leaf+"subscribe to btc provider failed"
         %-  (slog tank u.p.sign)
-        `state(btcp.prov ~)
+        `state(btcp.prov %.n)
       ::
           %fact
         ?.  =(p.cage.sign %btc-provider-status)
@@ -195,25 +194,19 @@
       ==
     ::
         [%btc-provider-update @ ~]
-      :: ?~  btcp.prov  
-      ::   `state
-      :: ?>  =(src.bowl host.u.btcp.prov)
+      ?>  =(our.bowl src.bowl)
       ?+    -.sign  !!
-          %kick
-        :_  state(btcp.prov [~ src.bowl %.n])
-        (watch-btc-provider:hc src.bowl)
-      ::
           %watch-ack
         ?~  p.sign
           `state
-        =/  =tank  leaf+"subscribe for btc-provider response failed"
+        =/  =tank  leaf+"thread subscribe for btc-provider response failed"
         %-  (slog tank u.p.sign)
-        `state(btcp.prov ~)
+        `state
       ::
           %fact
-        ?+    p.cage.sign  (on-agent:def wire sign)
+        ?+    p.cage.sign  !!
             %thread-done
-          (handle-bitcoin-update:hc !<(response:btc-provider q.cage.sign))
+          (handle-bitcoin-update:hc !<(result:btc-provider q.cage.sign))
         ::
             %thread-fail
           ~&  >  "btc-provider action failed"
@@ -257,19 +250,19 @@
         (watch-provider u.provider.command)
     ==
   ::
-      %set-btc-provider
-    ?:  =(provider.command btcp.prov)  `state
-    ?~  provider.command
-      ?~  btcp.prov  `state
-      :_  state(btcp.prov ~)
-      (leave-btc-provider host.u.btcp.prov)
-    ::
-    :_  state(btcp.prov `[u.provider.command %.n])
-    ?~  btcp.prov  (watch-btc-provider u.provider.command)
-    %-  zing
-    :~  (leave-btc-provider host.u.btcp.prov)
-        (watch-btc-provider u.provider.command)
-    ==
+    ::   %set-btc-provider
+    :: ?:  =(provider.command btcp.prov)  `state
+    :: ?~  provider.command
+    ::   ?~  btcp.prov  `state
+    ::   :_  state(btcp.prov ~)
+    ::   (leave-btc-provider host.u.btcp.prov)
+    :: ::
+    :: :_  state(btcp.prov `[u.provider.command %.n])
+    :: ?~  btcp.prov  (watch-btc-provider u.provider.command)
+    :: %-  zing
+    :: :~  (leave-btc-provider host.u.btcp.prov)
+    ::     (watch-btc-provider u.provider.command)
+    :: ==
   ::
       %open-channel
     (open-channel +.command)
@@ -289,9 +282,9 @@
   ++  open-channel
     |=  [who=ship =funding=sats:bc =push=msats =network:bolt]
     ^-  (quip card _state)
-    ?~  btcp.prov  :: TODO: larval core pattern, avoid these checks everywhere
-      ~&  >>>  "%volt: no btc-provider set"
-      `state
+    :: ?.  btcp.prov  :: TODO: larval core pattern, avoid these checks everywhere
+    ::   ~&  >>>  "%volt: no btc-provider set"
+    ::   `state
     ?:  (gth funding-sats max-funding-sats:const:bolt)
       ~|  "%volt: must set funding-sats to less than 2^24 sats"
         !!
@@ -451,7 +444,7 @@
   ++  send-payment
     |=  =payreq
     ^-  (quip card _state)
-    ?~  btcp.prov  `state
+    ?.  btcp.prov  `state
     =+  invoice=(de:bolt11 payreq)
     ?~  invoice
       ~&  >>>  "%volt: invalid payreq"
@@ -1374,11 +1367,11 @@
 ++  handle-bitcoin-status
   |=  =status:btc-provider
   |^  ^-  (quip card _state)
-  ?~  btcp.prov  `state
-  ?.  =(host.u.btcp.prov src.bowl)  `state
+  :: ?.  btcp.prov  `state
+  :: ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
       %new-block
-    =.  btcp.prov  `u.btcp.prov(connected %.y)
+    =.  btcp.prov  %.y
     =.  chain      [block.status fee.status now.bowl]
     =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
@@ -1393,18 +1386,18 @@
       [cards state]
     =+  id=(request-id dat.blockhash.status)
     =/  =action:btc-provider  [id %block-txs blockhash.status]
-    :_  state(pend.prov (~(put by pend.prov) id action))
-    (welp cards (poke-btc-provider action))
+    :-  (welp cards (poke-btc-provider action))
+    state(pend.prov (~(put by pend.prov) id action))
   ::
       %connected
     :-  ~
     %=  state
-      btcp.prov  `u.btcp.prov(connected %.y)
+      btcp.prov  %.y
       chain      [block.status fee.status now.bowl]
     ==
   ::
       %disconnected
-    `state(btcp.prov `u.btcp.prov(connected %.n))
+    `state(btcp.prov %.n)
   ==
   ::
   ++  handle-exp-htlcs
@@ -1445,17 +1438,17 @@
   |=  =result:btc-provider
   |^  ^-  (quip card _state)
   ::  TODO: granular error handling?
-  ?+    -.result  `state
+  ?+    -.+.result  `state
       %address-info
     ::  currently all address-info updates are from checking new blocks for funding outpoint spends
-    (handle-address-info +.result)
+    (handle-address-info +.+.result)
   ::
       %block-txs
-    (handle-block-txs +.result)
+    (handle-block-txs +.+.result)
   ::
   ::  TODO: make sure this matches whatever changes made to rpc
       %fee
-    `state(fees.chain `(abs:si (need (toi:rd fee.p.update))))
+    `state(fees.chain `(abs:si (need (toi:rd fee.+.+.result))))
   ::
   ::  TODO: need any of these?
       %tx-info
@@ -2281,18 +2274,17 @@
 ++  poke-btc-provider
   |=  =action:btc-provider
   ^-  (list card)
-  :: ?~  btcp.prov  ~|("provider not set" !!)
   =/  id  (scot %uv p.action)
   =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-request !>(action)]
-  :~  :*  %pass  /btc-provider-update/[id]
-          %agent  our.bowl^spider
+  :+  :*  %pass  /btc-provider-update/[id]
+          %agent  our.bowl^%spider
           %watch  /thread-result/[id]
       ==
       :*  %pass   /btc-provider-update/[id]
-          %agent  our.bowl^spider
+          %agent  our.bowl^%spider
           %poke   %spider-start  !>(start)
       ==
-  ==
+      ~
 ::
 ++  provider-command
   |=  =command:provider
