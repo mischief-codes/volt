@@ -1398,6 +1398,9 @@
   ::
       %disconnected
     `state(btcp.prov %.n)
+  ::
+      %new-rpc
+    `state
   ==
   ::
   ++  handle-exp-htlcs
