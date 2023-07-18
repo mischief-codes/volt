@@ -129,7 +129,7 @@
   ^-  (quip card _this)
   =^  cards  state
     ?+    wire  !!
-        [%provider-status ~]
+        [%provider-status @ ~]
       ?~  volt.prov
         `state
       ?>  =(src.bowl host.u.volt.prov)
@@ -151,7 +151,7 @@
         (handle-provider-status:hc !<(status:provider q.cage.sign))
       ==
     ::
-        [%provider-updates ~]
+        [%provider-updates @ ~]
       ?~  volt.prov
         `state
       ?>  =(src.bowl host.u.volt.prov)
