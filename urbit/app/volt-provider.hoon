@@ -308,8 +308,8 @@
       %get-info
     ?>  ?=([%get-info *] result)
     :_  state(connected.host-info %.y, node-info +.result)
-    :~  (give-status %connected)
-        (give-update [%res %node-info +.result])
+    :~  (give-status `status`%connected)
+        (give-update `update`[%res %node-info +.result])
         (give-info +.result)
     ==
   ::
@@ -423,7 +423,7 @@
   ^-  card
   :*  %give
       %fact  ~[/status]
-      %volt-provider-update  !>([%res %node-info info])
+      %volt-provider-update  !>(`update`[%res %node-info info])
   ==
 ::
 ++  give-status

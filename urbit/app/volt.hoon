@@ -129,6 +129,12 @@
   ^-  (quip card _this)
   =^  cards  state
     ?+    wire  !!
+        [%message @ @ ~]
+      ?+    -.sign  !!
+          %poke-ack
+        `state
+      ==
+    ::
         [%provider-status @ ~]
       ?~  volt.prov
         `state
@@ -799,6 +805,7 @@
     =.  remote-config
       %=  remote-config
         ship                            ship.her.u.c
+        network                         network.our.u.c
         basepoints                      basepoints.msg
         pub.multisig-key                funding-pubkey.msg
         to-self-delay                   to-self-delay.msg

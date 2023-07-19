@@ -19,7 +19,7 @@
 +$  privkey    @
 +$  signature  hexb:bc
 ::
-+$  network   ?(network:bc %regtest)
++$  network   network:bc
 +$  point     point:secp:crypto
 +$  outpoint  [=txid:bc pos=@ =sats:bc]
 +$  witness   (list hexb:bc)
