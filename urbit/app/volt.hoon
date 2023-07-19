@@ -132,6 +132,10 @@
         [%message @ @ ~]
       ?+    -.sign  !!
           %poke-ack
+        ?~  p.sign
+          `state
+        =/  =tank  leaf+"failure in message poke"
+        %-  (slog tank u.p.sign)
         `state
       ==
     ::
@@ -204,14 +208,24 @@
       ?+    -.sign  !!
           %watch-ack
         ?~  p.sign
+          ~&  >  "thread subscribe for btc-provider succeeded"
           `state
         =/  =tank  leaf+"thread subscribe for btc-provider response failed"
+        %-  (slog tank u.p.sign)
+        `state
+      ::
+          %poke-ack
+        ?~  p.sign
+          ~&  >  "spider poke for btc-provider act succeeded"
+          `state
+        =/  =tank  leaf+"spider poke for btc-provider response failed"
         %-  (slog tank u.p.sign)
         `state
       ::
           %fact
         ?+    p.cage.sign  !!
             %thread-done
+          ~&  >  "thread returned success"
           (handle-bitcoin-update:hc !<(result:btc-provider q.cage.sign))
         ::
             %thread-fail
@@ -840,6 +854,7 @@
         pub.multisig-key.our.u.c
       funding-pubkey.msg
     ::
+    ~&  >  "accepted channel"
     %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
     %-  (slog leaf+"funding-address={<funding-address>}" ~)
     ::
@@ -908,6 +923,7 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output id.new-channel)
       ==
+    ~&  >  "returning signed funding tx to initiator"
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
         (give-update [%channel-state id.new-channel %opening])
     ==
@@ -952,6 +968,7 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
       ==
+    ~&  >  "sending funding tx to btc-provider"
     %+  snoc  (poke-btc-provider action)
     (give-update [%channel-state id.c %opening])
   ::
@@ -1380,6 +1397,16 @@
       %new-block
     =.  btcp.prov  %.y
     =.  chain      [block.status fee.status now.bowl]
+    =/  addr-info=(list card)
+      %-  zing
+      %+  turn  ~(val by wach.chan)
+      |=  =id:bolt
+      %-  poke-btc-provider
+      :*  (request-id block.status)
+          %address-info
+          %~  funding-address  channel
+          (~(got by live.chan) id)
+      ==
     =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
       |=  [hexb:bc =pending-timelock]
@@ -1393,8 +1420,12 @@
       [cards state]
     =+  id=(request-id dat.blockhash.status)
     =/  =action:btc-provider  [id %block-txs blockhash.status]
-    :-  (welp cards (poke-btc-provider action))
-    state(pend.prov (~(put by pend.prov) id action))
+    :_  state(pend.prov (~(put by pend.prov) id action))
+    ;:  welp
+      cards
+      addr-info
+      (poke-btc-provider action)
+    ==
   ::
       %connected
     :-  ~
@@ -1451,7 +1482,7 @@
   ::  TODO: granular error handling?
   ?+    -.+.result  `state
       %address-info
-    ::  currently all address-info updates are from checking new blocks for funding outpoint spends
+    ::  currently all address-info updates are from checking new blocks for funding locked or spent
     (handle-address-info +.+.result)
   ::
       %block-txs
@@ -1761,7 +1792,7 @@
       (zing (snoc (turn acts |=(=action:btc-provider (poke-btc-provider action))) cards))
     =.  pend.prov
       %-  ~(gas by pend.prov)
-      (turn acts |=(=action:btc-provider [p.action action]))
+      (turn acts |=(=action:btc-provider [id.action action]))
     =/  updated  (~(uni by onchain.payments) sent)
     =.  updated
       %-  ~(uni by updated)
@@ -1889,7 +1920,7 @@
             height.u.utxo
           0
         block
-      ::  update the channel
+      ::  update the channel, if it's being found for the first time trigger funding-locked flow
       =^  cards  channel
         (on-channel-update channel u.utxo block)
       :_  state(live.chan (~(put by live.chan) u.id channel))
@@ -2039,6 +2070,7 @@
     ~
   =^  cards  c
     ?:  ?&(~(is-funded channel c) funding-locked-received.our.config.c)
+    ::  we mark the channel as open once we've both seen the funding tx confirmation ourselves and heard from our counterparty that they have as well
       (mark-open c)
     [~ c]
   :_  c
@@ -2284,7 +2316,7 @@
 ++  poke-btc-provider
   |=  =action:btc-provider
   ^-  (list card)
-  =/  id  (scot %uv p.action)
+  =/  id  (scot %uv id.action)
   =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-request !>(action)]
   :+  :*  %pass  /btc-provider-update/[id]
           %agent  our.bowl^%spider

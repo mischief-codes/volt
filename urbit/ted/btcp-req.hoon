@@ -8,24 +8,27 @@
 =/  crash-after  3
 =|  try=@
 |^  ^-  form:m
-;<  eny=@uvJ  bind:m  get-entropy:io
-=.  action.id  eny
-=/  id  (scot %uv eny)
-;<  ~  bind:m  (watch-our:io /btcp-update/[id] %btc-provider /clients/[id])
+:: ;<  eny=@uvJ  bind:m  get-entropy:io
+:: =.  id.action  eny
+:: =/  id  (scot %uv eny)
+~&  >  "attempt {<try>} to watch btcp result"
+;<  ~  bind:m  (watch-our:io /btcp-update/[id.action] %btc-provider /clients/[id.action])
 ?:  (lte try crash-after)
-  (request id act)
+  (request act)
 (pure:m [%fail ~])
 ++  request
-  |=  [id=@uvJ act=action:bp]
+  |=  act=action:bp
   ^-  form:m
   =/  m  (strand ,~)
   ;<  ~  bind:m  (backoff:io try crash-after)
   ;<  ~  bind:m  (poke-our:io %btc-provider [%btc-provider-action !>(act)])
-  ;<  =update:bp  bind:m  (take-fact:io /btcp-update/[id])
+  ~&  >  "attempt {<try>} to poke btcp"
+  ;<  =update:bp  bind:m  (take-fact:io /btcp-update/[id.action])
   ?:  ?=(%& -.upd)
+    ~&  >  "btcp result received"
     (pure:m +.update)
   ~&  >  "%volt: attempt {<try>} at %btc-provider action failed with"
   ~&  >  "{<+.+.update>}"
-  ;<  ~  bind:m  (leave-our:io /btcp-update/[id])
+  ;<  ~  bind:m  (leave-our:io /clients/[id.action])
   ^$(try +(try))
 --
