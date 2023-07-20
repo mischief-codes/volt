@@ -208,31 +208,29 @@
       ?+    -.sign  !!
           %watch-ack
         ?~  p.sign
-          ~&  >  "thread subscribe for btc-provider succeeded"
+          ~&  >  "%volt: spider watch for btcp succeeded"
           `state
-        =/  =tank  leaf+"thread subscribe for btc-provider response failed"
+        =/  =tank  leaf+"%volt: spider watch for btcp failed"
         %-  (slog tank u.p.sign)
         `state
       ::
           %poke-ack
         ?~  p.sign
-          ~&  >  "spider poke for btc-provider act succeeded"
+          ~&  >  "%volt: spider poke for btcp succeeded"
           `state
-        =/  =tank  leaf+"spider poke for btc-provider response failed"
+        =/  =tank  leaf+"%volt: spider poke for btcp failed"
         %-  (slog tank u.p.sign)
         `state
       ::
           %fact
-        ?+    p.cage.sign  !!
-            %thread-done
-          ~&  >  "thread returned success"
-          (handle-bitcoin-update:hc !<(result:btc-provider q.cage.sign))
-        ::
-            %thread-fail
-          ~&  >  "btc-provider action failed"
-          ::  TODO: give update
-          `state
-        ==
+        ?>  =(%thread-done p.cage.sign)
+        =/  res  !<(update:btc-provider q.cage.sign)
+        ?:  ?=(%& -.res)
+          ~&  >  "%volt: btcp thread returned success"
+          (handle-bitcoin-update:hc +.res)
+        ~&  >  "%volt: btcp thread returned error"
+        ::  TODO differentiate critical and noncritical failures
+        `state
       ==
     ==
   [cards this]
@@ -2317,7 +2315,7 @@
   |=  =action:btc-provider
   ^-  (list card)
   =/  id  (scot %uv id.action)
-  =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-request !>(action)]
+  =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-req !>(action)]
   :+  :*  %pass  /btc-provider-update/[id]
           %agent  our.bowl^%spider
           %watch  /thread-result/[id]
