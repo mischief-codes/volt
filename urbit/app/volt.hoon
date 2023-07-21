@@ -128,6 +128,7 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   =^  cards  state
+    ~|  wire
     ?+    wire  !!
         [%message @ @ ~]
       ?+    -.sign  !!
