@@ -1,6 +1,4 @@
-::  -*-  mode: hoon -*-
-:~
-  %volt-provider
-  %volt
-  %volt-wallet
+:~  %volt-provider
+    %volt
+    %volt-wallet
 ==

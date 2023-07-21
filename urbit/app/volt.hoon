@@ -228,6 +228,7 @@
         =/  res  !<(update:btc-provider q.cage.sign)
         ?:  ?=(%& -.res)
           ~&  >  "%volt: btcp thread returned success"
+          ~&  +.res
           (handle-bitcoin-update:hc +.res)
         ~&  >  "%volt: btcp thread returned error"
         ::  TODO differentiate critical and noncritical failures
@@ -1400,12 +1401,14 @@
       %-  zing
       %+  turn  ~(val by wach.chan)
       |=  =id:bolt
-      %-  poke-btc-provider
-      :*  (request-id block.status)
-          %address-info
-          %~  funding-address  channel
-          (~(got by live.chan) id)
-      ==
+      ~&  >  "creating req cards for channel {<id>}"
+      =/  rid  (request-id (shas id block.status))
+      =/  addr  ~(funding-address channel (~(got by live.chan) id))
+      ~&  >  "looking for address"
+      ~&  addr
+      =/  =action:btc-provider  [rid %address-info addr]
+      (poke-btc-provider action)
+    ~&  addr-info
     =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
       |=  [hexb:bc =pending-timelock]
@@ -1977,6 +1980,7 @@
       `channel
     ::
         %funded
+      ~&  >  "sending funding-locked"
       (send-funding-locked channel)
     ::
         %force-closing
