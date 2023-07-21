@@ -43,7 +43,7 @@ $ export SHIP_HOST=$host_of_your_ship
 $ export SHIP_PORT=$http_port_of_your_ship
 # on linux, the default is ~/.lnd/
 $ export LND_DIR=$path_to_lnd_data_dir
-# on the same machine, the default is localhost:8080
+# on the same machine, the default is localhost:10009 (gRPC, NOT REST)
 $ export LND_HOST="$lnd_host:$lnd_port"
 $ export BTC_NETWORK=mainnet
 $ export SERVER_PORT=$lnd-proxy-port
