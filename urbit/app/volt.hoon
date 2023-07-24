@@ -7,6 +7,10 @@
 /+  revocation=revocation-store, tx=transactions
 /+  key-gen=key-generation, secret=commitment-secret
 /+  bolt=utilities, channel, psbt, ring, sweep
+/=  volt-action  /mar/volt/action
+/=  volt-command  /mar/volt/command
+/=  volt-message  /mar/volt/message
+/=  lnd-rpc  /ted/lnd-rpc
 |%
 +$  card  card:agent:gall
 +$  versioned-state
@@ -128,8 +132,9 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   =^  cards  state
-    ~|  wire
-    ?+    wire  !!
+    ?+    wire  
+    ~&  [wire sign]
+    `state
         [%message @ @ ~]
       ?+    -.sign  !!
           %poke-ack
@@ -968,7 +973,6 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
       ==
-    ~&  >  "sending funding tx to btc-provider"
     %+  snoc  (poke-btc-provider action)
     (give-update [%channel-state id.c %opening])
   ::
@@ -1402,32 +1406,33 @@
       %+  turn  ~(val by wach.chan)
       |=  =id:bolt
       ~&  >  "creating req cards for channel {<id>}"
-      =/  rid  (request-id (shas id block.status))
+      =/  rid  (request-id id)
       =/  addr  ~(funding-address channel (~(got by live.chan) id))
-      ~&  >  "looking for address"
-      ~&  addr
-      =/  =action:btc-provider  [rid %address-info addr]
+      =/  =action:btc-provider  [`@uvH`block.status %address-info addr]
+      :: ~&  action
       (poke-btc-provider action)
+    :: ~&  >  "got out of zing"
     ~&  addr-info
-    =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
-      %+  skid  ~(tap by onchain.payments)
-      |=  [hexb:bc =pending-timelock]
-      (gte block.status height.pending-timelock)
-    =>  .(state `state-0`state)
-    =^  cards  state  (handle-exp-htlcs (turn exp tail))
-    =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
-      (turn unexp |=([spk=hexb:bc pending-timelock] spk))
-    =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
-    ?.  (match:bip-b158 blockfilter.status key targets)
-      [cards state]
-    =+  id=(request-id dat.blockhash.status)
-    =/  =action:btc-provider  [id %block-txs blockhash.status]
-    :_  state(pend.prov (~(put by pend.prov) id action))
-    ;:  welp
-      cards
-      addr-info
-      (poke-btc-provider action)
-    ==
+    :: =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
+    ::   %+  skid  ~(tap by onchain.payments)
+    ::   |=  [hexb:bc =pending-timelock]
+    ::   (gte block.status height.pending-timelock)
+    :: =>  .(state `state-0`state)
+    :: =^  cards  state  (handle-exp-htlcs (turn exp tail))
+    :: =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
+    ::   (turn unexp |=([spk=hexb:bc pending-timelock] spk))
+    :: =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
+    :: ?.  (match:bip-b158 blockfilter.status key targets)
+    ::   [cards state]
+    :: =+  id=(request-id dat.blockhash.status)
+    :: =/  =action:btc-provider  [id %block-txs blockhash.status]
+    :: :_  state(pend.prov (~(put by pend.prov) id action))
+    :: ;:  welp
+    ::   cards
+    ::   addr-info
+    ::   (poke-btc-provider action)
+    :: ==
+    [addr-info state]
   ::
       %connected
     :-  ~
@@ -2319,6 +2324,7 @@
 ++  poke-btc-provider
   |=  =action:btc-provider
   ^-  (list card)
+  ~&  "hit poke-btc-provider"
   =/  id  (scot %uv id.action)
   =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-req !>(action)]
   :+  :*  %pass  /btc-provider-update/[id]
