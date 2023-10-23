@@ -26,7 +26,7 @@
 +$  state-2  [%2 =host-info =whitelist timer=(unit @da) interval=@dr]
 +$  state-3  [%3 host-info=host-info-2 =whitelist timer=(unit @da) interval=@dr]
 --
-%+  verb  &
+:: %+  verb  &
 %-  agent:dbug
 =|  state-3
 =*  state  -
@@ -180,26 +180,26 @@
     |=  act=action
     ^-  (quip card _state)
     :_  state
-    ?.  ?|(connected.host-info ?=(%ping -.q.act))
-      ~[(send-update-request:hc [%| p.act %not-connected 500])]
+    ?.  ?|(connected.host-info ?=(%ping -.+.act))
+      ~[(send-update-request:hc [%| id.act %not-connected 500])]
     :_  ~
     %+  req-card  act
     ^-  action:rpc-types
-    ?-  -.q.act
-      %address-info   [%get-address-info address.q.act]
-      %tx-info        [%get-tx-vals txid.q.act]
-      %raw-tx         [%get-raw-tx txid.q.act]
-      %broadcast-tx   [%broadcast-tx rawtx.q.act]
+    ?-  -.+.act
+      %address-info   [%get-address-info address.+.act]
+      %tx-info        [%get-tx-vals txid.+.act]
+      %raw-tx         [%get-raw-tx txid.+.act]
+      %broadcast-tx   [%broadcast-tx rawtx.+.act]
       %ping           [%get-block-info ~]
-      %block-info     [%get-block-info block.q.act]
+      %block-info     [%get-block-info block.+.act]
       %histogram      [%get-histogram ~]
-      %block-headers  [%get-block-headers start.q.act count.q.act cp.q.act]
-      %tx-from-pos    [%get-tx-from-pos height.q.act pos.q.act merkle.q.act]
-      %fee            [%get-fee block.q.act]
-      %psbt           [%update-psbt psbt.q.act]
-      %block-txs      [%get-block-txs blockhash.q.act]
-      %mine-empty     [%mine-empty miner.q.act nblocks.q.act]
-      %mine-trans     [%mine-trans miner.q.act txs.q.act]
+      %block-headers  [%get-block-headers start.+.act count.+.act cp.+.act]
+      %tx-from-pos    [%get-tx-from-pos height.+.act pos.+.act merkle.+.act]
+      %fee            [%get-fee block.+.act]
+      %psbt           [%update-psbt psbt.+.act]
+      %block-txs      [%get-block-txs blockhash.+.act]
+      %mine-empty     [%mine-empty miner.+.act nblocks.+.act]
+      %mine-trans     [%mine-trans miner.+.act txs.+.act]
     ==
   ::
   ++  req-card
@@ -211,7 +211,7 @@
   ++  rpc-wire
     |=  act=action
     ^-  wire
-    /[-.q.act]/(scot %uv p.act)
+    /[-.+.act]/(scot %uv id.act)/(scot %da now.bowl)
     :: (scot %ux (cut 3 [0 20] eny.bowl))
   --
 ::
@@ -295,6 +295,7 @@
     =^  conn-err  state
       (connection-error status (slav %uv (snag 1 wire)))
     ?^  conn-err
+      ~&  >  "connection error"
       :_  state(connected.host-info %.n)
       :-  (send-status:hc [%disconnected ~])
       ::  TODO: attempt to reestablish connection if %bad-request from client app?
@@ -313,6 +314,7 @@
     ^-  (quip card _state)
     =/  req-id=@uvH
       (slav %uv (snag 1 wire))
+    :: ~&  >  "btcp response received"
     ?+  -.wire  ~|("Unexpected HTTP response" !!)
         %address-info
       ?>  ?=([%get-address-info *] r)
@@ -331,6 +333,7 @@
       ::
         %broadcast-tx
       ?>  ?=([%broadcast-tx *] r)
+      ~&  >  "rpc returned broadcast-tx response"
       :_  state
       ~[(send-update-request:hc [%.y req-id %broadcast-tx +.r])]
       ::
@@ -382,6 +385,7 @@
       ::
       ::  TODO: send-status error?
         %error
+      ~&  >  "btcp rpc error received"
       ?>  ?=([%error *] r)
       :_  state
       ~[(send-update-request:hc [%.n req-id %rpc-error `+.r])]
@@ -425,6 +429,17 @@
     ::
         %fact
       ?+    p.cage.sign  `this
+      ::     %atom
+      ::   =/  [url=@t port=@t]  !<([@t @t] q.cage.sign)
+      ::   ~&  on-agent=url
+      ::   =.  host-info
+      ::     :*  `[url port %.n]  `src.bowl  %.y
+      ::         network.host-info  block.host-info
+      ::         clients.host-info
+      ::     ==
+      ::   :_  this
+      ::   [(start-ping-timer:hc ~s0)]~
+      :: ::
           %btc-provider-status
         =/  =status  !<(status q.cage.sign)
         ?.  ?=(%new-rpc -.status)  `this
@@ -482,7 +497,7 @@
       ~&(>> "prov. err: {<p.update>}" same)
   =/  pax=path  /clients/(scot %uv -.+.update)
   [%give %fact ~[pax] %btc-provider-update !>(update)]
-::
+::  TODO
 ++  send-rpc-update  !!
 ++  is-whitelisted
   ~/  %is-whitelisted

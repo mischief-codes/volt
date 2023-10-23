@@ -43,7 +43,7 @@
       [%set-interval inte=@dr]
   ==
 +$  action
-  %+  pair  id=@uvH
+  $:  id=@uvH
   $%  [%address-info =address]
       [%tx-info txid=hexb]
       [%raw-tx txid=hexb]
@@ -58,7 +58,7 @@
       [%block-txs blockhash=hexb]
       [%mine-empty miner=address nblocks=@]
       [%mine-trans miner=address txs=(list hexb)]
-  ==
+  ==  ==
 ::
 +$  result
   $:  id=@uvH
