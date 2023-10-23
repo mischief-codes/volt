@@ -410,7 +410,8 @@
         =,  html
         %-  some
         %-  as-octt:mimes
-        %-  en-json
+        %-  trip
+        %-  en:json
         (action:enjs act)
     ==
   --
@@ -431,7 +432,7 @@
   ;<  =client-response:iris  bind:m  take-client-response
   ;<  status=@ud             bind:m  (status-code client-response)
   ;<  body=@t                bind:m  (extract-body client-response)
-  =/  jon=(unit json)  (de-json:html body)
+  =/  jon=(unit json)  (de:json:html body)
   ?~  jon
     %-  (slog leaf+"{<body>}")
     (strand-fail:strand %json-parse-error ~)
