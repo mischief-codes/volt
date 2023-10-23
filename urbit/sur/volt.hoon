@@ -269,6 +269,7 @@
       =amount=msats
       =payment=hash
       preimage=(unit preimage)
+      payreq=cord
   ==
 ::
 +$  forward-request
