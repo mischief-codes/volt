@@ -211,7 +211,7 @@
     ::
         [%btc-provider-update @ ~]
       ?>  =(our.bowl src.bowl)
-      ?+    -.sign  !!
+      ?-    -.sign
           %watch-ack
         ?~  p.sign
           ~&  >  "%volt: spider watch for btcp succeeded"
@@ -237,6 +237,9 @@
           (handle-bitcoin-update:hc +.res)
         ~&  >  "%volt: btcp thread returned error"
         ::  TODO differentiate critical and noncritical failures
+        `state
+      ::
+          %kick
         `state
       ==
     ==
@@ -303,6 +306,9 @@
   ::
       %add-invoice
     (add-invoice +.command)
+  ::
+      %test-invoice
+    (test-invoice +.command)
   ==
   ++  open-channel
     |=  [who=ship =funding=sats:bc =push=msats =network:bolt]
@@ -464,6 +470,43 @@
       live.chan  (~(put by live.chan) chan-id u.c)
       shut.chan  (~(put by shut.chan) chan-id close)
     ==
+  ::
+  ++  test-invoice
+    |=  [=ship =msats n=network:bolt]
+    ^-  (quip card _state)
+    =|  =invoice:bolt11
+    :: =+  them=~(tap by their.keys)
+    :: =+  pubkey=+.(head (skim them |=([k=pubkey:volt p=ship] =(p ship))))
+    =/  rng  ~(. og eny.bowl)
+    =^  preimage  rng  (rads:rng (bex 256))
+    =+  hash=(sha256:bcu:bc 32^preimage)
+    =.  invoice
+      %=  invoice
+        amount  `(msats-to-amount:bolt11 msats)
+        network  n
+        timestamp  now.bowl
+        payment-secret  `32^preimage
+        payment-hash  hash
+        pubkey  33^(compress-point:secp256k1:secp:crypto pub.our.keys)
+        expiry  ~h1
+        min-final-cltv-expiry  min-final-cltv-expiry:const:bolt
+        description  `'a test invoice'
+      ==
+    =+  payreq=(en:bolt11 invoice 32^prv.our.keys)
+    =|  pr=payment-request
+    =.  pr
+      %=  pr
+        payee  our.bowl
+        amount-msats  msats
+        payment-hash  hash
+        preimage      `32^preimage
+      ==
+    :-  ~[(volt-action [%take-invoice payreq] ship)]
+    %=  state
+      preimages.payments  (~(put by preimages.payments) hash 32^preimage)
+      incoming.payments   (~(put by incoming.payments) hash pr)
+    ==
+  ::
   :: TODO: formalise error handling to the client, possibly an /errors subscription
   :: also ensure no state is modified after error processing - subsidiary to nested core rewrite
   ++  send-payment
@@ -1405,34 +1448,31 @@
       %-  zing
       %+  turn  ~(val by wach.chan)
       |=  =id:bolt
-      ~&  >  "creating req cards for channel {<id>}"
+      :: ~&  >  "creating req cards for channel {<id>}"
       =/  rid  (request-id id)
       =/  addr  ~(funding-address channel (~(got by live.chan) id))
-      =/  =action:btc-provider  [`@uvH`block.status %address-info addr]
+      =/  =action:btc-provider  [rid %address-info addr]
       :: ~&  action
       (poke-btc-provider action)
-    :: ~&  >  "got out of zing"
-    ~&  addr-info
-    :: =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
-    ::   %+  skid  ~(tap by onchain.payments)
-    ::   |=  [hexb:bc =pending-timelock]
-    ::   (gte block.status height.pending-timelock)
-    :: =>  .(state `state-0`state)
-    :: =^  cards  state  (handle-exp-htlcs (turn exp tail))
-    :: =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
-    ::   (turn unexp |=([spk=hexb:bc pending-timelock] spk))
-    :: =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
-    :: ?.  (match:bip-b158 blockfilter.status key targets)
-    ::   [cards state]
-    :: =+  id=(request-id dat.blockhash.status)
-    :: =/  =action:btc-provider  [id %block-txs blockhash.status]
-    :: :_  state(pend.prov (~(put by pend.prov) id action))
-    :: ;:  welp
-    ::   cards
-    ::   addr-info
-    ::   (poke-btc-provider action)
-    :: ==
-    [addr-info state]
+    ~&  >  "got out of zing"
+    :: ~&  addr-info
+    =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
+      %+  skid  ~(tap by onchain.payments)
+      |=  [hexb:bc =pending-timelock]
+      (gte block.status height.pending-timelock)
+    =>  .(state `state-0`state)
+    =^  cards  state  (handle-exp-htlcs (turn exp tail))
+    =.  cards  (welp cards addr-info)
+    =/  targets  %+  weld  ~(tap in ~(key by wach.chan))
+      (turn unexp |=([spk=hexb:bc pending-timelock] spk))
+    =/  key=byts  (take:byt:bcu:bc 16 blockhash.status)
+    ?.  (match:bip-b158 blockfilter.status key targets)
+      [cards state]
+    =+  id=(request-id dat.blockhash.status)
+    =/  =action:btc-provider  [id %block-txs blockhash.status]
+    :_  state(pend.prov (~(put by pend.prov) id action))
+    (welp cards (poke-btc-provider action))
+    :: [addr-info state]
   ::
       %connected
     :-  ~
@@ -1898,6 +1938,7 @@
             used=?
             block=@
         ==
+    ~&  >  "handle-address-info"
     ^-  (quip card _state)
     ?.  ?=([%bech32 *] address)  `state
     =+  ^=  script-pubkey
@@ -1931,24 +1972,27 @@
       =^  cards  channel
         (on-channel-update channel u.utxo block)
       :_  state(live.chan (~(put by live.chan) u.id channel))
-      %+  weld  cards
-      ::  if we're running LND, ask it to notify us when this utxo is spent
-      ?.  own-provider  ~
-      =-  ~[(provider-action -)]
-      :*  %subscribe-spends
-        ^=  outpoint
-        :*  hash=txid.funding-outpoint.channel
-            index=pos.funding-outpoint.channel
-        ==
-      ::
-        ^=  script
-        %-  p2wsh:script:tx
-        %+  funding-output:script:tx
-          pub.multisig-key.our.config.channel
-        pub.multisig-key.her.config.channel
-      ::
-        height-hint=+(block)
-      ==
+      ::  TESTING: uncomment below to reenable provider call
+      :: =.  cards
+      ::   %+  weld  cards
+      ::   ::  if we're running LND, ask it to notify us when this utxo is spent
+      ::   ?.  own-provider  ~
+      ::   =-  ~[(provider-action -)]
+      ::   :*  %subscribe-spends
+      ::     ^=  outpoint
+      ::     :*  hash=txid.funding-outpoint.channel
+      ::         index=pos.funding-outpoint.channel
+      ::     ==
+      ::   ::
+      ::     ^=  script
+      ::     %-  p2wsh:script:tx
+      ::     %+  funding-output:script:tx
+      ::       pub.multisig-key.our.config.channel
+      ::     pub.multisig-key.her.config.channel
+      ::   ::
+      ::     height-hint=+(block)
+      ::   ==
+      cards
     ::
     ::  if the utxo is not found but the funding was confirmed, ie. it has now been spent
     ::  REWRITE AND FINISH:
@@ -2124,7 +2168,7 @@
   ^-  (quip card chan:bolt)
   ?:  (~(has-unacked-commitment channel c) %remote)  `c
   ?.  (~(owes-commitment channel c) %local)          `c
-  ~&  >>  "%volt: sending next commitment {<id.c>}"
+  ~&  >>  "%volt: sending next commitment on channel {<id.c>}"
   =^  sigs  c  ~(sign-next-commitment channel c)
   =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
     sigs
@@ -2163,6 +2207,11 @@
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
+    ::  HERE: if we have adequate volt capacity with the payee, we forward that way, not via LND
+    ::  should we validate the route hint info to prevent LND seeing a selfpayment?
+    ::  need to handle LND errors better (and fail the incoming HTLC?) even if we do filter this case internally
+    ::  what to do in case of filtering an unfulfillable route?
+    ::  esp for pocket purposes shouldn't just silently timeout at least if the issue is low payee/provider capacity
     :_  =-  state(outgoing.payments -)
         (~(put by outgoing.payments) payment-hash.h u.req)
     ~[(provider-command [%send-payment payreq.u.req ~ ~])]
@@ -2324,7 +2373,7 @@
 ++  poke-btc-provider
   |=  =action:btc-provider
   ^-  (list card)
-  ~&  "hit poke-btc-provider"
+  ~&  "hit poke-btc-provider with {<-.action>}"
   =/  id  (scot %uv id.action)
   =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-req !>(action)]
   :+  :*  %pass  /btc-provider-update/[id]

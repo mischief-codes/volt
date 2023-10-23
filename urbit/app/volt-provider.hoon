@@ -221,7 +221,7 @@
     %+  biff  body.request
     |=  =octs
     =/  body=@t  +.octs
-    (de-json:html body)
+    (de:json:html body)
   --
 ::
 ++  handle-channel-update

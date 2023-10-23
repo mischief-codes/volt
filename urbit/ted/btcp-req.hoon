@@ -21,7 +21,7 @@
   =/  fail-after  3
   =|  try=@
   =/  id  (scot %uv id.action)
-  |-
+  |-  =*  loop  $
   ;<  ~  bind:m  (backoff:io try ~m1)
   ;<  ~  bind:m  (poke-our:io %btc-provider [%btc-provider-action !>(act)])
   ~&  >  "attempt {<try>} to poke btcp"
@@ -34,7 +34,7 @@
   ~&  >  "%volt: attempt {<try>} at %btc-provider action failed with"
   ~&  >  "{<+.+.update>}"
   ?:  (lte try fail-after)
-    $(try +(try))
+    loop(try +(try))
   ~&  >  "%volt: %btc-provider action permanently failed"
   (pure:m update)
 --

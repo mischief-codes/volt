@@ -284,6 +284,7 @@
       [%close-channel =chan-id]
       [%send-payment =payreq]
       [%add-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
+      [%test-invoice =ship =msats =network:bolt]
   ==
 ::
 +$  action

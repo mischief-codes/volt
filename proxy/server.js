@@ -17,6 +17,7 @@ const shipHost = process.env.SHIP_HOST || 'localhost'
 const shipPort = process.env.SHIP_PORT || '80'
 const network = process.env.BTC_NETWORK || 'mainnet'
 const port = process.env.SERVER_PORT || 5000
+const request = require('request')
 
 process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA'
 
@@ -93,7 +94,10 @@ let serialize = (obj) => {
 }
 
 let sendToShip = (path) => {
+    console.log('sendToShip hit')
+    console.log(`path ${path}`)
     let handler = data => {
+        console.log(data)
 	let body = serialize(data)
 	let options = makeRequestOptions(path, body)
 	let req = http.request(options, res => {
@@ -112,6 +116,9 @@ let sendToShip = (path) => {
 
 let returnToShip = (res) => {
     let handler = (err, data) => {
+        console.log('returnToShip')
+        console.log(`err ${JSON.stringify(err)}`)
+        console.log(`data ${JSON.stringify(data)}`)
 	if (err) {
 	    res.status(500).json({'code': err.code, 'message': err.details})
 	} else {
@@ -185,23 +192,75 @@ app.post('/payment', (req, res) => {
     res.status(200).send({})
 })
 
+function restCall (json) {
+    // let requestBody = {
+    //     memo: <string>, // <string> 
+    //     hash: <string>, // <bytes> (base64 encoded)
+    //     value: <string>, // <int64> 
+    //     value_msat: <string>, // <int64> 
+    //     description_hash: <string>, // <bytes> (base64 encoded)
+    //     expiry: <string>, // <int64> 
+    //     fallback_addr: <string>, // <string> 
+    //     cltv_expiry: <string>, // <uint64> 
+    //     route_hints: <array>, // <RouteHint> 
+    //     private: <boolean>, // <bool> 
+    //   };
+    // const body = {
+    //     value_msat: "1000000",
+    //     memo: "",
+    //     hash: json.hash.toString(),
+    //     expiry: "3600"
+    // }
+    // json.hash = json.hash
+      let options = {
+        url: `https://localhost:8085/v2/invoices/hodl`,
+        // Work-around for self-signed certificates.
+        rejectUnauthorized: false,
+        json: true,
+        headers: {
+          'Grpc-Metadata-macaroon': macaroon,
+        },
+        form: JSON.stringify(json),
+      }
+      request.post(options, function(error, response, body) {
+        console.log(body);
+        console.log(response.headers);
+        console.log(response.statusCode)
+        console.log(error)
+        // console.log(response.req)
+        // console.log(response.url)
+      });
+}
+
 //  create and subscribe to a hold invoice
 app.post('/invoice', (req, res) => {
     let body = req.body
+    console.log(body)
     if (body.hash) {
 	body.hash = Buffer.from(body.hash, 'base64')
     }
-    invoices.addHoldInvoice(body, (err, resp) => {
-	let ret = returnToShip(res)
-	if (err) { ret(err, resp) }
-	let call = invoices.subscribeSingleInvoice (
-	    { 'r_hash' : body.hash }
-	)
-	call.on('data', sendToShip('/~volt-invoices'))
-	call.on('status', () => sendToShip('/~volt-invoices'))
-	call.on('end', () => {})
-	ret(err, resp)
+    // restCall(body)
+    let call = invoices.subscribeSingleInvoice (
+        { 'r_hash' : body.hash }
+    )
+    const callback = sendToShip('/~volt-invoices')
+    call.on('data', (res) => {
+        console.log(res)
     })
+    call.on('status', () => sendToShip('/~volt-invoices'))
+    call.on('end', () => {console.log('stream ended')})
+    invoices.addHoldInvoice(body, (err, resp) => {
+        console.log(`error ${JSON.stringify(err)}`)
+        console.log(`resp ${JSON.stringify(resp)}`)
+	let ret = returnToShip(res)
+	if (err) { 
+        console.log('cond')
+        ret(err, resp)
+    }
+        console.log('outside cond')
+        ret(err, resp)
+    })
+    // console.log('got out')
 })
 
 //  cancel a hold invoice
