@@ -300,5 +300,6 @@
   $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]
+      [%new-invoice =payreq]
   ==
 --
