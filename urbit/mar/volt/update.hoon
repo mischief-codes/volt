@@ -9,12 +9,12 @@
   ++  noun  upd
   ++  json
     =,  enjs:format
-    ^-  json
     ?+    -.upd  !!
         %new-invoice
       %-  pairs
-      :~  ['payreq' s/payreq.upd]
+      :~  ['payreq' s+payreq.upd]
       ==
+    ==
   --
 ++  grad  %noun
 --
