@@ -10,6 +10,7 @@
 /=  volt-action  /mar/volt/action
 /=  volt-command  /mar/volt/command
 /=  volt-message  /mar/volt/message
+/=  volt-update  /mar/volt/update
 /=  lnd-rpc  /ted/lnd-rpc
 |%
 +$  card  card:agent:gall
@@ -250,6 +251,9 @@
   ^-  (quip card _this)
   ?+    path  (on-watch:def path)
       [%all ~]
+    ?>  (team:title our.bowl src.bowl)
+    `this
+      [%latest-invoice ~]
     ?>  (team:title our.bowl src.bowl)
     `this
   ==
@@ -1269,7 +1273,8 @@
   ::
       %take-invoice
     %-  (slog leaf+"{<payreq.action>}" ~)
-    `state
+    :_  state
+    ~[(give-update-invoice [%new-invoice payreq.action])]
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
@@ -2480,6 +2485,11 @@
   |=  =update
   ^-  card
   [%give %fact ~[/all] %volt-update !>(update)]
+::
+++  give-update-invoice
+  |=  =update
+  ^-  card
+  [%give %fact ~[/latest-invoice] %volt-update !>(update)]
 ::
 ++  request-id
   |=  salt=@
