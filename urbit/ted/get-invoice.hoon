@@ -1,4 +1,4 @@
-/-  spider, bp=btc-provider
+/-  spider, volt
 /+  strand, io=strandio
 =,  strand=strand:spider
 |%
