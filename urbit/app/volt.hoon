@@ -533,10 +533,13 @@
       (~(get by their.keys) pubkey-point)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     ?~  who
+      ~& > "who null"
       ::  unrecognized payee pubkey
       ::
       ?:  own-provider
+        ~&  >  "own-provider"
         ?~  req
+          ~&  >  "req null"
           ::  not one of ours, have LND send it
           ::    TODO: fee-limit and timeout?
           ::
@@ -544,25 +547,31 @@
           ~[(provider-command [%send-payment payreq ~ ~])]
         ::  internalize the payment and cancel the invoice in LND
         ::
+        ~&  >  "req found"
         (pay-ship payee.u.req amount-msats payment-hash.u.invoice)
       ::  try asking provider
       ::
+      ~&  >  "outside own provider"
       (forward-to-provider payreq)
     =+  chan-ids=(~(get by peer.chan) u.who)
     ?~  chan-ids
+      ~&  >  "no direct channel"
       ::  no direct channel, try asking provider
       ::
       (forward-to-provider payreq)
     =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
     ?~  channel
+      ~&  >  "insufficient direct capacity"
       ::  no bilateral capacity, try asking provider
       ::
       (forward-to-provider payreq)
-    (pay-channel u.channel amount-msats payment-hash.u.invoice)
+    ~&  >  "direct paying"
+    (pay-channel u.channel amount-msats payment-hash.u.invoice %.n)
   ::
   ++  pay-ship
     |=  [who=@p =amount=msats =payment=hash]
     ^-  (quip card _state)
+    ~&  >  "pay-ship"
     =+  ids=(~(get by peer.chan) who)
     ?~  ids
       ~&  >>>  "%volt: no channels with {<who>}"
@@ -571,11 +580,12 @@
     ?~  c
       ~&  >>>  "%volt: insufficient capacity with {<who>}"
       `state
-    (pay-channel u.c amount-msats payment-hash)
+    (pay-channel u.c amount-msats payment-hash %.n)
   ::
   ++  forward-to-provider
     |=  =payreq
     ^-  (quip card _state)
+    ~&  >  "forward-to-provider"
     ?~  volt.prov
       ~&  >>>  "%volt: no provider configured"
       `state
@@ -1311,6 +1321,7 @@
         htlc       her-htlc
         payreq     payreq.action
         forwarded  %.n
+        lnd        %.n
       ==
     :-  ~
     %=    state
@@ -1415,7 +1426,7 @@
         ~&  >>>  "%volt: no capacity with peer"
         (cancel-invoice r-hash.result)
       ::  can apply fees here
-      (pay-channel u.c value-msats.result r-hash.result)
+      (pay-channel u.c value-msats.result r-hash.result %.n)
     ?:  =(state.result %'SETTLED')
       `state(incoming.payments (~(del by incoming.payments) r-hash.result))
     `state
@@ -2059,7 +2070,7 @@
   acc
 ::
 ++  pay-channel
-  |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc]
+  |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc fwd=?]
   ^-  (quip card _state)
   ?>  =(state.c %open)
   =|  update=update-add-htlc:msg:bolt
@@ -2070,6 +2081,7 @@
       amount-msats  amount-msats
       cltv-expiry   (add block.chain min-final-cltv-expiry:const:bolt)
     ==
+  =?  cltv-expiry.update  fwd  (sub cltv-expiry.update 10)
   =^  htlc   c  (~(add-htlc channel c) update)
   =^  cards  c  (maybe-send-commitment c)
   :_  state(live.chan (~(put by live.chan) id.c c))
@@ -2212,14 +2224,21 @@
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
-    ::  HERE: if we have adequate volt capacity with the payee, we forward that way, not via LND
+    =/  hop=(unit chan:bolt)  (forwarding-channel payreq.req)
+    ?~  hop
+      ~&  >>  "with lnd"
     ::  should we validate the route hint info to prevent LND seeing a selfpayment?
     ::  need to handle LND errors better (and fail the incoming HTLC?) even if we do filter this case internally
     ::  what to do in case of filtering an unfulfillable route?
     ::  esp for pocket purposes shouldn't just silently timeout at least if the issue is low payee/provider capacity
-    :_  =-  state(outgoing.payments -)
-        (~(put by outgoing.payments) payment-hash.h u.req)
-    ~[(provider-command [%send-payment payreq.u.req ~ ~])]
+      =.  lnd.u.req  %.y
+      :_  =-  state(outgoing.payments -)
+          (~(put by outgoing.payments) payment-hash.h u.req)
+      ~[(provider-command [%send-payment payreq.u.req ~ ~])]
+    ~&  >>  "with volt"
+    =^  cards  state
+      (pay-channel u.hop amount-msats.h payment-hash.h %.y)
+    [cards state]
   --
 ::
 ++  maybe-send-settle
@@ -2245,16 +2264,34 @@
   ^-  (quip card _state)
   ?.  own-provider
     `state
-  ?.  (~(has by incoming.payments) payment-hash)
-    `state
-  ~&  >>  "%volt: settling invoice"
+  ?:  (~(has by incoming.payments) payment-hash)
+    ~&  >>  "%volt: settling invoice"
+    :_  %=    state
+            incoming.payments
+          %+  ~(jab by incoming.payments)
+            payment-hash
+          |=(req=payment-request req(preimage `preimage))
+        ==
+    ~[(provider-action [%settle-invoice preimage])]
+  =+  fwd=(~(get by outgoing.payments) payment-hash)
+  ?~  fwd  `state
+  ?.  =(%.y lnd.fwd)  `state
+  ~&  >>  "settling fwd payment"
+  =+  c=(~(got by live.chan) channel-id.htlc.fwd)
+  =.  c  (~(settle-htlc channel c) preimage htlc-id.htlc.fwd)
+  =^  cards  c  (maybe-send-commitment c)
   :_  %=    state
-          incoming.payments
-        %+  ~(jab by incoming.payments)
-          payment-hash
-        |=(req=payment-request req(preimage `preimage))
+          live.chan
+        (~(put by live.chan) id.c c)
+      ::
+          preimages.payments
+        (~(put by preimages.payments) payment-hash preimage)
+      ::
+          outgoing.payments
+        (~(del by outgoing.payments) payment-hash)
       ==
-  ~[(provider-action [%settle-invoice preimage])]
+  =-  [(send-message - ship.her.config.c) cards]
+  [%update-fulfill-htlc id.c htlc-id.htlc.fwd preimage]
 ::
 ++  maybe-sign-closing
   |=  [c=chan:bolt close=coop-close-state]
@@ -2495,4 +2532,19 @@
   |=  salt=@
   ^-  @
   (shas salt eny.bowl)
+::
+++  forwarding-channel
+  |=  =payreq
+  ^-  (unit chan:bolt)
+  =+  invoice=(de:bolt11 payreq)
+  ?~  invoice  ~
+  =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
+  =/  who=(unit @p)
+    (~(get by their.keys) pubkey-point)
+  =+  chan-ids=(~(get by peer.chan) u.who)
+  ?~  chan-ids
+    ~&  >  "no direct channel"
+    ~
+  ~&  >  "got channel"
+  (find-channel-with-capacity u.chan-ids amount-msats)
 --

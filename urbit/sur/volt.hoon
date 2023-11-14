@@ -276,6 +276,7 @@
   $:  htlc=update-add-htlc:msg:bolt
       =payreq
       forwarded=?
+      lnd=?
   ==
 ::
 +$  command
