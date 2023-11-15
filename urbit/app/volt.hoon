@@ -533,7 +533,7 @@
       (~(get by their.keys) pubkey-point)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     ?~  who
-      ~& > "who null"
+      ~&  >  "who null"
       ::  unrecognized payee pubkey
       ::
       ?:  own-provider
@@ -2224,7 +2224,7 @@
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
-    =/  hop=(unit chan:bolt)  (forwarding-channel payreq.req)
+    =/  hop=(unit chan:bolt)  (forwarding-channel payreq.u.req)
     ?~  hop
       ~&  >>  "with lnd"
     ::  should we validate the route hint info to prevent LND seeing a selfpayment?
@@ -2275,10 +2275,10 @@
     ~[(provider-action [%settle-invoice preimage])]
   =+  fwd=(~(get by outgoing.payments) payment-hash)
   ?~  fwd  `state
-  ?.  =(%.y lnd.fwd)  `state
+  ?.  =(%.y lnd.u.fwd)  `state
   ~&  >>  "settling fwd payment"
-  =+  c=(~(got by live.chan) channel-id.htlc.fwd)
-  =.  c  (~(settle-htlc channel c) preimage htlc-id.htlc.fwd)
+  =+  c=(~(got by live.chan) channel-id.htlc.u.fwd)
+  =.  c  (~(settle-htlc channel c) preimage htlc-id.htlc.u.fwd)
   =^  cards  c  (maybe-send-commitment c)
   :_  %=    state
           live.chan
@@ -2291,7 +2291,7 @@
         (~(del by outgoing.payments) payment-hash)
       ==
   =-  [(send-message - ship.her.config.c) cards]
-  [%update-fulfill-htlc id.c htlc-id.htlc.fwd preimage]
+  [%update-fulfill-htlc id.c htlc-id.htlc.u.fwd preimage]
 ::
 ++  maybe-sign-closing
   |=  [c=chan:bolt close=coop-close-state]
@@ -2538,13 +2538,17 @@
   ^-  (unit chan:bolt)
   =+  invoice=(de:bolt11 payreq)
   ?~  invoice  ~
+  ?~  amount.u.invoice  ~
   =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
   =/  who=(unit @p)
     (~(get by their.keys) pubkey-point)
+  ?~  who
+    ~&  >  "peer not found"
+    ~
   =+  chan-ids=(~(get by peer.chan) u.who)
   ?~  chan-ids
     ~&  >  "no direct channel"
     ~
   ~&  >  "got channel"
-  (find-channel-with-capacity u.chan-ids amount-msats)
+  (find-channel-with-capacity u.chan-ids (amount-to-msats:bolt11 u.amount.u.invoice))
 --
