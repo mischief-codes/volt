@@ -285,7 +285,7 @@
       [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
       [%create-funding temporary-channel-id=@ psbt=@t]
       [%close-channel =chan-id]
-      [%send-payment =payreq]
+      [%send-payment =payreq who=(unit ship)]
       [%add-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
       [%test-invoice =ship =msats =network:bolt]
   ==

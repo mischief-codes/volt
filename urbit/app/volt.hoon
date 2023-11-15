@@ -514,7 +514,7 @@
   :: TODO: formalise error handling to the client, possibly an /errors subscription
   :: also ensure no state is modified after error processing - subsidiary to nested core rewrite
   ++  send-payment
-    |=  [=payreq dest=(unit ship)]
+    |=  [=payreq who=(unit ship)]
     ^-  (quip card _state)
     ?.  btcp.prov  `state
     =+  invoice=(de:bolt11 payreq)
@@ -529,13 +529,9 @@
       ~&  >>>  "%volt: payreq amount is below 1 msat"
       `state
     =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
-    =/  who=(unit @p)
-      (~(get by their.keys) pubkey-point)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     ?~  who
       ~&  >  "who null"
-      ::  unrecognized payee pubkey
-      ::
       ?:  own-provider
         ~&  >  "own-provider"
         ?~  req
@@ -552,19 +548,19 @@
       ::  try asking provider
       ::
       ~&  >  "outside own provider"
-      (forward-to-provider payreq dest)
+      (forward-to-provider payreq ~)
     =+  chan-ids=(~(get by peer.chan) u.who)
     ?~  chan-ids
       ~&  >  "no direct channel"
       ::  no direct channel, try asking provider
       ::
-      (forward-to-provider payreq dest)
+      (forward-to-provider payreq who)
     =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
     ?~  channel
       ~&  >  "insufficient direct capacity"
       ::  no bilateral capacity, try asking provider
       ::
-      (forward-to-provider payreq dest)
+      (forward-to-provider payreq who)
     ~&  >  "direct paying"
     (pay-channel u.channel amount-msats payment-hash.u.invoice %.n)
   ::
@@ -583,7 +579,7 @@
     (pay-channel u.c amount-msats payment-hash %.n)
   ::
   ++  forward-to-provider
-    |=  =payreq
+    |=  [=payreq who=(unit ship)]
     ^-  (quip card _state)
     ~&  >  "forward-to-provider"
     ?~  volt.prov
@@ -614,7 +610,7 @@
     =^  htlc   u.c  (~(add-htlc channel u.c) update)
     =^  cards  u.c  (maybe-send-commitment u.c)
     :_  state(live.chan (~(put by live.chan) id.u.c u.c))
-    [(volt-action [%forward-payment payreq htlc ~] host.u.volt.prov) cards]
+    [(volt-action [%forward-payment payreq htlc who] host.u.volt.prov) cards]
   ::
   ++  add-invoice
     |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
@@ -2225,7 +2221,7 @@
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
     ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
-    =/  hop=(unit chan:bolt)  (forwarding-channel dest.u.req)
+    =/  hop=(unit chan:bolt)  (forwarding-channel payreq.u.req dest.u.req)
     ?~  hop
       ~&  >>  "with lnd"
     ::  should we validate the route hint info to prevent LND seeing a selfpayment?
@@ -2535,14 +2531,15 @@
   (shas salt eny.bowl)
 ::
 ++  forwarding-channel
-  |=  who=(unit ship)
+  |=  [=payreq who=(unit ship)]
   ^-  (unit chan:bolt)
-  ?~  who
-    ~&  >  "peer not found"
-    ~
+  =+  invoice=(de:bolt11 payreq)
+  ?~  who  ~
+  ?~  invoice  ~
+  ?~  amount.u.invoice  ~
   =+  chan-ids=(~(get by peer.chan) u.who)
   ?~  chan-ids
-    ~&  >  "no direct channel"
+    ~&  >  "no channel with payee"
     ~
   ~&  >  "got channel"
   (find-channel-with-capacity u.chan-ids (amount-to-msats:bolt11 u.amount.u.invoice))
