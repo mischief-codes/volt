@@ -277,6 +277,7 @@
       =payreq
       forwarded=?
       lnd=?
+      dest=(unit @p)
   ==
 ::
 +$  command
@@ -294,7 +295,7 @@
       [%take-invoice =payreq]
       [%give-pubkey nonce=@]
       [%take-pubkey sig=[v=@ r=@ s=@]]
-      [%forward-payment =payreq htlc=update-add-htlc:msg:bolt]
+      [%forward-payment =payreq htlc=update-add-htlc:msg:bolt dest=(unit ship)]
   ==
 ::
 +$  update
