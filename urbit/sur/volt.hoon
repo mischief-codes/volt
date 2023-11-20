@@ -278,6 +278,7 @@
       forwarded=?
       lnd=?
       dest=(unit @p)
+      ours=?
   ==
 ::
 +$  command
@@ -303,5 +304,8 @@
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]
       [%new-invoice =payreq]
+      [%invoice-paid =payreq]
+      [%payment-success =payreq]
+      [%payment-failure =payreq]
   ==
 --

@@ -609,8 +609,21 @@
       ==
     =^  htlc   u.c  (~(add-htlc channel u.c) update)
     =^  cards  u.c  (maybe-send-commitment u.c)
-    :_  state(live.chan (~(put by live.chan) id.u.c u.c))
-    [(volt-action [%forward-payment payreq htlc who] host.u.volt.prov) cards]
+    =|  fwd=forward-request
+    =.  fwd
+      $=  fwd
+        htlc  update
+        payreq  payreq
+        forwarded  %.n
+        lnd  %.n
+        dest  who
+        ours  %.y
+      ==
+    :-  [(volt-action [%forward-payment payreq htlc who] host.u.volt.prov) cards]
+        %=  state
+          live.chan          (~(put by live.chan) id.u.c u.c)
+          outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
+        ==
   ::
   ++  add-invoice
     |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
@@ -1215,6 +1228,10 @@
     =.  c  (~(receive-htlc-settle channel c) preimage htlc-id)
     =^  cards-1  c      (maybe-send-commitment c)
     =^  cards-2  state  (maybe-settle-external payment-hash preimage)
+    ~|  >  "%volt: recvd fulfill for unknown htlc"
+    =+  fwd=(~(got by outgoing.payments) payment-hash)
+    =?  cards-2  ours.fwd
+      (snoc cards-2 (give-update-payment [%payment-success payreq]))
     :-  (weld cards-1 cards-2)
     %=    state
         live.chan
@@ -1232,6 +1249,13 @@
     ?>  =(ship.her.config.c src.bowl)
     =.  c  (~(receive-fail-htlc channel c) htlc-id)
     =^  cards  c  (maybe-send-commitment c)
+    =/  reqs=(list forward-request)
+      %+  skim  ~(val by outgoing.payments)
+      |=  fwd=forward-request
+      ?:  &(=(channel-id channel-id.htlc.fwd) =(htlc-id htlc-id.htlc.fwd))
+      ours.fwd  %.n
+    =?  cards  =(^ reqs)
+      (snoc cards (give-update-payment [%payment-failed payreq:(head reqs)]))
     ~&  >>>  "{<id.c>} failed HTLC: {<reason>}"
     [cards state(live.chan (~(put by live.chan) id.c c))]
   ::
@@ -1279,8 +1303,12 @@
   ::
       %take-invoice
     %-  (slog leaf+"{<payreq.action>}" ~)
-    :_  state
-    ~[(give-update-invoice [%new-invoice payreq.action])]
+    =+  inv=(de:bolt11 payreq.action)
+    ?~  inv  `state
+    =+  pr=(~(got by incoming.payments) payment-hash.u.inv)
+    =.  payreq.u.pr  payreq.action
+    :-  ~[(give-update-invoice [%new-invoice payreq.action])]
+    state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
@@ -2252,8 +2280,12 @@
   =+  h=(head with-preimages)
   =+  preimage=(~(got by preimages.payments) payment-hash.h)
   ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
+  =|  cards=(list card)
+  =+  pr=(~(got by incoming.payments) payment-hash.h)
+  =?  cards  =(our.bowl payee.pr)
+    (snoc cards (give-update-payment [%payment-success payreq.pr]))
   :_  (~(settle-htlc channel c) preimage htlc-id.h)
-  =-  ~[(send-message - ship.her.config.c)]
+  =-  (snoc cards (send-message - ship.her.config.c))
   [%update-fulfill-htlc id.c htlc-id.h preimage]
 ::
 ++  maybe-settle-external
@@ -2277,6 +2309,8 @@
   =+  c=(~(got by live.chan) channel-id.htlc.u.fwd)
   =.  c  (~(settle-htlc channel c) preimage htlc-id.htlc.u.fwd)
   =^  cards  c  (maybe-send-commitment c)
+  =?  cards  ours.u.fwd
+    (snoc cards (give-update-payment [%payment-success payreq.u.fwd]))
   :_  %=    state
           live.chan
         (~(put by live.chan) id.c c)
@@ -2525,6 +2559,11 @@
   ^-  card
   [%give %fact ~[/latest-invoice] %volt-update !>(update)]
 ::
+++  give-update-payment
+  |=  [=update]
+  ^-  card
+  [%give %fact ~[/[payreq.update]] %volt-update !>(update)]
+::
 ++  request-id
   |=  salt=@
   ^-  @
@@ -2543,4 +2582,5 @@
     ~
   ~&  >  "got channel"
   (find-channel-with-capacity u.chan-ids (amount-to-msats:bolt11 u.amount.u.invoice))
+::
 --
