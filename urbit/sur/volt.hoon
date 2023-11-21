@@ -305,7 +305,6 @@
       [%received-payment from=ship =amt=msats]
       [%new-invoice =payreq]
       [%invoice-paid =payreq]
-      [%payment-success =payreq]
-      [%payment-failure =payreq]
+      [%payment-result =payreq success=?]
   ==
 --

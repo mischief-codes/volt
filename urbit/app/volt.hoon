@@ -579,7 +579,7 @@
     (pay-channel u.c amount-msats payment-hash %.n)
   ::
   ++  forward-to-provider
-    |=  [=payreq who=(unit ship)]
+    |=  [pay=payreq who=(unit ship)]
     ^-  (quip card _state)
     ~&  >  "forward-to-provider"
     ?~  volt.prov
@@ -589,7 +589,7 @@
     ?~  provider-channels
       ~&  >>>  "%volt: no channel with provider"
       `state
-    =+  invoice=(de:bolt11 payreq)
+    =+  invoice=(de:bolt11 pay)
     ?~  invoice           !!
     ?~  amount.u.invoice  !!
     =+  amount-msats=(amount-to-msats:bolt11 u.amount.u.invoice)
@@ -611,15 +611,15 @@
     =^  cards  u.c  (maybe-send-commitment u.c)
     =|  fwd=forward-request
     =.  fwd
-      $=  fwd
+      %=  fwd
         htlc  update
-        payreq  payreq
+        payreq  pay
         forwarded  %.n
         lnd  %.n
         dest  who
         ours  %.y
       ==
-    :-  [(volt-action [%forward-payment payreq htlc who] host.u.volt.prov) cards]
+    :-  [(volt-action [%forward-payment pay htlc who] host.u.volt.prov) cards]
         %=  state
           live.chan          (~(put by live.chan) id.u.c u.c)
           outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
@@ -1228,10 +1228,10 @@
     =.  c  (~(receive-htlc-settle channel c) preimage htlc-id)
     =^  cards-1  c      (maybe-send-commitment c)
     =^  cards-2  state  (maybe-settle-external payment-hash preimage)
-    ~|  >  "%volt: recvd fulfill for unknown htlc"
+    ~|  "%volt: recvd fulfill for unknown htlc"
     =+  fwd=(~(got by outgoing.payments) payment-hash)
     =?  cards-2  ours.fwd
-      (snoc cards-2 (give-update-payment [%payment-success payreq]))
+      (snoc cards-2 (give-update-payment [%payment-result payreq.fwd %.y]))
     :-  (weld cards-1 cards-2)
     %=    state
         live.chan
@@ -1255,7 +1255,7 @@
       ?:  &(=(channel-id channel-id.htlc.fwd) =(htlc-id htlc-id.htlc.fwd))
       ours.fwd  %.n
     =?  cards  =(^ reqs)
-      (snoc cards (give-update-payment [%payment-failed payreq:(head reqs)]))
+      (snoc cards (give-update-payment [%payment-result payreq:(head reqs) %.n]))
     ~&  >>>  "{<id.c>} failed HTLC: {<reason>}"
     [cards state(live.chan (~(put by live.chan) id.c c))]
   ::
@@ -1306,7 +1306,7 @@
     =+  inv=(de:bolt11 payreq.action)
     ?~  inv  `state
     =+  pr=(~(got by incoming.payments) payment-hash.u.inv)
-    =.  payreq.u.pr  payreq.action
+    =.  payreq.pr  payreq.action
     :-  ~[(give-update-invoice [%new-invoice payreq.action])]
     state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
   ::
@@ -2283,7 +2283,7 @@
   =|  cards=(list card)
   =+  pr=(~(got by incoming.payments) payment-hash.h)
   =?  cards  =(our.bowl payee.pr)
-    (snoc cards (give-update-payment [%payment-success payreq.pr]))
+    (snoc cards (give-update-payment [%payment-result payreq.pr %.y]))
   :_  (~(settle-htlc channel c) preimage htlc-id.h)
   =-  (snoc cards (send-message - ship.her.config.c))
   [%update-fulfill-htlc id.c htlc-id.h preimage]
@@ -2310,7 +2310,7 @@
   =.  c  (~(settle-htlc channel c) preimage htlc-id.htlc.u.fwd)
   =^  cards  c  (maybe-send-commitment c)
   =?  cards  ours.u.fwd
-    (snoc cards (give-update-payment [%payment-success payreq.u.fwd]))
+    (snoc cards (give-update-payment [%payment-result payreq.u.fwd %.y]))
   :_  %=    state
           live.chan
         (~(put by live.chan) id.c c)
@@ -2560,9 +2560,12 @@
   [%give %fact ~[/latest-invoice] %volt-update !>(update)]
 ::
 ++  give-update-payment
-  |=  [=update]
+  |=  =update
   ^-  card
-  [%give %fact ~[/[payreq.update]] %volt-update !>(update)]
+  ?+    -.update  !!
+      %payment-result
+    [%give %fact ~[/[payreq.update]] %volt-update !>(update)]
+  ==
 ::
 ++  request-id
   |=  salt=@
