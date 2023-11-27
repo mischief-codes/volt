@@ -1,4 +1,5 @@
 PRIVATE.scratch.md
 *~undo-tree~
 proxy/node_modules/*
+ui/node_modules/*
 dev
