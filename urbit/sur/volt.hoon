@@ -301,6 +301,7 @@
 ::
 +$  update
   $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
+      [%need-funding =address:bc =msats]
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]
       [%new-invoice =payreq]

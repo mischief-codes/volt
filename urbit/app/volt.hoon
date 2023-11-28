@@ -47,6 +47,7 @@
 ::
 +$  state-0
   $:  %0
+      tau=?
       $=  keys
       $:  our=pair:key:bolt
           chal=(map ship @)
@@ -64,6 +65,7 @@
           fund=(map id:bolt psbt:psbt)
           peer=(map ship (set id:bolt))
           wach=(map hexb:bc id:bolt)
+          heat=(map address:bc id:bolt)
           htlc=(map outpoint psbt:psbt)
           shut=(map id:bolt coop-close-state)
           dead=(map id:bolt force-close-state)
@@ -447,6 +449,10 @@
         funding-idx           u.funding-out-pos
         signature             sig
       ==
+    =/  funder=(list address:bc)
+      %+  skim  ~(tap by heat.chan)
+      |=([=address:bc =id:bolt] =(temporary-channel-id id))
+    =?  heat.chan  =(^ funder)  (~(del by heat.chan) -.-.funder)
     :_  %=  state
           larv.chan  (~(del by larv.chan) temporary-channel-id)
           live.chan  (~(put by live.chan) id.new-channel new-channel)
@@ -925,17 +931,26 @@
         pub.multisig-key.our.u.c
       funding-pubkey.msg
     ::
+    =.  fund.u.c  funding-address
+    =/  tau-addr  (from-pubkey:adr:bc %84 network.our.u.c pub.our.keys)
+    ::  TODO reverse the conditional flow here
+    =?  heat.chan.state  tau
+      (~(put by heat.chan) tau-addr temporary-channel-id.msg)
+    =|  cards=(list card)
+    =?  cards  tau  ~[(give-update [%need-funding tau-addr initial-msats.our.u.c])]
     ~&  >  "accepted channel"
     %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
     %-  (slog leaf+"funding-address={<funding-address>}" ~)
     ::
-    :_  %=  state  larv.chan
+    :_  %=  state
+          larv.chan
           %+  ~(put by larv.chan)  temporary-channel-id.msg
             %=  u.c
               her         remote-config
               ac          `msg
         ==  ==
-    ~[(give-update [%need-funding-signature temporary-channel-id.msg funding-address])]
+    %+  snoc  cards
+    (give-update [%need-funding-signature temporary-channel-id.msg funding-address]))
   ::
   ++  handle-funding-created
     |=  msg=funding-created:msg:bolt
@@ -1486,17 +1501,20 @@
     =.  btcp.prov  %.y
     =.  chain      [block.status fee.status now.bowl]
     =/  addr-info=(list card)
+      %+  weld
       %-  zing
       %+  turn  ~(val by wach.chan)
       |=  =id:bolt
-      :: ~&  >  "creating req cards for channel {<id>}"
       =/  rid  (request-id id)
       =/  addr  ~(funding-address channel (~(got by live.chan) id))
       =/  =action:btc-provider  [rid %address-info addr]
-      :: ~&  action
       (poke-btc-provider action)
-    ~&  >  "got out of zing"
-    :: ~&  addr-info
+      %-  zing
+      %+  ~(run in heat:chan)
+      |=  [=address:bc]
+      =/  rid  (request-id +.address)
+      =/  =action:btc-provider  [rid %address-info address]
+      (poke-btc-provider action)
     =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
       |=  [hexb:bc =pending-timelock]
@@ -1982,6 +2000,53 @@
     ~&  >  "handle-address-info"
     ^-  (quip card _state)
     ?.  ?=([%bech32 *] address)  `state
+    =/  tbf  (~(get by heat.chan) address)
+    ::  see if this is "tau" (passthrough wallet) address we're using to fund channels
+    ?:  =(^ tbf)
+      ::  it is, find the associated
+      =+  larva=(~(get by larv.chan) u.tbf)
+      ?~  larva  `state
+      =/  utxo=(unit utxo:bc)
+        %-  ~(rep in utxos)
+        |=  [output=utxo:bc acc=(unit utxo:bc)]
+        =/  sats-before-fees
+          %+  mul  1000
+          %+  add
+            initial-msats.our.u.larva
+          initial-msats.her.u.larva
+        ?:  (gth value.output sats-before-fees)
+          `output
+        acc
+      ::  TODO: handle this case - suggest amount to send with fees - either auto send back extra or add sweep-change method
+      ?~  utxo  `state
+      =|  =psbt:psbt
+      =.  outputs.psbt
+        :~  %^  funding-output:tx
+              multisig-key.our.u.larva
+            multisig-key.her.u.larva
+          value.u.utxo
+        ==
+      =|  =input:^psbt
+      =.  input
+        %=  input
+          prevout         [txid.u.utxo pos.u.utxo]
+          trusted-value   value.u.utxo
+          script-type     %p2wpkh
+          witness-script  (p2wpkh:script pub.our.keys)
+        ==
+      =.  inputs.psbt  ~[input]
+      =.  psbt
+        %^  ~(add-signature update:^psbt psbt)
+            0
+          pub.our.keys
+        %^  ~(one sign:^psbt psbt)
+            0
+          (prv-to-hexb:keys prv.our.keys)
+        ~
+      =+  encoded=~(from-base64 create:^psbt psbt)
+      :_  state
+      ~[(volt-command [%create-funding tbf encoded])]
+    ::
     =+  ^=  script-pubkey
       %-  cat:byt:bcu:bc
       :~  1^0
@@ -2483,6 +2548,14 @@
   :*  %pass   /action/[(scot %da now.bowl)]
       %agent  who^%volt
       %poke   %volt-action  !>(action)
+  ==
+::
+++  volt-command
+  |=  [=command]
+  ^-  card
+  :*  %pass   /command/[(scot %da now.bowl)]
+      %agent  our.bowl^%volt
+      %poke   %volt-command  !>(command)
   ==
 ::
 ++  send-message
