@@ -253,19 +253,20 @@
       [%all ~]
     ?>  (team:title our.bowl src.bowl)
     =/  chans=(list chan-info)
-      %+  ~(run by larv.chan)
+      %+  turn  ~(tap by larv.chan)
       |=  [=id:bolt l=larva-chan:bolt]
       [id ship.her.l initial-msats.our.l initial-msats.her.l %preopening]
     =.  chans
-      %+  snoc  chans
-      %+  ~(run by live.chan)
+      %+  weld  chans
+      %+  turn  ~(tap by live.chan)
       |=  [=id:bolt c=chan:bolt]
-      =+  our-com=(tail our.commitments.c)
-      =+  her-com=(tail her.commitments.c)
+      ::  confirm LI/FI
+      =+  our-com=(rear our.commitments.c)
+      =+  her-com=(rear her.commitments.c)
       [id ship.her.config.c balance.our.our-com balance.her.her-com state.c]
     ::  pays
     :_  this
-    [%give %fact ~ %volt-update !>(`update`[%initial-state chans ~])]
+    ~[[%give %fact ~ %volt-update !>(`update`[%initial-state chans ~])]]
       [%latest-invoice ~]
     ?>  (team:title our.bowl src.bowl)
     `this
