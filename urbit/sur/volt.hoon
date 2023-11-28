@@ -299,6 +299,22 @@
       [%forward-payment =payreq htlc=update-add-htlc:msg:bolt dest=(unit ship)]
   ==
 ::
++$  chan-info
+  $:  =id:bolt
+      who=ship
+      our=sats:bc
+      his=sats:bc
+      status=chan-state:bolt
+  ==
++$  pay-info
+  $:  =payreq
+      chan=id:bolt
+      amt=sats:bc
+      pat-p=(unit ship)
+      node-id=(unit @)
+      done=?
+  ==
+::
 +$  update
   $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
       [%channel-state =chan-id =chan-state:bolt]
@@ -306,5 +322,6 @@
       [%new-invoice =payreq]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
+      [%initial-state chans=(list chan-info) txs=(list pay-info)]
   ==
 --
