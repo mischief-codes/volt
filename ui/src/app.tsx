@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import Urbit from '@urbit/http-api';
+import CommandSelect from './components/CommandSelect';
 // import { AppTile } from './components/AppTile';
 
 const api = new Urbit('', '', window.desk);
-api.ship = 'zod'  //window.ship;
+api.ship = 'zod'  // window.ship;
 console.log('api.ship', api.ship);
 
 export function App() {
@@ -64,17 +65,7 @@ export function App() {
 
   return (
     <main className="flex items-center justify-center min-h-screen">
-      <div className="max-w-md space-y-6 py-20">
-        <button className='border border-gray-400 rounded-md mr-2' onClick={setProvider}>Set provider</button>
-        <input
-          className='border border-gray-400 rounded-md p-2'
-          type="text"
-          name="name"
-          onChange={onChangeInput}
-          autoComplete="off"
-          value={inputValue}
-        />
-      </div>
+      <CommandSelect api={api} />
     </main>
   );
 }
