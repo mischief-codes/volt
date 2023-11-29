@@ -1,43 +1,79 @@
 import React, { useEffect, useState } from 'react';
 import Urbit from '@urbit/http-api';
-import { Charges, ChargeUpdateInitial, scryCharges } from '@urbit/api';
-import { AppTile } from './components/AppTile';
+// import { AppTile } from './components/AppTile';
 
 const api = new Urbit('', '', window.desk);
-api.ship = window.ship;
+api.ship = 'zod'  //window.ship;
+console.log('api.ship', api.ship);
 
 export function App() {
-  const [apps, setApps] = useState<Charges>();
+  const [inputValue, setInputValue] = useState("");
 
-  useEffect(() => {
-    async function init() {
-      const charges = (await api.scry<ChargeUpdateInitial>(scryCharges)).initial;
-      setApps(charges);
+  const onChangeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    setInputValue(e.currentTarget.value);
+  };
+
+  // useEffect(() => {
+  //   const subscribe = () => {
+  //     try {
+  //       console.log('subscribing...');
+  //       const res = api.subscribe({
+  //         app: "volt",
+  //         path: "/all",
+  //         event: (e) => console.log('New poke event', e),
+  //         err: () => console.log("Subscription rejected"),
+  //         quit: () => console.log("Kicked from subscription"),
+  //       });
+  //       console.log('subscribed', res);
+  //     } catch (e) {
+  //       console.log("Subscription failed", e);
+  //     }
+  //   };
+  //   subscribe()
+  // }, [])
+
+  // const setProvider = async () => {
+  //   try {
+  //     const res = await api.poke({
+  //       app: "volt",
+  //       mark: "volt-command",
+  //       json: {"set-provider": "~zod"},
+  //       onSuccess: () => console.log('success'),
+  //       onError: () => console.log('failure'),
+  //     });
+  //     console.log(res);
+  //   } catch (e) {
+  //     console.error(e);
+  //   }
+  // }
+
+  const setProvider = async () => {
+    try {
+      const res = await api.poke({
+        app: "volt",
+        mark: "volt-command",
+        json: {"set-provider": "~zod"},
+        onSuccess: () => console.log('success'),
+        onError: () => console.log('failure'),
+      });
+      console.log(res);
+    } catch (e) {
+      console.error(e);
     }
-
-    init();
-  }, []);
+  }
 
   return (
     <main className="flex items-center justify-center min-h-screen">
       <div className="max-w-md space-y-6 py-20">
-        <h1 className="text-3xl font-bold">Welcome to volt</h1>
-        <p>Here&apos;s your urbit&apos;s installed apps:</p>
-        {apps && (
-          <ul className="space-y-4">
-            {Object.entries(apps).map(([desk, app]) => (
-              <li key={desk} className="flex items-center space-x-3 text-sm leading-tight">
-                <AppTile {...app} />
-                <div className="flex-1 text-black">
-                  <p>
-                    <strong>{app.title || desk}</strong>
-                  </p>
-                  {app.info && <p>{app.info}</p>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <button className='border border-gray-400 rounded-md mr-2' onClick={setProvider}>Set provider</button>
+        <input
+          className='border border-gray-400 rounded-md p-2'
+          type="text"
+          name="name"
+          onChange={onChangeInput}
+          autoComplete="off"
+          value={inputValue}
+        />
       </div>
     </main>
   );

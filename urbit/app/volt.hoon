@@ -112,6 +112,7 @@
 ::
 ++  on-poke
   |=  [=mark =vase]
+  ~&  'mark'  ~&  mark  ~&  'vase'  ~&  p.vase
   ^-  (quip card _this)
   =^  cards  state
     ?+    mark  (on-poke:def mark vase)
@@ -133,7 +134,7 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   =^  cards  state
-    ?+    wire  
+    ?+    wire
     ~&  [wire sign]
     `state
         [%message @ @ ~]
@@ -163,7 +164,7 @@
         `state(volt.prov ~)
       ::
           %fact
-        ?.  =(%volt-provider-status p.cage.sign)  
+        ?.  =(%volt-provider-status p.cage.sign)
           `state
         (handle-provider-status:hc !<(status:provider q.cage.sign))
       ==
@@ -185,7 +186,7 @@
         `state(volt.prov ~)
       ::
           %fact
-        ?.  =(%volt-provider-update p.cage.sign)  
+        ?.  =(%volt-provider-update p.cage.sign)
           `state
         (handle-provider-update:hc !<(update:provider q.cage.sign))
       ==
@@ -1562,7 +1563,7 @@
       %^  ~(add-signature update:psbt tx)
           0
         pub:(need keys)
-      
+
       %^  ~(one sign:psbt tx)
           0
         (priv-to-hexb:key-gen prv:(need keys))
@@ -1962,7 +1963,7 @@
   ::         u.fees.chain.state
   ::       ==
   ::     =/  =force-close-state  [ship.her.config.ch %.y u.revoked 0]
-  ::     :-  
+  ::     :-
   ::     :~  (poke-btc-provider [%broadcast-tx (extract:psbt sweep-tx)])
   ::         (give-update [%channel-state id %closing])
   ::     ==
