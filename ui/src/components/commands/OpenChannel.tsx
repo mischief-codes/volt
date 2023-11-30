@@ -1,64 +1,125 @@
 import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
+import { isValidPatp, preSig } from '@urbit/aura'
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
-  const [input1, setInput1] = useState('');
-  const [input2, setInput2] = useState('');
-  const [selectedOption, setSelectedOption] = useState('');
+  //  who=@p funding-sats=@ud push-msats=@ network=?(%main %regtest %testnet)]
+  const [channelPartnerInput, setChannelPartnerInput] = useState('~');
+  const [channelPartner, setChannelPartner] = useState<string | null>(null);
+  const [fundingSatsInput, setFundingSatsInput] = useState<string>('');
+  const [fundingSats, setFundingSats] = useState<number | null>(null);
+  const [pushMsatsInput, setPushMsatsInput] = useState('0');
+  const [pushMsats, setPushMsats] = useState<number>(0);
+  const [selectedOption, setSelectedOption] = useState('regtest');
 
-  const handleInputChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput1(e.target.value);
+  const handleChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChannelPartnerInput(e.target.value);
+    if (isValidPatp(preSig(e.target.value))) {
+      setChannelPartner(preSig(e.target.value));
+    } else {
+      setChannelPartner(null);
+    }
   };
 
-  const handleInputChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput2(e.target.value);
+  const handleChangeFundingSatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Use a regular expression to allow only positive integers
+    const isEmptyString = input === '';
+    const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
+    if (isEmptyString) {
+      setFundingSatsInput(input);
+      setFundingSats(null);
+    } else if (isPositiveInteger) {
+      setFundingSatsInput(input);
+      setFundingSats(parseInt(input));
+    }
   };
 
-  const handleOptionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleChangePushMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Use a regular expression to allow only positive integers
+    const isEmptyString = input === '';
+    const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) >= 0;
+    if (isEmptyString) {
+      setPushMsatsInput('');
+      setPushMsats(0);
+    } else if (isPositiveInteger) {
+      setPushMsatsInput(input);
+      setPushMsats(parseInt(input));
+    }
+  };
+
+  const handleChangeOption = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedOption(e.target.value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const openChannel = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Perform some action with the inputs and selected option
-    console.log('Input 1:', input1);
-    console.log('Input 2:', input2);
-    console.log('Selected Option:', selectedOption);
+    if (!channelPartner || !fundingSats) return;
+    try {
+      const res = await api.poke({
+        app: "volt",
+        mark: "volt-command",
+        json: {
+          "open-channel": {
+            who: channelPartner,
+            'funding-sats': fundingSats,
+            'push-msats': pushMsats,
+            network: selectedOption
+          }
+        },
+        onSuccess: () => console.log('success'),
+        onError: () => console.log('failure'),
+      });
+      console.log(res);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-sm mx-auto">
+    <form onSubmit={openChannel} className="max-w-sm mx-auto">
       <label className="block mb-2">
-        Input 1:
+        Channel Partner:
         <input
           type="text"
-          value={input1}
-          onChange={handleInputChange1}
+          value={channelPartnerInput}
+          onChange={handleChangeChannelPartnerInput}
           className="border border-gray-300 rounded-md px-2 py-1 w-full"
         />
       </label>
       <br />
       <label className="block mb-2">
-        Input 2:
+        Funding Sats:
         <input
           type="text"
-          value={input2}
-          onChange={handleInputChange2}
+          value={fundingSatsInput}
+          onChange={handleChangeFundingSatsInput}
+          className="border border-gray-300 rounded-md px-2 py-1 w-full"
+        />
+      </label>
+      <br />
+      <br />
+      <label className="block mb-2">
+        Push mSats:
+        <input
+          type="text"
+          value={pushMsatsInput}
+          onChange={handleChangePushMsatsInput}
           className="border border-gray-300 rounded-md px-2 py-1 w-full"
         />
       </label>
       <br />
       <label className="block mb-2">
-        Select an option:
+        Network
         <select
           value={selectedOption}
-          onChange={handleOptionChange}
+          onChange={handleChangeOption}
           className="border border-gray-300 rounded-md px-2 py-1 w-full"
         >
-          <option value="">-- Select --</option>
-          <option value="option1">Option 1</option>
-          <option value="option2">Option 2</option>
-          <option value="option3">Option 3</option>
+          <option value="regtest">Regtest</option>
+          <option value="testnet">Testnet</option>
+          <option value="main">Mainnet</option>
         </select>
       </label>
       <br />

@@ -2,63 +2,87 @@ import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
 
 const AddInvoice = ({ api }: { api: Urbit }) => {
-  const [input1, setInput1] = useState('');
-  const [input2, setInput2] = useState('');
-  const [selectedOption, setSelectedOption] = useState('');
+  const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
+  const [amountMsats, setAmountMsats] = useState<number | null>(null);
+  const [memo, setMemo] = useState('');
+  const [network, setNetwork] = useState('regtest');
 
-  const handleInputChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput1(e.target.value);
+  const handleChangeAmountMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Use a regular expression to allow only positive integers
+    const isEmptyString = input === '';
+    const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
+    if (isEmptyString) {
+      setAmountMsatsInput(input);
+      setAmountMsats(null);
+    } else if (isPositiveInteger) {
+      setAmountMsatsInput(input);
+      setAmountMsats(parseInt(input));
+    }
   };
 
-  const handleInputChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput2(e.target.value);
+  const handleChangeMemo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMemo(e.target.value);
+  }
+
+  const handleChangeNetwork = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setNetwork(e.target.value);
   };
 
-  const handleDropdownChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedOption(e.target.value);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const addInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Perform any necessary actions with the input values
-    console.log('Input 1:', input1);
-    console.log('Input 2:', input2);
-    console.log('Selected Option:', selectedOption);
+    try {
+      const res = await api.poke({
+        app: "volt",
+        mark: "volt-command",
+        json: {
+          'add-invoice': {
+            'amount': amountMsats,
+            memo: memo,
+            network: network
+          }
+        },
+        onSuccess: () => console.log('success'),
+        onError: () => console.log('failure'),
+      });
+      console.log(res);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-100">
+    <form onSubmit={addInvoice} className="p-4 bg-gray-100">
       <label className="block mb-2">
-        Input 1:
+        Amount (msats)
         <input
           type="text"
-          value={input1}
-          onChange={handleInputChange1}
+          value={amountMsatsInput}
+          onChange={handleChangeAmountMsatsInput}
           className="border border-gray-300 rounded-md px-2 py-1"
         />
       </label>
       <br />
       <label className="block mb-2">
-        Input 2:
+        Memo (optional)
         <input
           type="text"
-          value={input2}
-          onChange={handleInputChange2}
+          value={memo}
+          onChange={handleChangeMemo}
           className="border border-gray-300 rounded-md px-2 py-1"
         />
       </label>
       <br />
       <label className="block mb-2">
-        Dropdown:
+        Network
         <select
-          value={selectedOption}
-          onChange={handleDropdownChange}
+          value={network}
+          onChange={handleChangeNetwork}
           className="border border-gray-300 rounded-md px-2 py-1"
         >
-          <option value="">Select an option</option>
-          <option value="option1">Option 1</option>
-          <option value="option2">Option 2</option>
-          <option value="option3">Option 3</option>
+          <option value="regtest">Regtest</option>
+          <option value="testnet">Testnet</option>
+          <option value="main">Mainnet</option>
         </select>
       </label>
       <br />

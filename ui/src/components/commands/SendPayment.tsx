@@ -1,22 +1,45 @@
 import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
+import { isValidPatp, preSig } from '@urbit/aura'
 
 const SendPayment = ({ api }: { api: Urbit }) => {
   const [payreq, setPayreq] = useState('');
-  const [ship, setShip] = useState('');
+  const [shipInput, setShipInput] = useState('~');
+  const [ship, setShip] = useState<string | null>(null);
 
   const handlePayreqChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPayreq(e.target.value);
   };
 
-  const handleShipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setShip(e.target.value);
+  const handleChangeShipInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setShipInput(e.target.value);
+    if (isValidPatp(preSig(e.target.value))) {
+      setShip(preSig(e.target.value));
+    } else {
+      setShip(null);
+    }
   };
 
-  const handleButtonClick = () => {
-    // Handle button click logic here
-    console.log('Payreq:', payreq);
-    console.log('Ship:', ship);
+  const sendPayment =  async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payreq) return;
+    try {
+      const res = await api.poke({
+        app: "volt",
+        mark: "volt-command",
+        json: {
+          "send-payment": {
+            payreq: payreq,
+            who: ship
+          }
+        },
+        onSuccess: () => console.log('success'),
+        onError: () => console.log('failure'),
+      });
+      console.log(res);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -30,13 +53,13 @@ const SendPayment = ({ api }: { api: Urbit }) => {
       />
       <input
         type="text"
-        value={ship}
-        onChange={handleShipChange}
+        value={shipInput}
+        onChange={handleChangeShipInput}
         placeholder="Enter ship"
         className="border border-gray-300 rounded-md px-4 py-2 mb-4"
       />
       <button
-        onClick={handleButtonClick}
+        onClick={sendPayment}
         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
       >
         Send Payment

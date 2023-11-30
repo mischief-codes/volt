@@ -1,48 +1,98 @@
 import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
+import { isValidPatp, preSig } from '@urbit/aura'
 
 const TestInvoice = ({ api }: { api: Urbit }) => {
-  const [input1, setInput1] = useState('');
-  const [input2, setInput2] = useState('');
-  const [selectedOption, setSelectedOption] = useState('');
+  const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
+  const [amountMsats, setAmountMsats] = useState<number | null>(null);
+  const [shipInput, setShipInput] = useState('~');
+  const [ship, setShip] = useState<string | null>(null);
+  const [network, setNetwork] = useState('regtest');
 
-  const handleInputChange1 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInput1(event.target.value);
+  const handleShipInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setShipInput(e.target.value);
+    if (isValidPatp(preSig(e.target.value))) {
+      setShip(preSig(e.target.value));
+    } else {
+      setShip(null);
+    }
   };
 
-  const handleInputChange2 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInput2(event.target.value);
+  const handleChangeAmountMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Use a regular expression to allow only positive integers
+    const isEmptyString = input === '';
+    const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
+    if (isEmptyString) {
+      setAmountMsatsInput(input);
+      setAmountMsats(null);
+    } else if (isPositiveInteger) {
+      setAmountMsatsInput(input);
+      setAmountMsats(parseInt(input));
+    }
   };
 
-  const handleOptionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedOption(event.target.value);
+  const handleChangeNetwork = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setNetwork(e.target.value);
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    // Perform some action with the inputs and selected option
-    console.log('Input 1:', input1);
-    console.log('Input 2:', input2);
-    console.log('Selected Option:', selectedOption);
+
+  const sendTestInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ship || !amountMsats) return;
+    try {
+      const res = await api.poke({
+        app: "volt",
+        mark: "volt-command",
+        json: {
+          'test-invoice': {
+            ship: ship,
+            msats: amountMsats,
+            network: network
+          }
+        },
+        onSuccess: () => console.log('success'),
+        onError: () => console.log('failure'),
+      });
+      console.log(res);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-sm mx-auto">
+    <form onSubmit={sendTestInvoice} className="max-w-sm mx-auto">
       <div className="mb-4">
-        <label htmlFor="input1" className="block mb-2">Input 1:</label>
-        <input type="text" id="input1" value={input1} onChange={handleInputChange1} className="border border-gray-300 px-4 py-2 rounded-md w-full" />
+        <label htmlFor="input1" className="block mb-2">Amount (msats)</label>
+        <input
+          type="text"
+          id="input1"
+          value={amountMsatsInput}
+          onChange={handleChangeAmountMsatsInput}
+          className="border border-gray-300 px-4 py-2 rounded-md w-full"
+        />
       </div>
       <div className="mb-4">
-        <label htmlFor="input2" className="block mb-2">Input 2:</label>
-        <input type="text" id="input2" value={input2} onChange={handleInputChange2} className="border border-gray-300 px-4 py-2 rounded-md w-full" />
+        <label htmlFor="input2" className="block mb-2">Ship</label>
+        <input
+          type="text"
+          id="input2"
+          value={shipInput}
+          onChange={handleShipInputChange}
+          className="border border-gray-300 px-4 py-2 rounded-md w-full"
+        />
       </div>
       <div className="mb-4">
-        <label htmlFor="dropdown" className="block mb-2">Dropdown:</label>
-        <select id="dropdown" value={selectedOption} onChange={handleOptionChange} className="border border-gray-300 px-4 py-2 rounded-md w-full">
-          <option value="">Select an option</option>
-          <option value="option1">Option 1</option>
-          <option value="option2">Option 2</option>
-          <option value="option3">Option 3</option>
+        <label htmlFor="dropdown" className="block mb-2">Network:</label>
+        <select
+          id="dropdown"
+          value={network}
+          onChange={handleChangeNetwork}
+          className="border border-gray-300 px-4 py-2 rounded-md w-full"
+        >
+          <option value="regtest">Regtest</option>
+          <option value="testnet">Testnet</option>
+          <option value="main">Mainnet</option>
         </select>
       </div>
       <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md">Submit</button>

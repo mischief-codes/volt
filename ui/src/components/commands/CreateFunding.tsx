@@ -2,44 +2,59 @@ import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
 
 const CreateFunding = ({ api }: { api: Urbit }) => {
-  const [selectedOption, setSelectedOption] = useState('');
-  const [inputValue, setInputValue] = useState('');
+  const [tempChannelId, setTempChannelId] = useState('');
+  const [psbt, setPsbt] = useState('');
 
-  const handleOptionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedOption(event.target.value);
+  const handleChangeTempChannelId = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTempChannelId(event.target.value);
   };
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(event.target.value);
+  const handleChangePsbt = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPsbt(event.target.value);
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    // Perform the desired action with the selected option and input value
-    console.log('Selected Option:', selectedOption);
-    console.log('Input Value:', inputValue);
+  console.log(tempChannelId, psbt)
+
+  const createFunding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log(tempChannelId, psbt)
+    if (!tempChannelId || !psbt) return;
+    try {
+      const res = await api.poke({
+        app: "volt",
+        mark: "volt-command",
+        json: {
+          'create-funding': {
+            'temporary-channel-id': tempChannelId,
+            'psbt': psbt,
+          }
+        },
+        onSuccess: () => console.log('success'),
+        onError: () => console.log('failure'),
+      });
+      console.log(res);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
+    <form onSubmit={createFunding} className="flex flex-col space-y-4">
       <label className="flex flex-col">
-        <span className="text-lg font-medium">Select an option:</span>
-        <select
-          value={selectedOption}
-          onChange={handleOptionChange}
-          className="mt-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="option1">Option 1</option>
-          <option value="option2">Option 2</option>
-          <option value="option3">Option 3</option>
-        </select>
-      </label>
-      <label className="flex flex-col">
-        <span className="text-lg font-medium">Enter a value:</span>
+        <span className="text-lg font-medium">Temporary channel id:</span>
         <input
           type="text"
-          value={inputValue}
-          onChange={handleInputChange}
+          value={tempChannelId}
+          onChange={handleChangeTempChannelId}
+          className="mt-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </label>
+      <label className="flex flex-col">
+        <span className="text-lg font-medium">PSBT:</span>
+        <input
+          type="text"
+          value={psbt}
+          onChange={handleChangePsbt}
           className="mt-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </label>
@@ -52,4 +67,5 @@ const CreateFunding = ({ api }: { api: Urbit }) => {
     </form>
   );
 };
+
 export default CreateFunding;
