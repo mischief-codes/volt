@@ -48,8 +48,11 @@
 ++  full-key
   |=  [typ=@ key=hexb:bc]
   ^-  hexb:bc
+  =/  size=hexb:bc  (encode-compact-size typ)
+  :: ~&  >  "size {<size>}"
+  :: ~&  >  "key {<key>}"
   %-  cat:byt:bcu:bc
-  ~[(encode-compact-size typ) key]
+  ~[size key]
 ::  +next-key-value: parse next key-value pair from map
 ::
 ++  next-key-value
@@ -566,6 +569,11 @@
           signature-list
           [(need witness-script.input)]~
       ==
+    ?^  (find [script-type.input]~ ~[%p2wpkh])
+      =+  wit=(head ~(tap by partial-sigs.input))
+      :~  +.wit
+          -.wit
+      ==
     [(encode-compact-size 0)]~
   ::
   ++  finalize
@@ -575,6 +583,7 @@
         ==
       input
     ?:  is-complete
+      :: ~&  >>>  "FINALIZING"
       %=  input
         final-script-sig      input-script
         final-script-witness  `script-witness

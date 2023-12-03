@@ -18,8 +18,11 @@
   ++  cat
     |=  bs=(list biyts)
     ^-  biyts
-    :-  (roll (turn bs |=(b=biyts -.b)) add)
-    (can bloq (flop bs))
+    =/  wid=@ud  (roll (turn bs |=(b=biyts -.b)) add)
+    ~&  "wid {<wid>}"
+    =/  dat=@  (can bloq (flop bs))
+    ~&  "dat {<dat>}"
+    [wid dat]
   ::  +flip: flip endianness while preserving lead/trail zeroes
   ::
   ++  flip
