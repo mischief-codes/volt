@@ -233,7 +233,8 @@
       ?=(^ script-witness.i)
   %-  cat:byt:bcu:bc
   %-  zing
-  :~  ~[(flip:byt:bcu:bc 4^nversion.tx)]
+  :~  ~[(flip:byt:bcu:bc 5^magic)]
+      ~[(flip:byt:bcu:bc 4^nversion.tx)]
       ?:  is-segwit
         ~[1^0x0 1^0x1]
       ~
@@ -282,7 +283,7 @@
   ^-  (list map)
   =^  magc=hexb:bc  b  (read-bytes 5 b)
   ?.  =(dat.magc magic)
-    ~|(%psbt-bad-magic !!)
+    ~|([%psbt-bad-magic dat.magc] !!)
   =|  acc=(list map)
   =|  m=map
   |-

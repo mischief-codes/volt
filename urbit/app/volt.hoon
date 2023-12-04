@@ -135,9 +135,7 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   =^  cards  state
-    ?+    wire  
-    ~&  [wire sign]
-    `state
+    ?+    wire  [-:(on-agent:def wire sign) state]
         [%message @ @ ~]
       ?+    -.sign  !!
           %poke-ack
@@ -398,7 +396,7 @@
     ?~  ac.u.c
       ~&  >>>  "%volt: invalid channel state: {<temporary-channel-id>}"
       `state
-    ~|  %invalid-funding-tx
+    ~|  [%invalid-funding-tx psbt]
     =/  funding-tx=psbt:^psbt  (from-byts:create:^psbt psbt)
     :: ?>  ?=(^ funding-tx)
     :: =.  u.funding-tx  (finalize:^psbt u.funding-tx)
