@@ -1,4 +1,5 @@
 /-  *volt
+/+  volt-json
 |_  upd=update
 ++  grab
   |%
@@ -7,14 +8,7 @@
 ++  grow
   |%
   ++  noun  upd
-  ++  json
-    =,  enjs:format
-    ?+    -.upd  !!
-        %new-invoice
-      %-  pairs
-      :~  ['payreq' s+payreq.upd]
-      ==
-    ==
+  ++  json  (update:enjs:volt-json upd)
   --
 ++  grad  %noun
 --

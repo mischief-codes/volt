@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
+import Channel, { ChannelId } from '../../types/Channel';
 
-const CloseChannel = ({ api }: { api: Urbit }) => {
+const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<Channel> }) => {
   const [channelId, setChannelId] = useState('');
-  // const [selectedOption, setSelectedOption] = useState('');
-
-  // const handleOptionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-  //   setSelectedOption(event.target.value);
-  // };
-
-  const onChangeChannelId = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setChannelId(event.target.value);
-  }
 
   const closeChannel  = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,27 +22,38 @@ const CloseChannel = ({ api }: { api: Urbit }) => {
     }
   }
 
+  const onChangeChannelId = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setChannelId(event.target.value);
+  }
+
+  const getChannelLabel = (channel: Channel) => {
+    return `${channel.who}, ${channel.our} sats, id=${channel.id.slice(0, 6)}...`
+  }
+
+
   return (
     <div className="close-channel">
+      {openChannels.length > 0 ? (
       <form onSubmit={closeChannel} className="flex flex-col items-center">
       <label className="block mb-2">
-        Channel Id:
-        <input
-          type="text"
+        Channel:
+        <select
           value={channelId}
           onChange={onChangeChannelId}
           className="border border-gray-300 rounded-md px-2 py-1 w-full"
-        />
+        >
+          {openChannels.map((channel) => (
+            <option key={channel.id} value={channel.id}>
+              {getChannelLabel(channel)}
+            </option>
+          ))}
+        </select>
       </label>
-        {/* <select id="channel" value={selectedOption} onChange={handleOptionChange} className="channel-select p-2 border border-gray-300 rounded-md mb-2">
-          <option value="channel1">Channel 1</option>
-          <option value="channel2">Channel 2</option>
-          <option value="channel3">Channel 3</option>
-        </select> */}
-        <button type="submit" className="close-button bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-          Close Channel
-        </button>
+      <button type="submit" className="close-button bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Close Channel
+      </button>
       </form>
+    ) : <div>No open channels</div>}
     </div>
   );
 };

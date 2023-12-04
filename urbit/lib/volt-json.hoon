@@ -23,6 +23,45 @@
   --
 
 ++  enjs
+  =,  enjs:format
   |%
-  ++  update  !!
+  ++  update
+    |=  upd=update:volt
+    ^-  json
+    ?+    -.upd  !!
+        %new-invoice
+      %-  pairs
+      :~  ['payreq' s+payreq.upd]
+      ==
+        %initial-state
+      %-  pairs
+      :~  ['chans' a+(turn chans.upd chan-info)]
+      ['txs' a+(turn txs.upd pay-info)]  ::a+(turn txs.upd pay-info)]
+      ==
+    ==
+  ::
+  ++  chan-info
+    |=  info=chan-info:volt
+    ^-  json
+    %-  pairs
+    :~  ['id' s+`@t`(scot %ud id.info)]
+    ['who' (ship who.info)]
+    ['our' (numb our.info)]
+    ['his' (numb his.info)]
+    ['status' s+status.info]
+    ==
+  ::
+  ++  pay-info
+    |=  info=pay-info:volt
+    ^-  json
+    ~
+  ::   %-  pairs
+  ::   :~  ['payreq' s+payreq.info]
+  ::   ['chan' s+`@t`(scot %ud chan.info)]
+  ::   ['amt' (numb amt.info)]
+  ::   ['pat-p' ~] ::
+  ::   ['node-id' ~] :: ?~(-.node-id.info ~ s+(scow %ud -.node-id.info))]
+  ::   ['done' ~]
+  ::   ==
+  --
 --

@@ -7,16 +7,25 @@ import SendPayment from './commands/SendPayment';
 import SetProvider from './commands/SetProvider';
 import TestInvoice from './commands/TestInvoice';
 import Urbit from '@urbit/http-api';
+import Channel, { ChannelStatus } from '../types/Channel';
 
-const CommandSelect = ({ api }: { api: Urbit }) => {
+const CommandSelect = (
+  { api, channelsByStatus }:
+  { api: Urbit, channelsByStatus: { [key in ChannelStatus]: Array<Channel> }
+}) => {
     const [selectedCommand, setSelectedCommand] = useState('Set Provider');
+    const openChannels = channelsByStatus[ChannelStatus.Open];
+    const preopeningChannels = channelsByStatus[ChannelStatus.Preopening];
 
     const commands = [
       { name: 'Set Provider', component: <SetProvider api={api} /> },
       { name: 'Open Channel', component: <OpenChannel api={api} /> },
-      { name: 'Create Funding', component: <CreateFunding api={api} /> },
+      {
+        name: 'Create Funding',
+        component: <CreateFunding api={api} preopeningChannels={preopeningChannels}/>
+      },
       { name: 'Send Payment', component: <SendPayment api={api} /> },
-      { name: 'Close Channel', component: <CloseChannel api={api} /> },
+      { name: 'Close Channel', component: <CloseChannel api={api} openChannels={openChannels} /> },
       { name: 'Add Invoice', component: <AddInvoice api={api} /> },
       { name: 'Test Invoice', component: <TestInvoice api={api} /> },
     ];

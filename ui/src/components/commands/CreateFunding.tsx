@@ -1,31 +1,34 @@
 import React, { useState } from 'react';
 import Urbit from '@urbit/http-api';
+import Channel from '../../types/Channel';
 
-const CreateFunding = ({ api }: { api: Urbit }) => {
-  const [tempChannelId, setTempChannelId] = useState('');
+const CreateFunding = (
+  { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
+) => {
+  const [selectedChannelId, setSelectedChannelId] = useState('');
   const [psbt, setPsbt] = useState('');
 
-  const handleChangeTempChannelId = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setTempChannelId(event.target.value);
+  const handleChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedChannelId(event.target.value);
   };
 
   const handleChangePsbt = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPsbt(event.target.value);
   };
 
-  console.log(tempChannelId, psbt)
+  console.log(selectedChannelId, psbt)
 
   const createFunding = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(tempChannelId, psbt)
-    if (!tempChannelId || !psbt) return;
+    console.log(selectedChannelId, psbt)
+    if (!selectedChannelId || !psbt) return;
     try {
       const res = await api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
           'create-funding': {
-            'temporary-channel-id': tempChannelId,
+            'temporary-channel-id': selectedChannelId,
             'psbt': psbt,
           }
         },
@@ -38,16 +41,26 @@ const CreateFunding = ({ api }: { api: Urbit }) => {
     }
   };
 
+  const getChannelLabel = (channel: Channel) => {
+    console.log('channel', channel, channel.id)
+    return `${channel.who}, ${channel.our} sats, id=${channel.id.slice(0, 6)}...`
+  }
+
   return (
     <form onSubmit={createFunding} className="flex flex-col space-y-4">
       <label className="flex flex-col">
-        <span className="text-lg font-medium">Temporary channel id:</span>
-        <input
-          type="text"
-          value={tempChannelId}
-          onChange={handleChangeTempChannelId}
+        <span className="text-lg font-medium">Temporary channel:</span>
+        <select
+          value={selectedChannelId}
+          onChange={handleChangeSelectedChannel}
           className="mt-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        >
+          {preopeningChannels.map((channel) => (
+            <option key={channel.id} value={channel.id}>
+              {getChannelLabel(channel)}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="flex flex-col">
         <span className="text-lg font-medium">PSBT:</span>
