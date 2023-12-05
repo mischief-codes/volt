@@ -18,10 +18,21 @@
     test-invoice+(ot ~[ship+ship msats+ni network+network])
     ==
   ::
+  ++  provider
+    |%
+    ++  command
+      |=  jon=json
+      ^-  command:provider:volt
+    ~&  jon
+    %.  jon
+    %-  of
+    :~  set-url+so
+    ==
+  --
   ++  ship  (su ;~(pfix sig fed:ag))
   ++  network  (su (perk %main %testnet %regtest ~))
   --
-
+::
 ++  enjs
   =,  enjs:format
   |%
@@ -36,7 +47,7 @@
         %initial-state
       %-  pairs
       :~  ['chans' a+(turn chans.upd chan-info)]
-      ['txs' a+(turn txs.upd pay-info)]  ::a+(turn txs.upd pay-info)]
+      ['txs' a+(turn txs.upd pay-info)]
       ==
     ==
   ::

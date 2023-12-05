@@ -8,6 +8,7 @@ import SetProvider from './commands/SetProvider';
 import TestInvoice from './commands/TestInvoice';
 import Urbit from '@urbit/http-api';
 import Channel, { ChannelStatus } from '../types/Channel';
+import SetUrl from './commands/SetUrl';
 
 interface CommandSelectProps {
   api: Urbit;
@@ -22,6 +23,8 @@ const CommandSelect: React.FC<CommandSelectProps> = ({ api, channelsByStatus }) 
 
     const commands = [
       { name: 'Set Provider', component: <SetProvider api={api} /> },
+      { name: 'Set URL', component: <SetUrl api={api} /> },
+
       { name: 'Open Channel', component: <OpenChannel api={api} /> },
       {
         name: 'Create Funding',

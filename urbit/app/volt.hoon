@@ -112,7 +112,6 @@
 ::
 ++  on-poke
   |=  [=mark =vase]
-  ~&  'mark'  ~&  mark  ~&  'vase'  ~&  p.vase
   ^-  (quip card _this)
   =^  cards  state
     ?+    mark  (on-poke:def mark vase)

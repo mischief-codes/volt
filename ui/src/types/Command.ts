@@ -5,6 +5,7 @@ enum Command {
   OpenChannel = "open-channel",
   SendPayment = "send-payment",
   SetProvider = "set-provider",
+  SetUrl = "set-url",
   TestInvoice = "test-invoice",
 }
 
