@@ -9,11 +9,14 @@ import TestInvoice from './commands/TestInvoice';
 import Urbit from '@urbit/http-api';
 import Channel, { ChannelStatus } from '../types/Channel';
 
-const CommandSelect = (
-  { api, channelsByStatus }:
-  { api: Urbit, channelsByStatus: { [key in ChannelStatus]: Array<Channel> }
-}) => {
-    const [selectedCommand, setSelectedCommand] = useState('Set Provider');
+interface CommandSelectProps {
+  api: Urbit;
+  channelsByStatus: { [key in ChannelStatus]: Array<Channel> };
+}
+
+const CommandSelect: React.FC<CommandSelectProps> = ({ api, channelsByStatus }) => {
+  const [selectedCommand, setSelectedCommand] = useState('Set Provider');
+
     const openChannels = channelsByStatus[ChannelStatus.Open];
     const preopeningChannels = channelsByStatus[ChannelStatus.Preopening];
 
@@ -22,10 +25,15 @@ const CommandSelect = (
       { name: 'Open Channel', component: <OpenChannel api={api} /> },
       {
         name: 'Create Funding',
-        component: <CreateFunding api={api} preopeningChannels={preopeningChannels}/>
+        component: <CreateFunding api={api} preopeningChannels={preopeningChannels}  />
       },
-      { name: 'Send Payment', component: <SendPayment api={api} /> },
-      { name: 'Close Channel', component: <CloseChannel api={api} openChannels={openChannels} /> },
+      {
+        name: 'Send Payment',
+        component: <SendPayment api={api} /> },
+      {
+        name: 'Close Channel',
+        component: <CloseChannel api={api} openChannels={openChannels}  />
+      },
       { name: 'Add Invoice', component: <AddInvoice api={api} /> },
       { name: 'Test Invoice', component: <TestInvoice api={api} /> },
     ];
@@ -35,11 +43,11 @@ const CommandSelect = (
     };
 
     return (
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center pt-4">
         <select
           value={selectedCommand}
           onChange={handleCommandChange}
-          className="p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
         >
           <option value="">Select a command</option>
           {commands.map((command) => (

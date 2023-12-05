@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
-import Channel, { ChannelId } from '../../types/Channel';
+import Channel from '../../types/Channel';
+import Button from '../shared/Button';
+import { FeedbackContext } from '../../contexts/FeedbackContext';
+import Command from '../../types/Command';
 
 const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<Channel> }) => {
-  const [channelId, setChannelId] = useState('');
+  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const [channelId, setChannelId] = useState(openChannels[0]?.id || null);
 
   const closeChannel  = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -13,8 +17,8 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
         app: "volt",
         mark: "volt-command",
         json: {"close-channel": channelId },
-        onSuccess: () => console.log('success'),
-        onError: () => console.log('failure'),
+        onSuccess: () => displaySuccess(Command.CloseChannel),
+        onError: (e) => displayError(Command.CloseChannel, e),
       });
       console.log(res);
     } catch (e) {
@@ -49,9 +53,7 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
           ))}
         </select>
       </label>
-      <button type="submit" className="close-button bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        Close Channel
-      </button>
+      <Button onClick={closeChannel} label={'Close Channel'}/>
       </form>
     ) : <div>No open channels</div>}
     </div>

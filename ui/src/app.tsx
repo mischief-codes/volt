@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import Urbit from '@urbit/http-api';
 import CommandSelect from './components/CommandSelect';
 import Channel from './types/Channel';
-import FeedbackDisplay from './components/CommandFeedback';
+import './index.css';
+import CommandFeedback from './components/FeedbackConsole';
+import { FeedbackContextProvider } from './contexts/FeedbackContext';
 
 const api = new Urbit('', '', window.desk);
 api.ship = 'zod'  // window.ship;
 console.log('api.ship', api.ship);
 
 export function App() {
-  const [inputValue, setInputValue] = useState("");
+  const [commandFeedback, setCommandFeedback] = useState("");
   const [txs, setTxs] = useState<Array<Object>>([]);
   const [channels, setChannels] = useState<Array<Channel>>([]);
   const [channelsByStatus, setChannelsByStatus] = useState<{
@@ -33,6 +35,10 @@ export function App() {
     closed: [],
     redeemed: [],
   });
+
+  const addFeedback = (feedback: string) => {
+    setCommandFeedback(commandFeedback + feedback);
+  }
 
   useEffect(() => {
     const handleChannelUpdate = ({
@@ -81,15 +87,20 @@ export function App() {
   }, [])
 
   return (
-    <main className="bg-gray-200 h-screen">
-      <div className="flex flex-col items-center justify-start h-full mx-auto w-1/2">
-        {/* <div className='bg-red-400 h-1/6 w-full'>
-          <FeedbackDisplay feedback={'fee'} />
-        </div> */}
-        <div className="bg-gradient-to-r from-slate-100 to-white h-2/3 w-full">
-          <CommandSelect api={api} channelsByStatus={channelsByStatus} />
+    <FeedbackContextProvider>
+      <main className="bg-gray-200 h-screen">
+        <div className="flex flex-col items-center justify-start h-full mx-auto w-1/2">
+          <div className="bg-gradient-to-r from-slate-100 to-white h-2/3 w-full">
+            <CommandSelect
+              api={api}
+              channelsByStatus={channelsByStatus}
+            />
+          </div>
+          <div className='bg-slate-800 h-1/3 w-full overflow-scroll '>
+            <CommandFeedback />
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </FeedbackContextProvider>
   );
 }

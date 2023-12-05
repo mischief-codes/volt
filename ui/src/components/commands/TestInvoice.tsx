@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
+import Button from '../shared/Button';
+import { FeedbackContext } from '../../contexts/FeedbackContext';
+import Command from '../../types/Command';
 
 const TestInvoice = ({ api }: { api: Urbit }) => {
+  const { displaySuccess, displayError } = useContext(FeedbackContext);
+
   const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
   const [amountMsats, setAmountMsats] = useState<number | null>(null);
   const [shipInput, setShipInput] = useState('~');
@@ -51,8 +56,8 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
             network: network
           }
         },
-        onSuccess: () => console.log('success'),
-        onError: () => console.log('failure'),
+        onSuccess: () => displaySuccess(Command.TestInvoice),
+        onError: (e) => displayError(Command.TestInvoice, e),
       });
       console.log(res);
     } catch (e) {
@@ -95,8 +100,8 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
           <option value="main">Mainnet</option>
         </select>
       </div>
-      <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md">Submit</button>
-    </form>
+      <Button className='border-red' onClick={sendTestInvoice} label={'Send Test Invoice'}/>
+      </form>
   );
 };
 

@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-.main-container {
-  background-color: conic-gradient(at top right, slategray, white);
+html {
+  font-family: 'Telegrama', monospace;
+}
+
+@font-face {
+  font-family: 'Telegrama';
+  src: local('Telegrama'), url(./assets/Telegrama.otf) format('opentype');
+  /* other formats include: 'woff2', 'truetype, 'opentype',
+                            'embedded-opentype', and 'svg' */
+}
+
+body, html {
+  font-family: 'Telegrama', monospace !important;
+  color: rgb(128, 128, 128) !important
+}
+
+.not-selectable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }

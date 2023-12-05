@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
+import Button from '../shared/Button';
+import { FeedbackContext } from '../../contexts/FeedbackContext';
+import Command from '../../types/Command';
 
 const AddInvoice = ({ api }: { api: Urbit }) => {
+  const { displaySuccess, displayError } = useContext(FeedbackContext);
+
   const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
   const [amountMsats, setAmountMsats] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
@@ -42,8 +47,8 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
             network: network
           }
         },
-        onSuccess: () => console.log('success'),
-        onError: () => console.log('failure'),
+        onSuccess: () => displaySuccess(Command.AddInvoice),
+        onError: (e) => displayError(Command.AddInvoice, e),
       });
       console.log(res);
     } catch (e) {
@@ -86,9 +91,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         </select>
       </label>
       <br />
-      <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md">
-        Submit
-      </button>
+      <Button onClick={addInvoice} label={'Add Invoice'}/>
     </form>
   );
 };

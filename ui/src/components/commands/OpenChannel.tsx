@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
+import Button from '../shared/Button';
+import { FeedbackContext } from '../../contexts/FeedbackContext';
+import Command from '../../types/Command';
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
-  //  who=@p funding-sats=@ud push-msats=@ network=?(%main %regtest %testnet)]
+  const { displaySuccess, displayError } = useContext(FeedbackContext);
+
   const [channelPartnerInput, setChannelPartnerInput] = useState('~');
   const [channelPartner, setChannelPartner] = useState<string | null>(null);
   const [fundingSatsInput, setFundingSatsInput] = useState<string>('');
@@ -68,8 +72,8 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
             network: selectedOption
           }
         },
-        onSuccess: () => console.log('success'),
-        onError: () => console.log('failure'),
+        onSuccess: () => displaySuccess(Command.OpenChannel),
+        onError: (e) => displayError(Command.OpenChannel, e),
       });
       console.log(res);
     } catch (e) {
@@ -80,7 +84,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
   return (
     <form onSubmit={openChannel} className="max-w-sm mx-auto">
       <label className="block mb-2">
-        Channel Partner:
+        Channel Partner
         <input
           type="text"
           value={channelPartnerInput}
@@ -90,7 +94,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
       </label>
       <br />
       <label className="block mb-2">
-        Funding Sats:
+        Funding Sats
         <input
           type="text"
           value={fundingSatsInput}
@@ -101,7 +105,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
       <br />
       <br />
       <label className="block mb-2">
-        Push mSats:
+        Push mSats
         <input
           type="text"
           value={pushMsatsInput}
@@ -123,12 +127,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
         </select>
       </label>
       <br />
-      <button
-        type="submit"
-        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
-      >
-        Submit
-      </button>
+      <Button onClick={openChannel} label={'Open Channel'}/>
     </form>
   );
 };
