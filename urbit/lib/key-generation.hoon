@@ -119,5 +119,6 @@
 ++  priv-to-hexb
   |=  =privkey
   ^-  hexb:bc
+  :: %-  flip:byt:bcu:bc
   [wid=(met 3 privkey) dat=`@ux`privkey]
 --

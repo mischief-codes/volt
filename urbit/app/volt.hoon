@@ -382,7 +382,7 @@
     ==
   ::
   ++  create-funding
-    |=  [temporary-channel-id=@ psbt=hexb:bc]
+    |=  [temporary-channel-id=@ funding=psbt:psbt]
     ^-  (quip card _state)
     ~&  >  "creating funding"
     =/  c=(unit larva-chan:bolt)
@@ -396,15 +396,16 @@
     ?~  ac.u.c
       ~&  >>>  "%volt: invalid channel state: {<temporary-channel-id>}"
       `state
-    ~|  [%invalid-funding-tx psbt]
-    =/  funding-tx=psbt:^psbt  (from-byts:create:^psbt psbt)
+    ~|  [%invalid-funding-tx funding]
+    :: =.  -.funding  (extract-unsigned:psbt funding)
+    :: =/  funding-tx=psbt:psbt  (from-byts:create:^psbt psbt)
     :: ?>  ?=(^ funding-tx)
     :: =.  u.funding-tx  (finalize:^psbt u.funding-tx)
     ::  TODO: check tx is complete
     ::
     ~&  >>  "PSBT from params"
-    ~&  "{<funding-tx>}"
-    =/  funding-output=output:^psbt
+    ~&  "{<funding>}"
+    =/  funding-output=output:psbt
       ::  (funding-output:tx [pub.multisig-key.our pub.multisig-key.her funding-sats.u.oc]:u.c)
       %^    funding-output:tx
           pub.multisig-key.our.u.c
@@ -412,7 +413,7 @@
       funding-sats.u.oc.u.c
     ::
     =/  funding-out-pos=(unit @u)
-      =+  outs=vout.funding-tx
+      =+  outs=outputs.funding
       =+  i=0
       |-
       ?~  outs  ~
@@ -423,7 +424,7 @@
       $(outs t.outs, i +(i))
     ?>  ?=(^ funding-out-pos)
     ::
-    =+  funding-txid=(txid:^psbt (extract-unsigned:^psbt funding-tx))
+    =+  funding-txid=(txid:psbt (extract-unsigned:psbt funding))
     %-  (slog leaf+"funding-txid={<funding-txid>}" ~)
     ::
     =/  new-channel=chan:bolt
@@ -458,7 +459,7 @@
     :_  %=  state
           larv.chan  (~(del by larv.chan) temporary-channel-id)
           live.chan  (~(put by live.chan) id.new-channel new-channel)
-          fund.chan  (~(put by fund.chan) id.new-channel funding-tx)
+          fund.chan  (~(put by fund.chan) id.new-channel funding)
         ==
     ~[(send-message [%funding-created funding-created] ship.her.u.c)]
   ::
@@ -2038,7 +2039,7 @@
       =.  input
         %=  input
           prevout         [txid.u.utxo pos.u.utxo]
-          nsequence       0xffff.ffff
+          :: nsequence       0x0
           trusted-value   `value.u.utxo
           script-type     %p2wpkh
           witness-script  `witness
@@ -2052,26 +2053,35 @@
           pub.multisig-key.her.u.larva
         sats-capacity
       =.  outputs.funding-tx  ~[output]
-      =.  nversion.funding-tx  2
-      =/  sig=hexb:bc
-        %^  ~(one sign:psbt funding-tx)
-                0
-              (priv-to-hexb:key-gen prv.our.keys)
-            ~
+      =.  nversion.funding-tx  0x2
       =.  funding-tx
         %^  ~(add-signature update:psbt funding-tx)
             0
           compressed-pub
-        sig
-      =+  signed-input=(head inputs.funding-tx)
-      =.  inputs.funding-tx
-        :~  %=  signed-input
-              final-script-witness  `~[sig compressed-pub]
-        ==  ==
+        %^  ~(one sign:psbt funding-tx)
+            0
+          (priv-to-hexb:key-gen prv.our.keys)
+        ~
+      ::  THINGS TO TRY - change is-segwit to ignore witness script and remove that from psbt to prevent conflict, find example codebase, compare bitcoin-js outputs
+      ~&  >  "raw PSBT"
+      ~&  "{<funding-tx>}"
+      :: =+  signed-input=(head inputs.funding-tx)
+      :: =.  inputs.funding-tx
+      ::   :~  %=  signed-input
+      ::         final-script-witness  `~[sig compressed-pub]
+      ::   ==  ==
       :: =.  funding-tx  (finalize:psbt funding-tx)
-      =/  encoded=hexb:bc  (encode-tx:psbt (extract-unsigned:psbt funding-tx))
+      =/  base-64=cord  ~(to-base64 create:psbt funding-tx)
+      :: ~&  "{<base-64>}"
+      =/  extracted=tx:tx:psbt  (extract-unsigned:psbt funding-tx)
+      =/  encoded=hexb:bc  (extract:psbt funding-tx)
+      ~&  >  "extracted"
+      ~&  "{<extracted>}"
+      ~&  >  "encoded finalized"
+      ~&  encoded
       :_  state
-      ~[(volt-command [%create-funding u.tbf encoded])]
+      ~[(volt-command [%create-funding u.tbf funding-tx])]
+      ::  TODO: unique funding addresses for larval tau channels
     ::
     =+  ^=  script-pubkey
       %-  cat:byt:bcu:bc

@@ -284,7 +284,7 @@
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
-      [%create-funding temporary-channel-id=@ psbt=hexb:bc]
+      [%create-funding temporary-channel-id=@ =psbt:psbt]
       [%close-channel =chan-id]
       [%send-payment =payreq who=(unit ship)]
       [%add-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]

@@ -1,5 +1,7 @@
 ::  psbt.hoon -- A more complete implementation of BIP-174
 ::
+::  V2 notes: better distinguish types, methods for PSBT noun representation, PSBT bytecode, and transaction bytecode
+::
 /-  *psbt
 /+  bc=bitcoin, der
 |%
@@ -233,8 +235,8 @@
       ?=(^ script-witness.i)
   %-  cat:byt:bcu:bc
   %-  zing
-  :~  ~[(flip:byt:bcu:bc 5^magic)]
-      ~[(flip:byt:bcu:bc 4^nversion.tx)]
+  =-  ~&  -  -
+  :~  ~[(flip:byt:bcu:bc 4^nversion.tx)]
       ?:  is-segwit
         ~[1^0x0 1^0x1]
       ~
@@ -541,7 +543,8 @@
   ::
   ++  is-segwit
     ^-  ?
-    ?=(^ witness-script.input)
+    :: ?=(^ witness-script.input)
+    %.y
   ::
   ++  input-script
     ^-  (unit hexb:bc)
@@ -570,8 +573,10 @@
           signature-list
           [(need witness-script.input)]~
       ==
-    ?^  (find [script-type.input]~ ~[%p2wpkh])
+    ?:  ?=(%p2wpkh script-type.input)
       =+  wit=(head ~(tap by partial-sigs.input))
+      ~&  "PUB AND SIG"
+      ~&  wit
       :~  +.wit
           -.wit
       ==
@@ -584,7 +589,7 @@
         ==
       input
     ?:  is-complete
-      :: ~&  >>>  "FINALIZING"
+      ~&  >>>  "FINALIZING"
       %=  input
         final-script-sig      input-script
         final-script-witness  `script-witness
@@ -1098,7 +1103,10 @@
   |=  =psbt
   ^-  hexb:bc
   =.  psbt  (finalize psbt)
+  ~&  "FINALIZED PSBT"
+  ~&  psbt
   ?:  (is-complete psbt)
+    ~&  "IS COMPLETE"
     (encode-tx (extract-unsigned psbt))
   (en psbt)
 ::  +estimated-size: return an estimated virtual tx size in vbytes
