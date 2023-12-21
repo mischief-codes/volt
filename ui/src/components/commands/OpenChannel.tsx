@@ -1,9 +1,13 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
-import Button from '../shared/Button';
+import Button from '../basic/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
+import Input from '../basic/Input';
+import Dropdown from '../basic/Dropdown';
+import Network from '../../types/Network';
+import CommandForm from './CommandForm';
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);
@@ -14,9 +18,9 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
   const [fundingSats, setFundingSats] = useState<number | null>(null);
   const [pushMsatsInput, setPushMsatsInput] = useState('0');
   const [pushMsats, setPushMsats] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState('regtest');
+  const [selectedOption, setSelectedOption] = useState(Network.Regtest);
 
-  const handleChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChannelPartnerInput(e.target.value);
     if (isValidPatp(preSig(e.target.value))) {
       setChannelPartner(preSig(e.target.value));
@@ -25,7 +29,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const handleChangeFundingSatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangeFundingSatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     // Use a regular expression to allow only positive integers
     const isEmptyString = input === '';
@@ -39,7 +43,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const handleChangePushMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangePushMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     // Use a regular expression to allow only positive integers
     const isEmptyString = input === '';
@@ -53,9 +57,10 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const handleChangeOption = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedOption(e.target.value);
+  const onChangeNetwork = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedOption(e.target.value as Network);
   };
+
 
   const openChannel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,54 +86,37 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     }
   };
 
+  const options = [
+    { value: Network.Regtest, label: 'Regtest' },
+    { value: Network.Testnet, label: 'Testnet' },
+    { value: Network.Mainnet, label: 'Mainnet' }
+  ];
+
   return (
-    <form onSubmit={openChannel} className="max-w-sm mx-auto">
-      <label className="block mb-2">
-        Channel Partner
-        <input
-          type="text"
-          value={channelPartnerInput}
-          onChange={handleChangeChannelPartnerInput}
-          className="border border-gray-300 rounded-md px-2 py-1 w-full"
-        />
-      </label>
-      <br />
-      <label className="block mb-2">
-        Funding Sats
-        <input
-          type="text"
-          value={fundingSatsInput}
-          onChange={handleChangeFundingSatsInput}
-          className="border border-gray-300 rounded-md px-2 py-1 w-full"
-        />
-      </label>
-      <br />
-      <br />
-      <label className="block mb-2">
-        Push mSats
-        <input
-          type="text"
-          value={pushMsatsInput}
-          onChange={handleChangePushMsatsInput}
-          className="border border-gray-300 rounded-md px-2 py-1 w-full"
-        />
-      </label>
-      <br />
-      <label className="block mb-2">
-        Network
-        <select
-          value={selectedOption}
-          onChange={handleChangeOption}
-          className="border border-gray-300 rounded-md px-2 py-1 w-full"
-        >
-          <option value="regtest">Regtest</option>
-          <option value="testnet">Testnet</option>
-          <option value="main">Mainnet</option>
-        </select>
-      </label>
-      <br />
+    <CommandForm>
+      <Input
+        label={"Channel Partner"}
+        value={channelPartnerInput}
+        onChange={onChangeChannelPartnerInput}
+      />
+      <Input
+        label={"Funding Sats"}
+        value={fundingSatsInput}
+        onChange={onChangeFundingSatsInput}
+      />
+      <Input
+        label={"Push msats"}
+        value={pushMsatsInput}
+        onChange={onChangePushMsatsInput}
+      />
+      <Dropdown
+        label={"Network"}
+        options={options}
+        value={selectedOption}
+        onChange={onChangeNetwork}
+      />
       <Button onClick={openChannel} label={'Open Channel'}/>
-    </form>
+    </CommandForm>
   );
 };
 

@@ -1,22 +1,21 @@
-import React, { useState } from 'react';
-import AddInvoice from './commands/AddInvoice';
-import CloseChannel from './commands/CloseChannel';
-import CreateFunding from './commands/CreateFunding';
-import OpenChannel from './commands/OpenChannel';
-import SendPayment from './commands/SendPayment';
-import SetProvider from './commands/SetProvider';
-import TestInvoice from './commands/TestInvoice';
-import Urbit from '@urbit/http-api';
-import Channel, { ChannelStatus } from '../types/Channel';
-import SetUrl from './commands/SetUrl';
+import React, { useState, useContext } from 'react';
+import AddInvoice from './AddInvoice';
+import CloseChannel from './CloseChannel';
+import CreateFunding from './CreateFunding';
+import OpenChannel from './OpenChannel';
+import SendPayment from './SendPayment';
+import SetProvider from './SetProvider';
+import TestInvoice from './TestInvoice';
+import { ChannelStatus } from '../../types/Channel';
+import SetUrl from './SetUrl';
+import { ChannelContext } from '../../contexts/ChannelContext';
+import { ApiContext } from '../../contexts/ApiContext';
 
-interface CommandSelectProps {
-  api: Urbit;
-  channelsByStatus: { [key in ChannelStatus]: Array<Channel> };
-}
 
-const CommandSelect: React.FC<CommandSelectProps> = ({ api, channelsByStatus }) => {
+const Commands: React.FC = () => {
   const [selectedCommand, setSelectedCommand] = useState('Set Provider');
+  const api = useContext(ApiContext)
+  const { channelsByStatus } = useContext(ChannelContext);
 
     const openChannels = channelsByStatus[ChannelStatus.Open];
     const preopeningChannels = channelsByStatus[ChannelStatus.Preopening];
@@ -46,11 +45,11 @@ const CommandSelect: React.FC<CommandSelectProps> = ({ api, channelsByStatus }) 
     };
 
     return (
-      <div className="flex flex-col items-center pt-4">
+      <div className='flex flex-col items-center'>
         <select
           value={selectedCommand}
           onChange={handleCommandChange}
-          className="p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 w-full"
         >
           <option value="">Select a command</option>
           {commands.map((command) => (
@@ -60,7 +59,7 @@ const CommandSelect: React.FC<CommandSelectProps> = ({ api, channelsByStatus }) 
           ))}
         </select>
         {selectedCommand && (
-          <div className="mt-4">
+          <div className='w-full'>
             {commands.find((command) => command.name === selectedCommand)?.component}
           </div>
         )}
@@ -68,4 +67,4 @@ const CommandSelect: React.FC<CommandSelectProps> = ({ api, channelsByStatus }) 
     );
   };
 
-  export default CommandSelect;
+  export default Commands;

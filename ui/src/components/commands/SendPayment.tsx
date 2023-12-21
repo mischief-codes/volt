@@ -1,9 +1,11 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
-import Button from '../shared/Button';
+import Button from '../basic/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
+import Input from '../basic/Input';
+import CommandForm from './CommandForm';
 
 const SendPayment = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);
@@ -12,11 +14,11 @@ const SendPayment = ({ api }: { api: Urbit }) => {
   const [shipInput, setShipInput] = useState('~');
   const [ship, setShip] = useState<string | null>(null);
 
-  const handlePayreqChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangePayreq = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPayreq(e.target.value);
   };
 
-  const handleChangeShipInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangeShipInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShipInput(e.target.value);
     if (isValidPatp(preSig(e.target.value))) {
       setShip(preSig(e.target.value));
@@ -48,23 +50,19 @@ const SendPayment = ({ api }: { api: Urbit }) => {
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <input
-        type="text"
+    <CommandForm>
+      <Input
+        label={"Payreq"}
         value={payreq}
-        onChange={handlePayreqChange}
-        placeholder="Enter payreq"
-        className="border border-gray-300 rounded-md px-4 py-2 mb-4"
+        onChange={onChangePayreq}
       />
-      <input
-        type="text"
+      <Input
+        label={"Ship"}
         value={shipInput}
-        onChange={handleChangeShipInput}
-        placeholder="Enter ship"
-        className="border border-gray-300 rounded-md px-4 py-2 mb-4"
+        onChange={onChangeShipInput}
       />
       <Button onClick={sendPayment} label={'Send Payment'}/>
-    </div>
+    </CommandForm>
   );
 };
 

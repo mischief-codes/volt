@@ -10,7 +10,7 @@ const Button = ({ label, onClick, className = '' }: ButtonProps) => {
   return (
     <button
       onClick={onClick}
-      className={`bg-gray-600 text-white px-4 py-2 rounded-md text-base cursor-pointer ${className}`}
+      className={`bg-gray-600 w-8/12 mx-auto text-white py-3 mt-6 rounded-md text-base cursor-pointer col-span-2 col-start-2 ${className}`}
     >
       {label}
     </button>

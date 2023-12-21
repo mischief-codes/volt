@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
-import Button from '../shared/Button';
+import Button from '../basic/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
+import Input from '../basic/Input';
+import CommandForm from './CommandForm';
 
 const SetUrl = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);
@@ -45,15 +47,15 @@ const SetUrl = ({ api }: { api: Urbit }) => {
   }
 
   return (
-    <div className="flex items-center">
-      <input
-        type="text"
+    <CommandForm>
+      <Input
+        className='col-start-2'
+        label={"Provider URL"}
         value={urlInput}
         onChange={handleInputChange}
-        className="border border-gray-300 rounded-md px-4 py-2 mr-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
       />
       <Button onClick={setProviderUrl} label={'Set URL'}/>
-    </div>
+    </CommandForm>
   );
 };
 

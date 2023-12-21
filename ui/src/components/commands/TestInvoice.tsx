@@ -1,9 +1,13 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
-import Button from '../shared/Button';
+import Button from '../basic/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
+import Input from '../basic/Input';
+import Dropdown from '../basic/Dropdown';
+import Network from '../../types/Network';
+import CommandForm from './CommandForm';
 
 const TestInvoice = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);
@@ -12,9 +16,9 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
   const [amountMsats, setAmountMsats] = useState<number | null>(null);
   const [shipInput, setShipInput] = useState('~');
   const [ship, setShip] = useState<string | null>(null);
-  const [network, setNetwork] = useState('regtest');
+  const [network, setNetwork] = useState(Network.Regtest);
 
-  const handleShipInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangeShipInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShipInput(e.target.value);
     if (isValidPatp(preSig(e.target.value))) {
       setShip(preSig(e.target.value));
@@ -23,7 +27,7 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const handleChangeAmountMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangePushMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     // Use a regular expression to allow only positive integers
     const isEmptyString = input === '';
@@ -37,8 +41,9 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const handleChangeNetwork = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setNetwork(e.target.value);
+  const handleChangeNetwork = (e: React.ChangeEvent<HTMLElement>) => {
+    const target = e.target as HTMLInputElement;
+    setNetwork(target.value as Network);
   };
 
 
@@ -65,43 +70,35 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
     }
   };
 
+  const networkOptions = [
+    { value: Network.Regtest, label: 'Regtest' },
+    { value: Network.Testnet, label: 'Testnet' },
+    { value: Network.Mainnet, label: 'Mainnet' }
+  ];
+
   return (
-    <form onSubmit={sendTestInvoice} className="max-w-sm mx-auto">
-      <div className="mb-4">
-        <label htmlFor="input1" className="block mb-2">Amount (msats)</label>
-        <input
-          type="text"
-          id="input1"
-          value={amountMsatsInput}
-          onChange={handleChangeAmountMsatsInput}
-          className="border border-gray-300 px-4 py-2 rounded-md w-full"
-        />
-      </div>
-      <div className="mb-4">
-        <label htmlFor="input2" className="block mb-2">Ship</label>
-        <input
-          type="text"
-          id="input2"
+    <CommandForm>
+      <Input
+        className='col-start-2'
+        label={'Amount (msats)'}
+        value={amountMsatsInput}
+        onChange={onChangePushMsatsInput}
+      />
+      <Input
+          className='col-start-2'
+          label={'Ship'}
           value={shipInput}
-          onChange={handleShipInputChange}
-          className="border border-gray-300 px-4 py-2 rounded-md w-full"
-        />
-      </div>
-      <div className="mb-4">
-        <label htmlFor="dropdown" className="block mb-2">Network:</label>
-        <select
-          id="dropdown"
-          value={network}
-          onChange={handleChangeNetwork}
-          className="border border-gray-300 px-4 py-2 rounded-md w-full"
-        >
-          <option value="regtest">Regtest</option>
-          <option value="testnet">Testnet</option>
-          <option value="main">Mainnet</option>
-        </select>
-      </div>
-      <Button className='border-red' onClick={sendTestInvoice} label={'Send Test Invoice'}/>
-      </form>
+          onChange={onChangeShipInput}
+      />
+      <Dropdown
+        className='col-start-2'
+        label={'Network'}
+        options={networkOptions}
+        value={network}
+        onChange={handleChangeNetwork}
+      />
+      <Button onClick={sendTestInvoice} label={'Send Test Invoice'}/>
+    </CommandForm>
   );
 };
 
