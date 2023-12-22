@@ -319,9 +319,9 @@
   $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]
-      [%new-invoice =payreq]
+      [%new-invoice =payment-request]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
-      [%initial-state chans=(list chan-info) txs=(list pay-info)]
+      [%initial-state chans=(list chan-info) txs=(list pay-info) invoices=(list payment-request)]
   ==
 --

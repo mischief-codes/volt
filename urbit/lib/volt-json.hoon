@@ -1,4 +1,4 @@
-/-  volt
+/-  volt, bitcoin
 |%
 ++  dejs
   =,  dejs:format
@@ -41,13 +41,13 @@
     ^-  json
     ?+    -.upd  !!
         %new-invoice
-      %-  pairs
-      :~  ['payreq' s+payreq.upd]
-      ==
+      (payment-request payment-request.upd)
+      ::
         %initial-state
       %-  pairs
       :~  ['chans' a+(turn chans.upd chan-info)]
       ['txs' a+(turn txs.upd pay-info)]
+      ['invoices' a+(turn invoices.upd payment-request)]
       ==
     ==
   ::
@@ -62,10 +62,33 @@
     ['status' s+status.info]
     ==
   ::
+  ++  payment-request
+    |=  payment-request=payment-request:volt
+    ^-  json
+    %-  pairs
+    :~  :: ['payee' (ship payee.payment-request)]
+    ['amount-msats' (numb amount-msats.payment-request)]
+    :: ['payment-hash' (hexb payment-hash.payment-request)]
+    :: ['preimage' (hexb (need preimage.payment-request))]
+    ['payreq' (payreq payreq.payment-request)]
+    ==
+  ::
+  ++  payreq
+    |=  payreq=payreq:volt
+    ^-  json
+    s+payreq
+  ::
   ++  pay-info
     |=  info=pay-info:volt
     ^-  json
     ~
+  ++  hexb
+    |=  h=hexb:bitcoin
+    ^-  json
+    %-  pairs
+    :~  wid+(numb:enjs wid.h)
+        dat+s+(scot %ux dat.h)
+    ==
   ::   %-  pairs
   ::   :~  ['payreq' s+payreq.info]
   ::   ['chan' s+`@t`(scot %ud chan.info)]

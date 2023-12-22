@@ -264,9 +264,13 @@
       =+  our-com=(rear our.commitments.c)
       =+  her-com=(rear her.commitments.c)
       [id ship.her.config.c balance.our.our-com balance.her.her-com state.c]
+    =/  payment-requests=(list payment-request)
+      %+  turn  ~(tap by incoming.payments)
+      |=  [=hexb:bc =payment-request]
+      payment-request
     ::  pays
     :_  this
-    ~[[%give %fact ~ %volt-update !>(`update`[%initial-state chans ~])]]
+    ~[[%give %fact ~ %volt-update !>(`update`[%initial-state chans ~ payment-requests])]]
       [%latest-invoice ~]
     ?>  (team:title our.bowl src.bowl)
     `this
@@ -661,6 +665,8 @@
       ==
     ::  own provider: poke provider agent
     ::
+    ~&  'own-provider'
+    ~&  own-provider
     ?:  own-provider
       ~[(provider-action [%add-hold-invoice amount-msats memo hash ~])]
     ::  external provider: poke provider for hold invoice
@@ -1321,7 +1327,7 @@
     ?~  inv  `state
     =+  pr=(~(got by incoming.payments) payment-hash.u.inv)
     =.  payreq.pr  payreq.action
-    :-  ~[(give-update-invoice [%new-invoice payreq.action])]
+    :-  ~[(give-update-invoice [%new-invoice pr])]
     state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
   ::
       %give-pubkey
@@ -2570,6 +2576,7 @@
 ::
 ++  give-update-invoice
   |=  =update
+  ~&  'update'  ~&  update
   ^-  card
   [%give %fact ~[/latest-invoice] %volt-update !>(update)]
 ::
