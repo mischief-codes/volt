@@ -1,13 +1,13 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
-import Button from '../basic/Button';
+import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
-import Input from '../basic/Input';
-import Dropdown from '../basic/Dropdown';
+import Input from './shared/Input';
+import Dropdown from './shared/Dropdown';
 import Network from '../../types/Network';
-import CommandForm from './CommandForm';
+import CommandForm from './shared/CommandForm';
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);

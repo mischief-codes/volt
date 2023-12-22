@@ -1,10 +1,10 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
-import Button from '../basic/Button';
+import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
-import Input from '../basic/Input';
-import CommandForm from './CommandForm';
+import Input from './shared/Input';
+import CommandForm from './shared/CommandForm';
 
 const SetUrl = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);

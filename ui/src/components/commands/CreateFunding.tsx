@@ -1,12 +1,12 @@
 import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import Channel from '../../types/Channel';
-import Button from '../basic/Button';
+import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
-import Input from '../basic/Input';
-import Dropdown from '../basic/Dropdown';
-import CommandForm from './CommandForm';
+import Input from './shared/Input';
+import Dropdown from './shared/Dropdown';
+import CommandForm from './shared/CommandForm';
 
 const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
@@ -65,7 +65,7 @@ const CreateFunding = (
         <Input label={"PSBT"} value={psbt} onChange={onChangePsbt} />
         <Button onClick={createFunding} label='Create Funding'/>
         </CommandForm>
-      ) : <div>No preopening channels</div>}
+      ) : <div className='text-center'>No preopening channels</div>}
     </>
   );
 };

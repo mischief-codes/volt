@@ -20,7 +20,7 @@ const Dropdown: React.FC<DropdownProps> = (
   ${className}`
 
   return (
-    <div className={`mx-auto w-10/12 col-span-2 ${className}`}>
+    <div className={`mx-auto mt-2 w-10/12 col-span-2 col-start-2 ${className}`}>
       <span><label>{label}</label></span>
       <select
         value={value}

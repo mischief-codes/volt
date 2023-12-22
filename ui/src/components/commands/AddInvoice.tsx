@@ -1,35 +1,16 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import Urbit from '@urbit/http-api';
-import Button from '../basic/Button';
+import Button from './shared/Button';
+import Text from './shared/Text';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
-import Input from '../basic/Input';
-import Dropdown from '../basic/Dropdown';
+import Input from './shared/Input';
+import Dropdown from './shared/Dropdown';
 import Network from '../../types/Network';
 import QRCode from 'react-qr-code'
 import { InvoiceContext } from '../../contexts/InvoiceContext';
-import CommandForm from './CommandForm';
-
-const InvoiceDisplay = ({invoice, amountMsats, memo, network }
-  : {invoice: string, amountMsats: number, memo: string, network: Network}) => {
-    return (
-      <div className="flex flex-col items-center justify-center h-full w-full">
-        <div className="flex flex-col items-center justify-center h-1/3 w-full">
-          <div className="text-2xl font-bold text-slate-800">Invoice created!</div>
-          <div className="text-xl text-slate-800">Amount: {amountMsats} msats</div>
-          <div className="text-xl text-slate-800">Memo: {memo}</div>
-          <div className="text-xl text-slate-800">Network: {network}</div>
-        </div>
-        <div className="flex flex-col items-center justify-center h-1/3 w-full">
-          <div className="text-xl font-bold text-slate-800">Invoice:</div>
-          <div className="text-xl text-slate-800">{invoice}</div>
-        </div>
-        {
-          invoice ? <QRCode value={invoice} /> : null
-        }
-      </div>
-    );
-}
+import CommandForm from './shared/CommandForm';
+import Invoice from '../../types/Invoice';
 
 const AddInvoice = ({ api }: { api: Urbit }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);
@@ -39,15 +20,27 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
   const [amountMsats, setAmountMsats] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
   const [network, setNetwork] = useState(Network.Regtest);
-  // User presseed submit button
-  const [invoiceSubmitted, setInvoiceSubmitted] = useState<boolean>(false);
+  // Recorded when user presses the submit button
+  // Used to check if `latestInvoice` comming from our ship is probably the one we just submitted
+  const [submittedInvoiceMsats, setSubmittedInvoiceMsats] = useState<number | null>(null);
   // New invoice received from ship
-  const [invoiceAdded, setInvoiceAdded] = useState<boolean>(false);
+  const [confirmedInvoice, setConfirmedInvoice] = useState<Invoice | null>(null);
 
+
+  console.log('latestInvoice', latestInvoice);
+  console.log('confirmedInvoice', confirmedInvoice);
+  console.log('submittedInvoiceMsats', submittedInvoiceMsats);
 
   useEffect(() => {
-    if (invoiceSubmitted && latestInvoice) {
-      setInvoiceAdded(true)
+    if (
+      // Check that we submitted an invoice through the UI and not the dojo
+      submittedInvoiceMsats &&
+      // Don't let `confirmedInvoice` get overwritten
+      !confirmedInvoice &&
+      // Check that `latestInvoice` comming from our ship looks like the one we just submitted
+      latestInvoice && latestInvoice.amountMsats === submittedInvoiceMsats
+    ) {
+      setConfirmedInvoice(latestInvoice)
     }
   }, [latestInvoice])
 
@@ -88,7 +81,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         },
         onSuccess: () => {
           displaySuccess(Command.AddInvoice)
-          setInvoiceSubmitted(true)
+          setSubmittedInvoiceMsats(amountMsats)
         },
         onError: (e) => displayError(e),
       });
@@ -104,7 +97,20 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     { value: Network.Mainnet, label: 'Mainnet' }
   ];
 
-  return (
+
+  // Show QR display component even without a confirmed invoice to prevent user from submitting multiple invoices
+  if (submittedInvoiceMsats) {
+    return (
+      <CommandForm>
+        {latestInvoice?.payreq ? <QRCode className='col-span-2 mb-2 col-start-2 mx-auto' size={150} value={latestInvoice?.payreq} /> : null}
+        <Text text={`Amount: ${submittedInvoiceMsats} msats`}/>
+        <Text text={`Network: ${network}`}/>
+        {memo ? <Text className='col-start-2 text-center' text={`Memo: ${memo}`} /> : null}
+        <Button onClick={() => console.log('click')} label={'Done'}/>
+     </CommandForm>
+    );
+  } else {
+    return (
     <CommandForm>
       <Input
         label={'Amount (msats)'}
@@ -118,24 +124,14 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         onChange={handleChangeNetwork}
       />
       <Input
-        className='col-span-4 w-11/12'
         label={'Memo (optional)'}
         value={memo}
         onChange={handleChangeMemo}
       />
       <Button onClick={addInvoice} label={'Add Invoice'}/>
-      {/* {
-        invoiceAdded ?
-        <InvoiceDisplay
-          invoice={latestInvoice as string}
-          amountMsats={amountMsats as number}
-          memo={memo}
-          network={network}
-        />
-        : null
-      } */}
     </CommandForm>
-  );
+    );
+  }
 };
 
 export default AddInvoice;

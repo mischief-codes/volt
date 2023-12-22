@@ -9,7 +9,7 @@ interface InputProps {
 
 const Input: React.FC<InputProps> = ({ label, value, onChange, className}) => {
   return (
-    <div className={`flex flex-col mx-auto w-10/12 col-span-2 ${className}`}>
+    <div className={`flex mt-2 flex-col mx-auto w-10/12 col-start-2 col-span-2 ${className}`}>
       <span><label>{label}</label></span>
       <input
         type="text"

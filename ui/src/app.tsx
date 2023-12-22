@@ -15,7 +15,7 @@ export function App() {
       <ChannelContextProvider>
         <InvoiceContextProvider>
         <main className="bg-gray-200 h-screen">
-          <div className="flex flex-col items-center justify-start h-full mx-auto w-1/2">
+          <div className="flex flex-col h-full w-1/2">
             <div className="bg-gradient-to-r from-slate-100 to-white h-2/3 w-full">
               <Commands />
             </div>

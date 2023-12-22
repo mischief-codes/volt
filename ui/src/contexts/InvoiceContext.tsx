@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext, createContext } from 'react';
 import { ApiContext } from './ApiContext';
 import { FeedbackContext } from './FeedbackContext';
+import Invoice from '../types/Invoice';
 
 interface InvoiceContextValue {
-  latestInvoice: string | null;
+  latestInvoice: Invoice | null;
 }
 
 export const InvoiceContext = createContext<InvoiceContextValue>({
@@ -14,12 +15,13 @@ export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = (
   const api = useContext(ApiContext);
   const { displayError, displayInfo } = useContext(FeedbackContext);
 
-  const [latestInvoice, setLatestInvoice] = useState<string | null>(null);
+  const [latestInvoice, setLatestInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
-    const handleLatestInvoice = (invoice: any) => {
+    const handleLatestInvoice = (invoiceRaw: any) => {
       displayInfo("Got update from /latest-invoice");
-      setLatestInvoice(invoice.payreq)
+      console.log('invoiceRaw', invoiceRaw);
+      setLatestInvoice({ payreq: invoiceRaw.payreq, amountMsats: invoiceRaw['amount-msats'] })
     }
 
     const subscribe = () => {

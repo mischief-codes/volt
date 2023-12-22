@@ -7,7 +7,7 @@ interface CommandFormProps {
 const CommandForm: React.FC<CommandFormProps> = ({ children }) => {
   return (
     <form>
-      <div className="margin-x-auto pt-5 grid grid-cols-4 w-full">
+      <div className="margin-x-auto grid grid-cols-4 w-full">
       {children}
       </div>
     </form>

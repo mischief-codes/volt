@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import Channel from '../../types/Channel';
-import Button from '../basic/Button';
+import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
-import Dropdown from '../basic/Dropdown';
-import CommandForm from './CommandForm';
+import Dropdown from './shared/Dropdown';
+import CommandForm from './shared/CommandForm';
 
 const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<Channel> }) => {
   const { displaySuccess, displayError } = useContext(FeedbackContext);
@@ -48,21 +48,20 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
   })
 
   return (
-    <div>No open channels</div> )
-  //   <>
-  //     {openChannels.length > 0 ? (
-  //     <CommandForm>
-  //         <Dropdown
-  //           label={"Channel"}
-  //           value={channelId}
-  //           options={options}
-  //           onChange={onChangeChannelId}
-  //         />
-  //       <Button onClick={closeChannel} label={'Close Channel'}/>
-  //     </CommandForm>
-  //   ) : <div>No open channels</div>}
-  //   </>
-  // );
+    <>
+      {openChannels.length > 0 ? (
+      <CommandForm>
+          <Dropdown
+            label={"Channel"}
+            value={channelId}
+            options={options}
+            onChange={onChangeChannelId}
+          />
+        <Button onClick={closeChannel} label={'Close Channel'}/>
+      </CommandForm>
+    ) : <div className='text-center'>No open channels</div>}
+    </>
+  );
 };
 
 export default CloseChannel;
