@@ -10,7 +10,7 @@ import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
 
 const TestInvoice = ({ api }: { api: Urbit }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
   const [amountMsats, setAmountMsats] = useState<number | null>(null);
@@ -46,12 +46,11 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
     setNetwork(target.value as Network);
   };
 
-
-  const sendTestInvoice = async (e: React.FormEvent) => {
+  const sendTestInvoice = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ship || !amountMsats) return;
     try {
-      const res = await api.poke({
+      api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
@@ -61,12 +60,11 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
             network: network
           }
         },
-        onSuccess: () => displaySuccess(Command.TestInvoice),
-        onError: (e) => displayError(Command.TestInvoice, e),
+        onSuccess: () => displayCommandSuccess(Command.TestInvoice),
+        onError: (e) => displayCommandError(Command.TestInvoice, e),
       });
-      console.log(res);
     } catch (e) {
-      console.error(e);
+      displayJsError('Error sending test invoice')
     }
   };
 

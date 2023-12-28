@@ -8,7 +8,7 @@ import Input from './shared/Input';
 import CommandForm from './shared/CommandForm';
 
 const SendPayment = ({ api }: { api: Urbit }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const [payreq, setPayreq] = useState('');
   const [shipInput, setShipInput] = useState('~');
@@ -27,11 +27,11 @@ const SendPayment = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const sendPayment =  async (e: React.FormEvent) => {
+  const sendPayment =  (e: React.FormEvent) => {
     e.preventDefault();
     if (!payreq) return;
     try {
-      const res = await api.poke({
+      api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
@@ -40,12 +40,11 @@ const SendPayment = ({ api }: { api: Urbit }) => {
             who: ship
           }
         },
-        onSuccess: () => displaySuccess(Command.SendPayment),
-        onError: (e) => displayError(Command.SendPayment, e),
+        onSuccess: () => displayCommandSuccess(Command.SendPayment),
+        onError: (e) => displayCommandError(Command.SendPayment, e),
       });
-      console.log(res);
     } catch (e) {
-      console.error(e);
+      displayJsError('Error sending payment')
     }
   };
 

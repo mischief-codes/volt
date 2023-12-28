@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import AddInvoice from './AddInvoice';
 import CloseChannel from './CloseChannel';
 import CreateFunding from './CreateFunding';
@@ -45,12 +45,12 @@ const Commands: React.FC = () => {
     };
 
     return (
-      <div className='flex mt-10 flex-col items-center'>
+      <div className='flex flex-col items-center'>
         <h1 className='text-xl mb-2'>Command</h1>
         <select
           value={selectedCommand}
           onChange={handleCommandChange}
-          className="p-2 mb-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 w-4/12"
+          className="p-2 mb-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-600 w-4/12"
         >
           {commands.map((command) => (
             <option key={command.name} value={command.name}>

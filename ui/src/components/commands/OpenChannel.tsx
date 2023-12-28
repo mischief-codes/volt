@@ -10,7 +10,7 @@ import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const [channelPartnerInput, setChannelPartnerInput] = useState('~');
   const [channelPartner, setChannelPartner] = useState<string | null>(null);
@@ -62,11 +62,11 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
   };
 
 
-  const openChannel = async (e: React.FormEvent) => {
+  const openChannel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!channelPartner || !fundingSats) return;
     try {
-      const res = await api.poke({
+      api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
@@ -77,12 +77,11 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
             network: selectedOption
           }
         },
-        onSuccess: () => displaySuccess(Command.OpenChannel),
-        onError: (e) => displayError(Command.OpenChannel, e),
+        onSuccess: () => displayCommandSuccess(Command.OpenChannel),
+        onError: (e) => displayCommandError(Command.OpenChannel, e),
       });
-      console.log(res);
     } catch (e) {
-      console.error(e);
+      displayJsError('Error opening channel')
     }
   };
 

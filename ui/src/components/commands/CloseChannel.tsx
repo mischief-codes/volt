@@ -8,7 +8,7 @@ import Dropdown from './shared/Dropdown';
 import CommandForm from './shared/CommandForm';
 
 const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<Channel> }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const [channelId, setChannelId] = useState(openChannels[0]?.id || null);
 
   useEffect(() => {
@@ -22,20 +22,19 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
     setChannelId(event.target.value);
   }
 
-  const closeChannel  = async (e: React.FormEvent) => {
+  const closeChannel  = (e: React.FormEvent) => {
     e.preventDefault();
     if (!channelId) return;
     try {
-      const res = await api.poke({
+      api.poke({
         app: "volt",
         mark: "volt-command",
         json: {"close-channel": channelId },
-        onSuccess: () => displaySuccess(Command.CloseChannel),
-        onError: (e) => displayError(Command.CloseChannel, e),
+        onSuccess: () => displayCommandSuccess(Command.CloseChannel),
+        onError: (e) => displayCommandError(Command.CloseChannel, e),
       });
-      console.log(res);
     } catch (e) {
-      console.error(e);
+      displayJsError('Error closing channel')
     }
   }
 

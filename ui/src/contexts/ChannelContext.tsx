@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext} from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo} from 'react';
 import Channel from '../types/Channel';
 import { FeedbackContext } from './FeedbackContext';
 import { ApiContext } from './ApiContext';
@@ -6,6 +6,8 @@ import { ApiContext } from './ApiContext';
 // Define the shape of the context value
 interface ChannelContextValue {
   subscriptionConnected: boolean;
+  inboundCapacitySats: number;
+  outboundCapacitySats: number;
   channels: Array<Channel>;
   channelsByStatus: {
     preopening: Channel[];
@@ -23,6 +25,8 @@ interface ChannelContextValue {
 // Create the context
 export const ChannelContext = createContext<ChannelContextValue>({
   subscriptionConnected: false,
+  inboundCapacitySats: 0,
+  outboundCapacitySats: 0,
   channels: [],
   channelsByStatus: {
     preopening: [],
@@ -40,7 +44,7 @@ export const ChannelContext = createContext<ChannelContextValue>({
 // Create a provider component
 export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const api = useContext(ApiContext);
-  const { displaySuccess, displayError, displayInfo } = useContext(FeedbackContext);
+  const { displayJsInfo, displayJsSuccess, displayJsError } = useContext(FeedbackContext);
 
   const [subscriptionConnected, setSubscriptionConnected] = useState<boolean>(false);
   const [channels, setChannels] = useState<Array<Channel>>([]);
@@ -79,11 +83,10 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       invoices: Array<Object>;
     }) => {
       if (!subscriptionConnected) {
-        console.log("Subscription to /all succeeded");
-        displaySuccess("Subscription to /all succeeded");
+        displayJsSuccess("Subscription to /all succeeded");
         setSubscriptionConnected(true);
       } else {
-        displayInfo("Got update from /all");
+        displayJsInfo("Got update from /all");
       }
       setChannels(chans);
       const defaultChannelsByStatus = {
@@ -115,22 +118,31 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
             console.log('e', e);
             handleChannelUpdate(e);
           },
-          err: () => displayError("Subscription to /all rejected"),
-          quit: () => displayError("Kicked from subscription to /all"),
+          err: () => displayJsError("Subscription to /all rejected"),
+          quit: () => displayJsError("Kicked from subscription to /all"),
         });
       } catch (e) {
-        displayError("Error subscribing to /all"),
+        displayJsError("Error subscribing to /all"),
         console.error(e)
       }
     };
     subscribe()
   }, [])
 
+  const inboundCapacitySats = useMemo(() => {
+    return channelsByStatus.opening.reduce((total, channel) => total + channel.his, 0);
+  }, [channelsByStatus]);
+
+  const outboundCapacitySats = useMemo(() => {
+    return channelsByStatus.opening.reduce((total, channel) => total + channel.our, 0);
+  }, [channelsByStatus]);
 
   const value = {
     subscriptionConnected,
     channels,
     channelsByStatus,
+    inboundCapacitySats,
+    outboundCapacitySats
   };
 
   return (

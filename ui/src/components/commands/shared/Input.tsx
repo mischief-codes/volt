@@ -16,7 +16,7 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, className}) => {
         value={value}
         onChange={onChange}
         className="`mt-1 p-2 border border-gray-300 rounded-md
-        focus:outline-none focus:ring-2 focus:ring-orange-300 w-full"
+        focus:outline-none focus:ring-2 focus:ring-orange-600 w-full"
       />
     </div>
   )

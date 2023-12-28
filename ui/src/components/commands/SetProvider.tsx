@@ -8,7 +8,7 @@ import Input from './shared/Input';
 import CommandForm from './shared/CommandForm';
 
 const SetProvider = ({ api }: { api: Urbit }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const [providerShipInput, setProviderShipInput] = useState('~');
   const [providerShip, setProviderShip] = useState<string | null>(null);
@@ -22,18 +22,19 @@ const SetProvider = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const setProvider = async () => {
+  const setProvider = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!providerShip) return;
     try {
       api.poke({
         app: "volt",
         mark: "volt-command",
         json: {"set-provider": providerShip},
-        onSuccess: () => displaySuccess(Command.SetProvider),
-        onError: (e) => displayError(e),
+        onSuccess: () => displayCommandSuccess(Command.SetProvider),
+        onError: (e) => displayCommandError(Command.SetProvider, e),
       });
     } catch (e) {
-      displayError("Error setting provider")
+      displayJsError("Error setting provider")
     }
   }
 

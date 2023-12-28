@@ -11,7 +11,7 @@ import CommandForm from './shared/CommandForm';
 const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const [channelId, setChannelId] = useState(preopeningChannels[0]?.id || null);
   const [psbt, setPsbt] = useState('');
 
@@ -36,11 +36,11 @@ const CreateFunding = (
             'psbt': psbt,
           }
         },
-        onSuccess: () => displaySuccess(Command.CreateFunding),
-        onError: (e) => displayError(e),
+        onSuccess: () => displayCommandSuccess(Command.CreateFunding),
+        onError: (e) => displayCommandError(Command.CreateFunding, e),
       });
     } catch (e) {
-      console.error('error creating funding', e);
+      displayJsError('Error creating funding')
     }
   };
 

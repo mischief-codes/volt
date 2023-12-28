@@ -7,7 +7,7 @@ import Input from './shared/Input';
 import CommandForm from './shared/CommandForm';
 
 const SetUrl = ({ api }: { api: Urbit }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const [urlInput, setUrlInput] = useState('');
   const [url, setUrl] = useState<string | null>(null);
@@ -30,19 +30,19 @@ const SetUrl = ({ api }: { api: Urbit }) => {
     }
   };
 
-  const setProviderUrl = async () => {
+  const setProviderUrl = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!url) return;
     try {
-      const res = await api.poke({
+      api.poke({
         app: "volt-provider",
         mark: "volt-provider-command",
         json: {"set-url": url},
-        onSuccess: () => displaySuccess(Command.SetUrl),
-        onError: (e) => displayError(Command.SetUrl, e),
+        onSuccess: () => displayCommandSuccess(Command.SetUrl),
+        onError: (e) => displayCommandError(Command.SetUrl, e),
       });
-      console.log(res);
     } catch (e) {
-      console.error(e);
+      displayJsError("Error setting provider url")
     }
   }
 

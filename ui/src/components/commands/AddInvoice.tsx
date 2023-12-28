@@ -13,7 +13,7 @@ import CommandForm from './shared/CommandForm';
 import Invoice from '../../types/Invoice';
 
 const AddInvoice = ({ api }: { api: Urbit }) => {
-  const { displaySuccess, displayError } = useContext(FeedbackContext);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const { latestInvoice } = useContext(InvoiceContext);
 
   const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
@@ -25,11 +25,6 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
   const [submittedInvoiceMsats, setSubmittedInvoiceMsats] = useState<number | null>(null);
   // New invoice received from ship
   const [confirmedInvoice, setConfirmedInvoice] = useState<Invoice | null>(null);
-
-
-  console.log('latestInvoice', latestInvoice);
-  console.log('confirmedInvoice', confirmedInvoice);
-  console.log('submittedInvoiceMsats', submittedInvoiceMsats);
 
   useEffect(() => {
     if (
@@ -66,10 +61,10 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     setNetwork(e.target.value as Network);
   };
 
-  const addInvoice = async (e: React.FormEvent) => {
+  const addInvoice = (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await api.poke({
+      api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
@@ -80,16 +75,20 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
           }
         },
         onSuccess: () => {
-          displaySuccess(Command.AddInvoice)
+          displayCommandSuccess(Command.AddInvoice)
           setSubmittedInvoiceMsats(amountMsats)
         },
-        onError: (e) => displayError(e),
+        onError: (e) => displayCommandError(Command.AddInvoice, e),
       });
-      console.log(res);
     } catch (e) {
-      console.error(e);
+      displayJsError('Error adding invoice')
     }
   };
+
+  const onClickDone = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittedInvoiceMsats(null);
+  }
 
   const options = [
     { value: Network.Regtest, label: 'Regtest' },
@@ -106,7 +105,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         <Text text={`Amount: ${submittedInvoiceMsats} msats`}/>
         <Text text={`Network: ${network}`}/>
         {memo ? <Text className='col-start-2 text-center' text={`Memo: ${memo}`} /> : null}
-        <Button onClick={() => console.log('click')} label={'Done'}/>
+        <Button onClick={onClickDone} label={'Done'}/>
      </CommandForm>
     );
   } else {
