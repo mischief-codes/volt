@@ -13,14 +13,13 @@ export const InvoiceContext = createContext<InvoiceContextValue>({
 
 export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const api = useContext(ApiContext);
-  const { displayError, displayInfo } = useContext(FeedbackContext);
+  const { displayJsError, displayJsInfo } = useContext(FeedbackContext);
 
   const [latestInvoice, setLatestInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     const handleLatestInvoice = (invoiceRaw: any) => {
-      displayInfo("Got update from /latest-invoice");
-      console.log('invoiceRaw', invoiceRaw);
+      displayJsInfo("Got update from /latest-invoice");
       setLatestInvoice({ payreq: invoiceRaw.payreq, amountMsats: invoiceRaw['amount-msats'] })
     }
 
@@ -30,14 +29,13 @@ export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = (
           app: "volt",
           path: "/latest-invoice",
           event: (e) => {
-            console.log('e', e);
             handleLatestInvoice(e);
           },
-          err: () => displayError("Subscription to /latest-invoice rejected"),
-          quit: () => displayError("Kicked from subscription to /latest-invoice"),
+          err: () => displayJsError("Subscription to /latest-invoice rejected"),
+          quit: () => displayJsError("Kicked from subscription to /latest-invoice"),
         });
       } catch (e) {
-        displayError("Error subscribing to /latest-invoice"),
+        displayJsError("Error subscribing to /latest-invoice"),
         console.error(e)
       }
     };

@@ -66,6 +66,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     e.preventDefault();
     if (!channelPartner || !fundingSats) return;
     try {
+      console.log('!!opening channel', fundingSats);
       api.poke({
         app: "volt",
         mark: "volt-command",

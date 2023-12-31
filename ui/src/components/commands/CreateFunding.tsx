@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import Urbit from '@urbit/http-api';
 import Channel from '../../types/Channel';
 import Button from './shared/Button';
@@ -12,11 +12,28 @@ const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
-  const [channelId, setChannelId] = useState(preopeningChannels[0]?.id || null);
+  const [channel, setChannel] = useState(preopeningChannels[0] || null);
+  const [fundingAddress, setFundingAddress] = useState('bcrt1qnp2m0aycurk9gty58d48pv3gpcmap0gwz8h6nvafl9syqut6t7dssy3tep');
   const [psbt, setPsbt] = useState('');
 
+  const channelValueBtc: null | number = useMemo(() => {
+    if (!channel) return null;
+    return Math.floor(channel.our) * 0.00000001
+  }, [channel]);
+
+  const psbtCommand: null | string = useMemo(() => {
+    if (!fundingAddress || !channelValueBtc) return (null);
+    return `bitcoin-cli walletprocesspsbt $(bitcoin-cli walletcreatefundedpsbt "[]" `
+      + `"[{\\"${fundingAddress}\\":${channelValueBtc}}]" `
+      + `| grep -o '"psbt": "[^"]*' | cut -d'"' -f4) | grep -o '"psbt": "[^"]*' | cut -d'"' -f4`;
+  }, [fundingAddress, channelValueBtc]);
+
+  console.log('channelValueBtc', channelValueBtc);
+  console.log('psbtCommand', psbtCommand);
+
+
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setChannelId(event.target.value);
+    setChannel(preopeningChannels.find(channel => channel.id === event.target.value) as Channel);
   };
 
   const onChangePsbt = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,14 +42,15 @@ const CreateFunding = (
 
   const createFunding = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!channelId || !psbt) return;
+    if (!channel || !psbt) return;
+    console.log('createFunding', channel.id, psbt)
     try {
       api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
           'create-funding': {
-            'temporary-channel-id': channelId,
+            'temporary-channel-id': channel.id,
             'psbt': psbt,
           }
         },
@@ -54,11 +72,11 @@ const CreateFunding = (
 
   return (
     <>
-      {preopeningChannels.length > 1 ? (
+      {preopeningChannels.length > 0 ? (
         <CommandForm>
         <Dropdown
           label={"Channel"}
-          value={channelId}
+          value={channel.id}
           options={options}
           onChange={onChangeSelectedChannel}
         />

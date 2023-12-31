@@ -70,7 +70,11 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     redeemed: [],
   });
 
-
+  useEffect(() => {
+    if (subscriptionConnected) {
+      displayJsSuccess("Subscription to /all succeeded");
+    }
+  }, [subscriptionConnected]);
 
   useEffect(() => {
     const handleChannelUpdate = ({
@@ -82,8 +86,8 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       txs: Array<Object>;
       invoices: Array<Object>;
     }) => {
+      console.log('!!channel context', chans);
       if (!subscriptionConnected) {
-        displayJsSuccess("Subscription to /all succeeded");
         setSubscriptionConnected(true);
       } else {
         displayJsInfo("Got update from /all");
