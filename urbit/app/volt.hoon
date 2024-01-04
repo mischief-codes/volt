@@ -261,9 +261,15 @@
       %+  turn  ~(tap by live.chan)
       |=  [=id:bolt c=chan:bolt]
       ::  confirm LI/FI
-      =+  our-com=(rear our.commitments.c)
-      =+  her-com=(rear her.commitments.c)
-      [id ship.her.config.c balance.our.our-com balance.her.her-com state.c]
+      :: NOTE:
+      :: it seems like this runs into problems when the channel doesn't have commitments
+      :: which seems to be the case after handle-funding-created runs
+      :: which I think is expected after
+      :: =+  our-com=(rear our.commitments.c)
+      :: =+  her-com=(rear her.commitments.c)
+
+      [id ship.her.config.c 0 0 state.c]
+      :: [id ship.her.config.c balance.our.our-com balance.her.her-com state.c]
     =/  payment-requests=(list payment-request)
       %+  turn  ~(tap by incoming.payments)
       |=  [=hexb:bc =payment-request]
@@ -408,10 +414,10 @@
       ~&  >>>  "%volt: no channel with id: {<temporary-channel-id>}"
       `state
     ?~  oc.u.c
-      ~&  >>>  "%volt: invalid channel state: {<temporary-channel-id>}"
+      ~&  >>>  "%volt: open channel message missing for channel with id: {<temporary-channel-id>}"
       `state
     ?~  ac.u.c
-      ~&  >>>  "%volt: invalid channel state: {<temporary-channel-id>}"
+      ~&  >>>  "%volt: accept channel message missing for channel with id: {<temporary-channel-id>}"
       `state
     ~|  %invalid-funding-tx
     =/  funding-tx=(unit psbt:^psbt)
@@ -665,8 +671,6 @@
       ==
     ::  own provider: poke provider agent
     ::
-    ~&  'own-provider'
-    ~&  own-provider
     ?:  own-provider
       ~[(provider-action [%add-hold-invoice amount-msats memo hash ~])]
     ::  external provider: poke provider for hold invoice
@@ -2576,7 +2580,6 @@
 ::
 ++  give-update-invoice
   |=  =update
-  ~&  'update'  ~&  update
   ^-  card
   [%give %fact ~[/latest-invoice] %volt-update !>(update)]
 ::

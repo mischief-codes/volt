@@ -86,6 +86,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       txs: Array<Object>;
       invoices: Array<Object>;
     }) => {
+      if (!chans) return;
       console.log('!!channel context', chans);
       if (!subscriptionConnected) {
         setSubscriptionConnected(true);

@@ -4,7 +4,7 @@ import { ApiContext } from './ApiContext';
 
 
 interface VoltProviderContextValue {
-  providerIsConnected: boolean;
+  providerIsConnected: boolean | null;
 }
 
 export const VoltProviderContext = createContext<VoltProviderContextValue | undefined>(undefined);
@@ -48,7 +48,7 @@ export const VoltProviderContextProvider: React.FC<{ children: React.ReactNode }
         console.error(e)
       }
     }
-    subscribeProvider()
+    // subscribeProvider()
   }, [])
 
   const value = {

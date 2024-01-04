@@ -36,10 +36,36 @@
 ++  enjs
   =,  enjs:format
   |%
+  ++  provider
+    |%
+    ++  status
+      |=  s=status:provider:volt
+      ^-  json
+      (frond 'connected' b+=(s %connected))
+    ++  update
+      |=  upd=update:provider:volt
+      ^-  json
+      ?-  -.upd
+        %res
+          ?+  +<.upd  !!
+            %node-info
+          (frond 'node-info' ~)
+          ==
+        %err
+          ?-  +<.upd
+            %rpc-error
+          (frond 'error' s+'rpc-error')
+            %not-connected
+          (frond 'error' s+'not-connected')
+            %bad-request
+          (frond 'error' s+'not-connected')
+          ==
+      ==
+  --
   ++  update
     |=  upd=update:volt
     ^-  json
-    ?+    -.upd  !!
+    ?+    -.upd  (frond 'update' s+'unimplemented')
         %new-invoice
       (payment-request payment-request.upd)
       ::
