@@ -1,13 +1,14 @@
 import React, { createContext, useState, useEffect, useContext, useMemo} from 'react';
-import Channel from '../types/Channel';
+import Channel, { ChannelJson } from '../types/Channel';
 import { FeedbackContext } from './FeedbackContext';
 import { ApiContext } from './ApiContext';
+import BitcoinAmount from '../types/BitcoinAmount';
 
 // Define the shape of the context value
 interface ChannelContextValue {
   subscriptionConnected: boolean;
-  inboundCapacitySats: number;
-  outboundCapacitySats: number;
+  inboundCapacity: BitcoinAmount;
+  outboundCapacity: BitcoinAmount;
   channels: Array<Channel>;
   channelsByStatus: {
     preopening: Channel[];
@@ -25,8 +26,8 @@ interface ChannelContextValue {
 // Create the context
 export const ChannelContext = createContext<ChannelContextValue>({
   subscriptionConnected: false,
-  inboundCapacitySats: 0,
-  outboundCapacitySats: 0,
+  inboundCapacity: new BitcoinAmount(0),
+  outboundCapacity: new BitcoinAmount(0),
   channels: [],
   channelsByStatus: {
     preopening: [],
@@ -78,30 +79,38 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     const handleChannelUpdate = ({
-      chans,
+      chans: jsonChans,
       txs,
       invoices
     }: {
-      chans: Array<Channel>;
+      chans: Array<ChannelJson>;
       txs: Array<Object>;
       invoices: Array<Object>;
     }) => {
-      if (!chans) return;
-      console.log('!!channel context', chans);
+      if (!jsonChans) return;
       if (!subscriptionConnected) {
         setSubscriptionConnected(true);
       } else {
         displayJsInfo("Got update from /all");
       }
-      setChannels(chans);
+
+      const channels: Array<Channel> = jsonChans.map((chan) => {
+        return { ...chan, his: new BitcoinAmount(chan.his), our: new BitcoinAmount(chan.our) }
+      });
+
+      setChannels(channels);
       const defaultChannelsByStatus = {
-        preopening: [] as Channel[], opening: [] as Channel[],
-        funded: [] as Channel[], open: [] as Channel[],
-        shutdown: [] as Channel[], closing: [] as Channel[],
-        "force-closing": [] as Channel[], closed: [] as Channel[],
+        preopening: [] as Channel[],
+        opening: [] as Channel[],
+        funded: [] as Channel[],
+        open: [] as Channel[],
+        shutdown: [] as Channel[],
+        closing: [] as Channel[],
+        "force-closing": [] as Channel[],
+        closed: [] as Channel[],
         redeemed: [] as Channel[],
       };
-      const channelsByStatus = chans.reduce(
+      const channelsByStatus = channels.reduce(
         (acc, channel) => {
           const status = channel.status;
           if (acc[status]) acc[status].push(channel);
@@ -134,20 +143,24 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     subscribe()
   }, [])
 
-  const inboundCapacitySats = useMemo(() => {
-    return channelsByStatus.opening.reduce((total, channel) => total + channel.his, 0);
+  const inboundCapacity = useMemo(() => {
+    return channelsByStatus.opening.reduce(
+      (total, channel) => total.add(channel.his), new BitcoinAmount(0)
+    );
   }, [channelsByStatus]);
 
-  const outboundCapacitySats = useMemo(() => {
-    return channelsByStatus.opening.reduce((total, channel) => total + channel.our, 0);
+  const outboundCapacity = useMemo(() => {
+    return channelsByStatus.opening.reduce(
+      (total, channel) => total.add(channel.his), new BitcoinAmount(0)
+    );
   }, [channelsByStatus]);
 
   const value = {
     subscriptionConnected,
     channels,
     channelsByStatus,
-    inboundCapacitySats,
-    outboundCapacitySats
+    inboundCapacity,
+    outboundCapacity
   };
 
   return (

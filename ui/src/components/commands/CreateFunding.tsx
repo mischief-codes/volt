@@ -16,21 +16,12 @@ const CreateFunding = (
   const [fundingAddress, setFundingAddress] = useState('bcrt1qnp2m0aycurk9gty58d48pv3gpcmap0gwz8h6nvafl9syqut6t7dssy3tep');
   const [psbt, setPsbt] = useState('');
 
-  const channelValueBtc: null | number = useMemo(() => {
-    if (!channel) return null;
-    return Math.floor(channel.our) * 0.00000001
-  }, [channel]);
-
   const psbtCommand: null | string = useMemo(() => {
-    if (!fundingAddress || !channelValueBtc) return (null);
+    if (!fundingAddress || !channel) return (null);
     return `bitcoin-cli walletprocesspsbt $(bitcoin-cli walletcreatefundedpsbt "[]" `
-      + `"[{\\"${fundingAddress}\\":${channelValueBtc}}]" `
+      + `"[{\\"${fundingAddress}\\":${channel.our.asBtc()}}]" `
       + `| grep -o '"psbt": "[^"]*' | cut -d'"' -f4) | grep -o '"psbt": "[^"]*' | cut -d'"' -f4`;
-  }, [fundingAddress, channelValueBtc]);
-
-  console.log('channelValueBtc', channelValueBtc);
-  console.log('psbtCommand', psbtCommand);
-
+  }, [fundingAddress, channel]);
 
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setChannel(preopeningChannels.find(channel => channel.id === event.target.value) as Channel);

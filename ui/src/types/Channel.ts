@@ -1,5 +1,8 @@
+import BitcoinAmount from "./BitcoinAmount";
+
 export type ChannelId = string;
 export type Satoshis = number;
+export type Millisatoshis = number;
 export type Ship = string;
 
 export enum ChannelStatus {
@@ -14,12 +17,20 @@ export enum ChannelStatus {
   Redeemed = 'redeemed',
 }
 
+export interface ChannelJson {
+  id: ChannelId;
+  status: ChannelStatus;
+  who: Ship;
+  our: number;
+  his: number;
+}
+
 type Channel = {
   id: ChannelId;
   status: ChannelStatus;
   who: Ship;
-  our: Satoshis;
-  his: Satoshis;
+  our: BitcoinAmount;
+  his: BitcoinAmount;
 };
 
 export default Channel;

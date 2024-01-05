@@ -1,5 +1,7 @@
+import BitcoinAmount from "./BitcoinAmount";
+
 type Invoice = {
-  amountMsats: number;
+  amount: BitcoinAmount;
   payreq: string;
 }
 

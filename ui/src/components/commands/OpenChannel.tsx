@@ -8,6 +8,7 @@ import Input from './shared/Input';
 import Dropdown from './shared/Dropdown';
 import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
+import BitcoinAmount from '../../types/BitcoinAmount';
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
@@ -17,7 +18,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
   const [fundingSatsInput, setFundingSatsInput] = useState<string>('');
   const [fundingSats, setFundingSats] = useState<number | null>(null);
   const [pushMsatsInput, setPushMsatsInput] = useState('0');
-  const [pushMsats, setPushMsats] = useState<number>(0);
+  const [pushAmount, setPushAmount] = useState(new BitcoinAmount(0));
   const [selectedOption, setSelectedOption] = useState(Network.Regtest);
 
   const onChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,10 +51,10 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) >= 0;
     if (isEmptyString) {
       setPushMsatsInput('');
-      setPushMsats(0);
+      setPushAmount(new BitcoinAmount(0));
     } else if (isPositiveInteger) {
       setPushMsatsInput(input);
-      setPushMsats(parseInt(input));
+      setPushAmount(new BitcoinAmount(parseInt(input)));
     }
   };
 
@@ -74,7 +75,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
           "open-channel": {
             who: channelPartner,
             'funding-sats': fundingSats,
-            'push-msats': pushMsats,
+            'push-msats': pushAmount.millisatoshis,
             network: selectedOption
           }
         },

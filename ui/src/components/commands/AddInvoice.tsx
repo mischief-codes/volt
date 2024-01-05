@@ -11,29 +11,30 @@ import QRCode from 'react-qr-code'
 import { InvoiceContext } from '../../contexts/InvoiceContext';
 import CommandForm from './shared/CommandForm';
 import Invoice from '../../types/Invoice';
+import BitcoinAmount from '../../types/BitcoinAmount';
 
 const AddInvoice = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const { latestInvoice } = useContext(InvoiceContext);
 
   const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
-  const [amountMsats, setAmountMsats] = useState<number | null>(null);
+  const [amount, setAmount] = useState<BitcoinAmount | null>(null);
   const [memo, setMemo] = useState('');
   const [network, setNetwork] = useState(Network.Regtest);
   // Recorded when user presses the submit button
   // Used to check if `latestInvoice` comming from our ship is probably the one we just submitted
-  const [submittedInvoiceMsats, setSubmittedInvoiceMsats] = useState<number | null>(null);
+  const [submittedInvoiceAmount, setSubmittedInvoiceAmount] = useState<BitcoinAmount | null>(null);
   // New invoice received from ship
   const [confirmedInvoice, setConfirmedInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     if (
       // Check that we submitted an invoice through the UI and not the dojo
-      submittedInvoiceMsats &&
+      submittedInvoiceAmount &&
       // Don't let `confirmedInvoice` get overwritten
       !confirmedInvoice &&
       // Check that `latestInvoice` comming from our ship looks like the one we just submitted
-      latestInvoice && latestInvoice.amountMsats === submittedInvoiceMsats
+      latestInvoice && latestInvoice.amount.eq(submittedInvoiceAmount)
     ) {
       setConfirmedInvoice(latestInvoice)
     }
@@ -46,10 +47,10 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
     if (isEmptyString) {
       setAmountMsatsInput(input);
-      setAmountMsats(null);
+      setAmount(null);
     } else if (isPositiveInteger) {
       setAmountMsatsInput(input);
-      setAmountMsats(parseInt(input));
+      setAmount(new BitcoinAmount(parseInt(input)));
     }
   };
 
@@ -63,20 +64,21 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
 
   const addInvoice = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!amount) return;
     try {
       api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
           'add-invoice': {
-            'amount': amountMsats,
+            'amount': (amount as BitcoinAmount).millisatoshis,
             memo: memo,
             network: network
           }
         },
         onSuccess: () => {
           displayCommandSuccess(Command.AddInvoice)
-          setSubmittedInvoiceMsats(amountMsats)
+          setSubmittedInvoiceAmount(amount)
         },
         onError: (e) => displayCommandError(Command.AddInvoice, e),
       });
@@ -87,7 +89,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
 
   const onClickDone = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmittedInvoiceMsats(null);
+    setSubmittedInvoiceAmount(null);
   }
 
   const options = [
@@ -98,11 +100,11 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
 
 
   // Show QR display component even without a confirmed invoice to prevent user from submitting multiple invoices
-  if (submittedInvoiceMsats) {
+  if (submittedInvoiceAmount) {
     return (
       <CommandForm>
         {latestInvoice?.payreq ? <QRCode className='col-span-2 mb-2 col-start-2 mx-auto' size={150} value={latestInvoice?.payreq} /> : null}
-        <Text text={`Amount: ${submittedInvoiceMsats} msats`}/>
+        <Text text={`Amount: ${submittedInvoiceAmount.displayAsMsats()}`}/>
         <Text text={`Network: ${network}`}/>
         {memo ? <Text className='col-start-2 text-center' text={`Memo: ${memo}`} /> : null}
         <Button onClick={onClickDone} label={'Done'}/>

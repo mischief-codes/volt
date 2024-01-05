@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, createContext } from 'react';
 import { ApiContext } from './ApiContext';
 import { FeedbackContext } from './FeedbackContext';
 import Invoice from '../types/Invoice';
+import BitcoinAmount from '../types/BitcoinAmount';
 
 interface InvoiceContextValue {
   latestInvoice: Invoice | null;
@@ -20,7 +21,11 @@ export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     const handleLatestInvoice = (invoiceRaw: any) => {
       displayJsInfo("Got update from /latest-invoice");
-      setLatestInvoice({ payreq: invoiceRaw.payreq, amountMsats: invoiceRaw['amount-msats'] })
+      setLatestInvoice(
+        { payreq: invoiceRaw.payreq,
+          amount: new BitcoinAmount(invoiceRaw['amount-msats'])
+        }
+      )
     }
 
     const subscribe = () => {
