@@ -21,9 +21,11 @@ export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     const handleLatestInvoice = (invoiceRaw: any) => {
       displayJsInfo("Got update from /latest-invoice");
+      const payreq = invoiceRaw['payment-request'].payreq;
+      console.log('payreq', invoiceRaw, invoiceRaw['payment-request'], invoiceRaw['payment-request'].payreq);
       setLatestInvoice(
-        { payreq: invoiceRaw.payreq,
-          amount: new BitcoinAmount(invoiceRaw['amount-msats'])
+        { payreq,
+          amount: new BitcoinAmount(invoiceRaw['payment-request']['amount-msats'])
         }
       )
     }
