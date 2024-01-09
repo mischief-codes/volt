@@ -107,7 +107,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         <Text text={`Amount: ${submittedInvoiceAmount.displayAsMsats()}`}/>
         <Text text={`Network: ${network}`}/>
         {memo ? <Text className='col-start-2 text-center' text={`Memo: ${memo}`} /> : null}
-        <Button onClick={onClickDone} label={'Done'}/>
+        <Button onClick={onClickDone} text={'Done'}/>
      </CommandForm>
     );
   } else {

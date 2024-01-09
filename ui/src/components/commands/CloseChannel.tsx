@@ -39,7 +39,7 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
   }
 
   const getChannelLabel = (channel: Channel) => {
-    return `${channel.who}, ${channel.our} sats, id=${channel.id.slice(0, 6)}...`
+    return `${channel.who}, ${channel.our.displayAsSats()}, id=${channel.id.slice(0, 12)}...`
   }
 
   const options = openChannels.map((channel) => {

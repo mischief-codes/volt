@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useMemo } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import Urbit from '@urbit/http-api';
 import Channel from '../../types/Channel';
 import Button from './shared/Button';
@@ -7,21 +7,21 @@ import Command from '../../types/Command';
 import Input from './shared/Input';
 import Dropdown from './shared/Dropdown';
 import CommandForm from './shared/CommandForm';
+import CopyButton from './shared/CopyButton';
 
 const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const [channel, setChannel] = useState(preopeningChannels[0] || null);
-  const [fundingAddress, setFundingAddress] = useState('bcrt1qnp2m0aycurk9gty58d48pv3gpcmap0gwz8h6nvafl9syqut6t7dssy3tep');
   const [psbt, setPsbt] = useState('');
 
   const psbtCommand: null | string = useMemo(() => {
-    if (!fundingAddress || !channel) return (null);
+    if (!channel?.fundingAddress) return (null);
     return `bitcoin-cli walletprocesspsbt $(bitcoin-cli walletcreatefundedpsbt "[]" `
-      + `"[{\\"${fundingAddress}\\":${channel.our.asBtc()}}]" `
+      + `"[{\\"${channel.fundingAddress as string}\\":${channel.our.asBtc()}}]" `
       + `| grep -o '"psbt": "[^"]*' | cut -d'"' -f4) | grep -o '"psbt": "[^"]*' | cut -d'"' -f4`;
-  }, [fundingAddress, channel]);
+  }, [channel]);
 
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setChannel(preopeningChannels.find(channel => channel.id === event.target.value) as Channel);
@@ -30,6 +30,12 @@ const CreateFunding = (
   const onChangePsbt = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPsbt(event.target.value);
   };
+
+  const handleCreateFundingSuccess = () => {
+    displayCommandSuccess(Command.CreateFunding);
+    console.log('removing channel', channel.id);
+    // setPsbt('');
+  }
 
   const createFunding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +60,7 @@ const CreateFunding = (
   };
 
   const getChannelLabel = (channel: Channel) => {
-    return `${channel.who}, ${channel.our} sats, id=${channel.id.slice(0, 6)}...`
+    return `~${channel.who}, ${channel.our.displayAsSats()}, id=${channel.id.slice(0, 12)}...`
   }
 
   const options = preopeningChannels.map((channel) => {
@@ -71,6 +77,7 @@ const CreateFunding = (
           options={options}
           onChange={onChangeSelectedChannel}
         />
+        <CopyButton label={'Script to get PSBT'} buttonText='Copy script' copyText={psbtCommand}/>
         <Input label={"PSBT"} value={psbt} onChange={onChangePsbt} />
         <Button onClick={createFunding} label='Create Funding'/>
         </CommandForm>

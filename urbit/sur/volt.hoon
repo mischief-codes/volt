@@ -302,8 +302,9 @@
 +$  chan-info
   $:  =id:bolt
       who=ship
-      our=sats:bc
-      his=sats:bc
+      our=msats
+      his=msats
+      funding-address=(unit address:bc)
       status=chan-state:bolt
   ==
 +$  pay-info
@@ -322,6 +323,12 @@
       [%new-invoice =payment-request]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
-      [%initial-state chans=(list chan-info) txs=(list pay-info) invoices=(list payment-request)]
+      [%new-channel =chan-info]
+      [%channel-deleted id=@]
+      $:  %initial-state
+        chans=(list chan-info)
+        txs=(list pay-info)
+        invoices=(list payment-request)
+      ==
   ==
 --

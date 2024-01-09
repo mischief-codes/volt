@@ -1,7 +1,8 @@
+const MSAT_PER_SAT = 1000;
+const SAT_PER_BTC = 100000000;
+const MSAT_PER_BTC = MSAT_PER_SAT * SAT_PER_BTC;
+
 export default class BitcoinAmount {
-  static zero(): any {
-    throw new Error('Method not implemented.');
-  }
   readonly millisatoshis: number;
 
   constructor(millisatoshis: number) {
@@ -29,25 +30,29 @@ export default class BitcoinAmount {
     return this.millisatoshis === other.millisatoshis;
   }
 
+  gt(other: BitcoinAmount): boolean {
+    return this.millisatoshis > other.millisatoshis;
+  }
+
   asBtc(): number {
-    return this.millisatoshis / 100000000;
+    return this.millisatoshis / MSAT_PER_BTC;
   }
 
   asSats(): number {
-    return this.millisatoshis / 1000;
+    return this.millisatoshis / MSAT_PER_SAT;
   }
 
   displayAsMsats(): string {
-    return `${this.millisatoshis} msats`;
+    return `${this.millisatoshis} msat.`;
   }
 
   displayAsSats(): string {
-    const satoshis = this.millisatoshis / 1000;
-    return `${satoshis} satoshis`;
+    const satoshis = this.millisatoshis / MSAT_PER_SAT;
+    return `${satoshis} sat.`;
   }
 
   displayAsBtc(): string {
-    const btc = this.millisatoshis / 100000000;
+    const btc = this.millisatoshis / MSAT_PER_BTC;
     return `${btc} BTC`;
   }
 }

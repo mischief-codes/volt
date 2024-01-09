@@ -6,11 +6,16 @@ const ChannelDisplay: React.FC = () => {
   const { channelsByStatus, channels } = useContext(ChannelContext);
 
   const sortChannels = (a: Channel, b: Channel) => {
-    const channelLiquidityDiff = (b.our + b.his) - (a.our + a.his);
-    if (channelLiquidityDiff !== 0) {
-      return channelLiquidityDiff;
-    } else {
+    const aLiquidity = a.our.add(a.his);
+    const bLiquidity = b.our.add(b.his);
+    if (aLiquidity.gt(bLiquidity)) {
+      return -1;
+    } else if (bLiquidity.gt(aLiquidity)) {
+      return 1;
+    } else if (a.who !== b.who) {
       return a.who.localeCompare(b.who);
+    } else {
+      return a.status.localeCompare(b.status);
     }
   }
 
@@ -50,8 +55,8 @@ const ChannelDisplay: React.FC = () => {
             {openChannels.map((channel) => (
               <tr key={channel.id}>
                 <td className={rowClassnames}>~{channel.who}</td>
-                <td className={rowClassnames}>{channel.our} sat.</td>
-                <td className={rowClassnames}>{channel.his} sat.</td>
+                <td className={rowClassnames}>{channel.our.displayAsSats()}</td>
+                <td className={rowClassnames}>{channel.his.displayAsSats()}</td>
                 <td className={rowClassnames}>{channel.status.toUpperCase()}</td>
 
               </tr>
@@ -59,8 +64,8 @@ const ChannelDisplay: React.FC = () => {
             {notOpenChannels.map((channel) => (
               <tr key={channel.id}>
                 <td className={closedRowClassnames}>~{channel.who}</td>
-                <td className={closedRowClassnames}>{channel.our} sat.</td>
-                <td className={closedRowClassnames}>{channel.his} sat.</td>
+                <td className={closedRowClassnames}>{channel.our.displayAsSats()}</td>
+                <td className={closedRowClassnames}>{channel.his.displayAsSats()}</td>
                 <td className={closedRowClassnames}>{channel.status.toUpperCase()}</td>
               </tr>
             ))}

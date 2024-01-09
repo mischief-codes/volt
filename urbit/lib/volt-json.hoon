@@ -65,13 +65,32 @@
   ++  update
     |=  upd=update:volt
     ^-  json
-    ?+    -.upd  (frond 'update' s+'unimplemented')
+    ?+    -.upd  (frond 'type' s+'unimplemented')
+        %channel-state
+      %-  pairs
+      :~  ['type' s+'channel-state']
+      ['id' s+`@t`(scot %ud chan-id.upd)]
+      ['status' s+chan-state.upd]
+      ==
         %new-invoice
-      (payment-request payment-request.upd)
-      ::
+      %-  pairs
+      :~  ['type' s+'new-invoice']
+      ['payment-request' (payment-request payment-request.upd)]
+      ==
+        %new-channel
+      %-  pairs
+      :~  ['type' s+'new-channel']
+      ['chan-info' (chan-info chan-info.upd)]
+      ==
+        %channel-deleted
+      %-  pairs
+      :~  ['type' s+'channel-deleted']
+      ['id' s+`@t`(scot %ud id.upd)]
+      ==
         %initial-state
       %-  pairs
-      :~  ['chans' a+(turn chans.upd chan-info)]
+      :~  ['type' s+'initial-state']
+      ['chans' a+(turn chans.upd chan-info)]
       ['txs' a+(turn txs.upd pay-info)]
       ['invoices' a+(turn invoices.upd payment-request)]
       ==
@@ -85,14 +104,26 @@
     ['who' (ship who.info)]
     ['our' (numb our.info)]
     ['his' (numb his.info)]
+    ['funding-address' (funding-address funding-address.info)]
     ['status' s+status.info]
     ==
   ::
+  ++  funding-address
+    |=  f=(unit address:bitcoin)
+    ^-  json
+    ?~  f  ~
+    ?-   +<.f
+      %base58
+    !!
+      %bech32
+    s++>.f
+    ==
   ++  payment-request
     |=  payment-request=payment-request:volt
     ^-  json
     %-  pairs
-    :~  :: ['payee' (ship payee.payment-request)]
+    :~
+    :: ['payee' (ship payee.payment-request)]
     ['amount-msats' (numb amount-msats.payment-request)]
     :: ['payment-hash' (hexb payment-hash.payment-request)]
     :: ['preimage' (hexb (need preimage.payment-request))]

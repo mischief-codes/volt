@@ -1,8 +1,9 @@
 import React, { createContext, useState, useEffect, useContext, useMemo} from 'react';
-import Channel, { ChannelJson } from '../types/Channel';
+import Channel, { ChannelStatus } from '../types/Channel';
 import { FeedbackContext } from './FeedbackContext';
 import { ApiContext } from './ApiContext';
 import BitcoinAmount from '../types/BitcoinAmount';
+import { ChannelDeletedUpdate, ChannelStateUpdate, InitialStateUpdate, NewChannelUpdate, Update, UpdateType } from '../types/Update';
 
 // Define the shape of the context value
 interface ChannelContextValue {
@@ -49,27 +50,29 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   const [subscriptionConnected, setSubscriptionConnected] = useState<boolean>(false);
   const [channels, setChannels] = useState<Array<Channel>>([]);
-  const [channelsByStatus, setChannelsByStatus] = useState<{
-    preopening: Channel[];
-    opening: Channel[];
-    funded: Channel[];
-    open: Channel[];
-    shutdown: Channel[];
-    closing: Channel[];
-    "force-closing": Channel[];
-    closed: Channel[];
-    redeemed: Channel[];
-  }>({
-    preopening: [],
-    opening: [],
-    funded: [],
-    open: [],
-    shutdown: [],
-    closing: [],
-    "force-closing": [],
-    closed: [],
-    redeemed: [],
-  });
+
+  const channelsByStatus = useMemo(() => {
+    return channels.reduce(
+      (acc: { [key in ChannelStatus]: Channel[] }, channel) => {
+        const status = channel.status;
+        acc[status].push(channel);
+        return acc;
+      },
+      {
+        preopening: [],
+        opening: [],
+        funded: [],
+        open: [],
+        shutdown: [],
+        closing: [],
+        "force-closing": [],
+        closed: [],
+        redeemed: [],
+      } as { [key in ChannelStatus]: Channel[] }
+    );
+  }, [channels]);
+
+  console.log('channelsByStatus', channelsByStatus);
 
   useEffect(() => {
     if (subscriptionConnected) {
@@ -78,49 +81,79 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
   }, [subscriptionConnected]);
 
   useEffect(() => {
-    const handleChannelUpdate = ({
-      chans: jsonChans,
-      txs,
-      invoices
-    }: {
-      chans: Array<ChannelJson>;
-      txs: Array<Object>;
-      invoices: Array<Object>;
-    }) => {
-      if (!jsonChans) return;
+    const handleAllUpdate = (update: Update) => {
+      console.log('Got update from /all', update);
       if (!subscriptionConnected) {
         setSubscriptionConnected(true);
       } else {
         displayJsInfo("Got update from /all");
       }
 
-      const channels: Array<Channel> = jsonChans.map((chan) => {
-        return { ...chan, his: new BitcoinAmount(chan.his), our: new BitcoinAmount(chan.our) }
-      });
+      if (update.type === UpdateType.InitialState) {
+        console.log('Got initial state update from /all', update);
+        handleInitialState(update as InitialStateUpdate);
+      } else if (update.type === UpdateType.ChannelState) {
+        console.log('Got channel state update from /all', update);
+        handleChannelUpdate(update as ChannelStateUpdate);
+      } else if (update.type === UpdateType.NewChannel) {
+        console.log('Got new channel update from /all', update);
+        handleNewChannel(update as NewChannelUpdate);
+      } else if (update.type === UpdateType.ChannelDeleted) {
+        console.log('Got channel deleted update from /all', update);
+        handleChannelDeleted(update as ChannelDeletedUpdate);
+      } else {
+        console.log('Unimplemented update type', update);
+      }
+    }
 
+    const handleChannelUpdate = (update: ChannelStateUpdate) => {
+      const { id, status } = update;
+      if (!id || !status) return;
+      return setChannels((channels) => {
+        const channel = channels.find((channel) => channel.id === id);
+        if (!channel) {
+          console.error('Channel not found in update from /all', update);
+          return channels;
+        }
+        channel.status = status;
+        return [...channels];
+      })
+    }
+
+    const handleNewChannel = (update: NewChannelUpdate) => {
+      const { 'chan-info': jsonChan } = update;
+      setChannels((channels) => {
+        if (channels.find((channel) => channel.id === jsonChan.id)) return channels;
+        const channel = {
+          ...jsonChan,
+          his: new BitcoinAmount(jsonChan.his),
+          our: new BitcoinAmount(jsonChan.our),
+          fundingAddress: jsonChan['funding-address'],
+        };
+        return [...channels, channel];
+      });
+    }
+
+    const handleChannelDeleted = (update: ChannelDeletedUpdate) => {
+      const { id } = update;
+      setChannels((channels) => {
+        const channel = channels.find((channel) => channel.id === id);
+        if (!channel) return channels;
+        return channels.filter((channel) => channel.id !== id);
+      })
+    }
+
+    const handleInitialState = (update: InitialStateUpdate) => {
+      const { chans: jsonChans } = update;
+      const channels: Array<Channel> = jsonChans.map((chan) => {
+        return {
+          ...chan,
+          his: new BitcoinAmount(chan.his),
+          our: new BitcoinAmount(chan.our),
+          fundingAddress: chan['funding-address']
+        }
+      });
       setChannels(channels);
-      const defaultChannelsByStatus = {
-        preopening: [] as Channel[],
-        opening: [] as Channel[],
-        funded: [] as Channel[],
-        open: [] as Channel[],
-        shutdown: [] as Channel[],
-        closing: [] as Channel[],
-        "force-closing": [] as Channel[],
-        closed: [] as Channel[],
-        redeemed: [] as Channel[],
-      };
-      const channelsByStatus = channels.reduce(
-        (acc, channel) => {
-          const status = channel.status;
-          if (acc[status]) acc[status].push(channel);
-          else acc[status] = [channel];
-          return acc;
-        },
-        { ...defaultChannelsByStatus }
-      );
-      console.log('channelsByStatus', channelsByStatus)
-      setChannelsByStatus(channelsByStatus);
     };
 
     const subscribe = () => {
@@ -129,8 +162,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
           app: "volt",
           path: "/all",
           event: (e) => {
-            console.log('e', e);
-            handleChannelUpdate(e);
+            handleAllUpdate(e);
           },
           err: () => displayJsError("Subscription to /all rejected"),
           quit: () => displayJsError("Kicked from subscription to /all"),
@@ -144,13 +176,13 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
   }, [])
 
   const inboundCapacity = useMemo(() => {
-    return channelsByStatus.opening.reduce(
+    return channelsByStatus.opening?.reduce(
       (total, channel) => total.add(channel.his), new BitcoinAmount(0)
     );
   }, [channelsByStatus]);
 
   const outboundCapacity = useMemo(() => {
-    return channelsByStatus.opening.reduce(
+    return channelsByStatus.opening?.reduce(
       (total, channel) => total.add(channel.his), new BitcoinAmount(0)
     );
   }, [channelsByStatus]);

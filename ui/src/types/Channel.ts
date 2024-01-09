@@ -19,18 +19,20 @@ export enum ChannelStatus {
 
 export interface ChannelJson {
   id: ChannelId;
-  status: ChannelStatus;
   who: Ship;
   our: number;
   his: number;
+  'funding-address': string | null;
+  status: ChannelStatus;
 }
 
 type Channel = {
   id: ChannelId;
-  status: ChannelStatus;
   who: Ship;
   our: BitcoinAmount;
   his: BitcoinAmount;
+  fundingAddress: string | null;
+  status: ChannelStatus;
 };
 
 export default Channel;

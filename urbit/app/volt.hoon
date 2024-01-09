@@ -1,7 +1,7 @@
 ::  volt.hoon
 ::  Lightning channel management agent
 ::
-/-  *volt, btc-provider
+/-  *volt, btc-provider, bitcoin
 /+  default-agent, dbug
 /+  bc=bitcoin, bolt11, bip-b158
 /+  revocation=revocation-store, tx=transactions
@@ -134,7 +134,7 @@
   ^-  (quip card _this)
   =^  cards  state
     ?+    wire
-    ~&  [wire sign]
+    :: ~&  [wire sign]
     `state
         [%message @ @ ~]
       ?+    -.sign  !!
@@ -255,21 +255,15 @@
     =/  chans=(list chan-info)
       %+  turn  ~(tap by larv.chan)
       |=  [=id:bolt l=larva-chan:bolt]
-      [id ship.her.l initial-msats.our.l initial-msats.her.l %preopening]
+      [id ship.her.l initial-msats.our.l initial-msats.her.l (get-funding-address id) %preopening]
     =.  chans
       %+  weld  chans
       %+  turn  ~(tap by live.chan)
       |=  [=id:bolt c=chan:bolt]
       ::  confirm LI/FI
-      :: NOTE:
-      :: it seems like this runs into problems when the channel doesn't have commitments
-      :: which seems to be the case after handle-funding-created runs
-      :: which I think is expected after
-      :: =+  our-com=(rear our.commitments.c)
-      :: =+  her-com=(rear her.commitments.c)
-
-      [id ship.her.config.c 0 0 state.c]
-      :: [id ship.her.config.c balance.our.our-com balance.her.her-com state.c]
+      =+  our-com=(rear our.commitments.c)
+      =+  her-com=(rear her.commitments.c)
+      [id ship.her.config.c balance.our.our-com balance.her.her-com `(unit address:bitcoin)`~ state.c]
     =/  payment-requests=(list payment-request)
       %+  turn  ~(tap by incoming.payments)
       |=  [=hexb:bc =payment-request]
@@ -283,12 +277,25 @@
   ==
 ::
 ++  on-arvo   on-arvo:def
-++  on-peek   on-peek:def
+++  on-peek    on-peek:def
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
 ::
 |_  =bowl:gall
+++  get-funding-address
+  |=  foo=id:bolt
+  =/  c=(unit larva-chan:bolt)  (~(get by larv.chan) foo)
+  ^-  (unit address:bc)
+  ?>  ?=(^ c)
+  ?>  ?=(^ u.c)
+  ?>  ?=(^ ac.u.c)
+  =+  ^=  funding-address
+    %^    make-funding-address:channel
+        network.our.u.c
+      pub.multisig-key.our.u.c
+    funding-pubkey.u.ac.u.c
+  [~ funding-address]
 ++  handle-command
   |=  =command
   |^  ^-  (quip card _state)
@@ -476,7 +483,7 @@
           live.chan  (~(put by live.chan) id.new-channel new-channel)
           fund.chan  (~(put by fund.chan) id.new-channel u.funding-tx)
         ==
-    ~[(send-message [%funding-created funding-created] ship.her.u.c)]
+    ~[(send-message [%funding-created funding-created] ship.her.u.c) [%give %fact ~ %volt-update !>(`update`[%channel-deleted temporary-channel-id])]]
   ::
   ++  close-channel
     |=  =chan-id
@@ -959,7 +966,15 @@
               her         remote-config
               ac          `msg
         ==  ==
-    ~[(give-update [%need-funding-signature temporary-channel-id.msg funding-address])]
+    =/  =chan-info
+    :*  temporary-channel-id.msg
+    ship.her.u.c
+    initial-msats.our.u.c
+    initial-msats.her.u.c
+    [~ funding-address]
+    %preopening
+    ==
+    ~[(give-update [%new-channel chan-info])]
   ::
   ++  handle-funding-created
     |=  msg=funding-created:msg:bolt
@@ -1018,9 +1033,11 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output id.new-channel)
       ==
+    =+  our-com=(rear our.commitments.new-channel)
+    =+  her-com=(rear her.commitments.new-channel)
     ~&  >  "returning signed funding tx to initiator"
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
-        (give-update [%channel-state id.new-channel %opening])
+        (give-update [%new-channel id.new-channel ship.her.config.new-channel balance.our.our-com balance.her.her-com `(unit address:bitcoin)`~ %opening])
     ==
   ::
   ++  handle-funding-signed
@@ -1063,8 +1080,23 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
       ==
-    %+  snoc  (poke-btc-provider action)
-    (give-update [%channel-state id.c %opening])
+    =+  our-com=(rear our.commitments.c)
+    =+  her-com=(rear her.commitments.c)
+    =/  =chan-info
+    :*  channel-id.msg
+      ship.her.config.c
+      balance.our.our-com
+      balance.her.her-com
+      `(unit address:bitcoin)`~
+      state.c :: %opening
+    ==
+    %+  weld
+    (poke-btc-provider action)
+    :~
+    (give-update [%channel-deleted channel-id.msg])
+    (give-update [%new-channel chan-info])
+    ==
+
   ::
   ++  handle-funding-locked
     |=  msg=funding-locked:msg:bolt
