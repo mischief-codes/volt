@@ -1097,8 +1097,8 @@
 ++  sign-next-commitment
   ^-  (pair (pair signature (list signature)) chan)
   %-  ?.  (owes-commitment %local)
-        ~&  >>>  "%volt: unexpected commitment"
-        same
+        ~|  "%volt: unexpected commitment"
+          !!
       same
   ?:  ~(has-unacked-commitment commitment-chain her.commitments.c)
     ~|(%unexpected-commitment !!)
@@ -1150,8 +1150,8 @@
   |=  [sig=signature htlc-sigs=(list signature)]
   ^-  chan
   %-  ?.  (owes-commitment %remote)
-        ~&  >>>  "%volt: unexpected commitment"
-        same
+        ~|  "%volt: unexpected commitment"
+           !!
       same
   =+  previous=(oldest-unrevoked-commitment %remote)
   ?~  previous  !!

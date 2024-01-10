@@ -44,7 +44,6 @@ const CreateFunding = (
   const createFunding = (e: React.FormEvent) => {
     e.preventDefault();
     if (!channel || !psbt) return;
-    console.log('createFunding', channel.id, psbt)
     try {
       api.poke({
         app: "volt",

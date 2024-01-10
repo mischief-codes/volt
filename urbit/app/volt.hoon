@@ -418,14 +418,14 @@
     =/  c=(unit larva-chan:bolt)
       (~(get by larv.chan) temporary-channel-id)
     ?~  c
-      ~&  >>>  "%volt: no channel with id: {<temporary-channel-id>}"
-      `state
+      ~|  "%volt: no channel with id: {<temporary-channel-id>}"
+        !!
     ?~  oc.u.c
-      ~&  >>>  "%volt: open channel message missing for channel with id: {<temporary-channel-id>}"
-      `state
+      ~|  "%volt: open channel message missing for channel with id: {<temporary-channel-id>}"
+        !!
     ?~  ac.u.c
-      ~&  >>>  "%volt: accept channel message missing for channel with id: {<temporary-channel-id>}"
-      `state
+      ~|  "%volt: accept channel message missing for channel with id: {<temporary-channel-id>}"
+        !!
     ~|  %invalid-funding-tx
     =/  funding-tx=(unit psbt:^psbt)
       (from-base64:create:^psbt psbt)
@@ -501,10 +501,12 @@
     |=  =chan-id
     ^-  (quip card _state)
     ?:  (~(has by shut.chan) chan-id)
-      ~&  >>>  "%volt: channel already closing"
-      `state  :: should probably crash,
+      ~|  "%volt: channel already closing"
+        !!
     =+  c=(~(get by live.chan) chan-id)
-    ?~  c  `state :: should probably crash, or at least report
+    ?~  c
+      ~|  "%volt: no channel with id: {<chan-id>}"
+        !!
     =|  close=coop-close-state
     =.  close
       %=  close
@@ -562,15 +564,15 @@
     ?.  btcp.prov  `state
     =+  invoice=(de:bolt11 payreq)
     ?~  invoice
-      ~&  >>>  "%volt: invalid payreq"
-      `state
+      ~|  "%volt: invalid payreq"
+        !!
     ?~  amount.u.invoice
-      ~&  >>>  "%volt: payreq didn't specify amount"
-      `state
+      ~|  "%volt: payreq didn't specify amount"
+        !!
     =+  amount-msats=(amount-to-msats:bolt11 u.amount.u.invoice)
     ?:  =(0 amount-msats)
-      ~&  >>>  "%volt: payreq amount is below 1 msat"
-      `state
+      ~|  "%volt: payreq amount is below 1 msat"
+        !!
     =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     ?~  who
@@ -613,12 +615,12 @@
     ~&  >  "pay-ship"
     =+  ids=(~(get by peer.chan) who)
     ?~  ids
-      ~&  >>>  "%volt: no channels with {<who>}"
-      `state
+      ~|  "%volt: no channels with {<who>}"
+        !!
     =+  c=(find-channel-with-capacity u.ids amount-msats)
     ?~  c
-      ~&  >>>  "%volt: insufficient capacity with {<who>}"
-      `state
+      ~|  "%volt: insufficient capacity with {<who>}"
+        !!
     (pay-channel u.c amount-msats payment-hash %.n)
   ::
   ++  forward-to-provider
@@ -626,20 +628,20 @@
     ^-  (quip card _state)
     ~&  >  "forward-to-provider"
     ?~  volt.prov
-      ~&  >>>  "%volt: no provider configured"
-      `state
+      ~|  "%volt: no provider configured"
+        !!
     =+  provider-channels=(~(get by peer.chan) host.u.volt.prov)
     ?~  provider-channels
-      ~&  >>>  "%volt: no channel with provider"
-      `state
+      ~|  "%volt: no channel with provider"
+        !!
     =+  invoice=(de:bolt11 pay)
     ?~  invoice           !!
     ?~  amount.u.invoice  !!
     =+  amount-msats=(amount-to-msats:bolt11 u.amount.u.invoice)
     =+  c=(find-channel-with-capacity u.provider-channels amount-msats)
     ?~  c
-      ~&  >>>  "%volt: insufficient capacity with provider"
-      `state
+      ~|  "%volt: insufficient capacity with provider"
+        !!
     ?>  =(state.u.c %open)
     =+  final-cltv=(add block.chain min-final-cltv-expiry:const:bolt)
     =|  update=update-add-htlc:msg:bolt
@@ -670,7 +672,9 @@
   ::
   ++  add-invoice
     |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
-    ?~  volt.prov  !!
+    ?~  volt.prov
+      ~|  "%volt: no provider configured"
+        !!
     =/  rng  ~(. og eny.bowl)
     =^  preimage  rng  (rads:rng (bex 256))
     =+  hash=(sha256:bcu:bc 32^preimage)
@@ -1109,7 +1113,6 @@
   ::
   ++  handle-funding-locked
     |=  msg=funding-locked:msg:bolt
-    ~&  'handle funding locked'
     ^-  (quip card _state)
     =+  c=(~(get by live.chan) channel-id.msg)
     ?~  c  `state
@@ -1129,7 +1132,6 @@
       ?:  ~(is-funded channel u.c)
         (mark-open u.c)
       [~ u.c]
-    ~&  'handle funding locked end'
     [cards state(live.chan (~(put by live.chan) id.u.c u.c))]
   ::
   ++  handle-update-add-htlc
@@ -1158,7 +1160,6 @@
     state(live.chan (~(put by live.chan) id.c c))
   ::
   ++  handle-revoke-and-ack
-    ~&  'handle-revoke-and-ack!!!!!'
     |=  msg=revoke-and-ack:msg:bolt
     ^-  (quip card _state)
     ?>  (~(has by live.chan) channel-id.msg)

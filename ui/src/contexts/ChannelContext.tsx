@@ -183,7 +183,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   const outboundCapacity = useMemo(() => {
     return channelsByStatus.open?.reduce(
-      (total, channel) => total.add(channel.his), new BitcoinAmount(0)
+      (total, channel) => total.add(channel.our), new BitcoinAmount(0)
     );
   }, [channelsByStatus]);
 

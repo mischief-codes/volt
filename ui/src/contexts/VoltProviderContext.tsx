@@ -48,7 +48,7 @@ export const VoltProviderContextProvider: React.FC<{ children: React.ReactNode }
         console.error(e)
       }
     }
-    // subscribeProvider()
+    subscribeProvider()
   }, [])
 
   const value = {
