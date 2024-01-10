@@ -12,6 +12,7 @@ import { InvoiceContext } from '../../contexts/InvoiceContext';
 import CommandForm from './shared/CommandForm';
 import Invoice from '../../types/Invoice';
 import BitcoinAmount from '../../types/BitcoinAmount';
+import CopyButton from './shared/CopyButton';
 
 const AddInvoice = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
@@ -90,6 +91,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
   const onClickDone = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittedInvoiceAmount(null);
+    setConfirmedInvoice(null);
   }
 
   const options = [
@@ -103,11 +105,18 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
   if (submittedInvoiceAmount) {
     return (
       <CommandForm>
-        {latestInvoice?.payreq ? <QRCode className='col-span-2 mb-2 col-start-2 mx-auto' size={150} value={latestInvoice?.payreq} /> : null}
+        {latestInvoice?.payreq ? <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={latestInvoice?.payreq} /> : null}
         <Text text={`Amount: ${submittedInvoiceAmount.displayAsMsats()}`}/>
         <Text text={`Network: ${network}`}/>
         {memo ? <Text className='col-start-2 text-center' text={`Memo: ${memo}`} /> : null}
-        <Button onClick={onClickDone} text={'Done'}/>
+        {latestInvoice?.payreq ?
+          <CopyButton
+          label={null}
+          className='col-start-2 text-center w-8/12'
+          buttonText='Copy Invoice'
+          copyText={latestInvoice?.payreq || ''}
+        /> : null }
+        <Button className='mt-4' onClick={onClickDone} label={'Done'}/>
      </CommandForm>
     );
   } else {

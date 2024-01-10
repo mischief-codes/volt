@@ -12,8 +12,12 @@ import CopyButton from './shared/CopyButton';
 const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
+  const ourPreopeningChannels = useMemo(() => {
+    return preopeningChannels.filter(channel => channel.fundingAddress);
+  }, [preopeningChannels]);
+
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
-  const [channel, setChannel] = useState(preopeningChannels[0] || null);
+  const [channel, setChannel] = useState(ourPreopeningChannels[0] || null);
   const [psbt, setPsbt] = useState('');
 
   const psbtCommand: null | string = useMemo(() => {
@@ -24,7 +28,7 @@ const CreateFunding = (
   }, [channel]);
 
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setChannel(preopeningChannels.find(channel => channel.id === event.target.value) as Channel);
+    setChannel(ourPreopeningChannels.find(channel => channel.id === event.target.value) as Channel);
   };
 
   const onChangePsbt = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,13 +67,13 @@ const CreateFunding = (
     return `~${channel.who}, ${channel.our.displayAsSats()}, id=${channel.id.slice(0, 12)}...`
   }
 
-  const options = preopeningChannels.map((channel) => {
+  const options = ourPreopeningChannels.map((channel) => {
     return { value: channel.id, label: getChannelLabel(channel) }
   });
 
   return (
     <>
-      {preopeningChannels.length > 0 ? (
+      {ourPreopeningChannels.length > 0 ? (
         <CommandForm>
         <Dropdown
           label={"Channel"}

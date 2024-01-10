@@ -4,7 +4,7 @@ import Urbit from '@urbit/http-api';
 type ApiContextValue = Urbit;
 
 const api = new Urbit('', '', window.desk);
-api.ship = 'zod';  // window.ship;
+api.ship = process.env.VITE_SHIP_NAME || window.ship;
 
 export const ApiContext = createContext<ApiContextValue>(api);
 

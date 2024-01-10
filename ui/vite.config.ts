@@ -4,11 +4,9 @@ import { urbitPlugin } from '@urbit/vite-plugin-urbit';
 
 // https://vitejs.dev/config/
 export default ({ mode }) => {
-  Object.assign(process.env, loadEnv(mode, process.cwd()));
-  const SHIP_URL = process.env.SHIP_URL || process.env.VITE_SHIP_URL || 'http://localhost:80';
-  console.log(SHIP_URL);
-
+  const env = loadEnv(mode, process.cwd());
   return defineConfig({
-    plugins: [urbitPlugin({ base: 'volt', target: SHIP_URL, secure: false }), reactRefresh()]
+    define: { 'process.env': env },
+    plugins: [urbitPlugin({ base: 'volt', target: env.VITE_SHIP_URL, secure: false }), reactRefresh()]
   });
 };

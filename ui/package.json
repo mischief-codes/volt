@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite",
+    "zod": "vite --mode zod",
+    "wet": "vite --mode wet",
     "build": "tsc && vite build",
     "serve": "vite preview",
     "test": "tsc --noEmit",

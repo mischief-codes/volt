@@ -1,15 +1,14 @@
 import React from 'react';
-import Input from './Input';
 
 interface CopyButtonProps {
-  label: string;
   buttonText: string;
-  copyText: string | null;
+  label: string | null | undefined;
+  copyText: string | null | undefined;
   onClick?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
 }
 
-const CopyButton: React.FC<CopyButtonProps> = ({ label, buttonText, copyText, className}) => {
+const CopyButton: React.FC<CopyButtonProps> = ({ buttonText, label = null, copyText = null, className}) => {
   const onClick = (e: React.FormEvent) => {
     e.preventDefault();
     if (!copyText) return;
@@ -18,7 +17,7 @@ const CopyButton: React.FC<CopyButtonProps> = ({ label, buttonText, copyText, cl
 
   return (
     <div className={`flex mt-2 flex-col mx-auto w-10/12 col-start-2 col-span-2 ${className}`}>
-      <span><label>{label}</label></span>
+      { label ? <span><label>{label}</label></span> : null }
       <button
         onClick={onClick}
         className={
