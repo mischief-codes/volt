@@ -21,6 +21,17 @@
       [%op-pushdata (hash-160:bcu 33^(compress-point p))]
   ==
 ::
+++  p2wpkh-spend
+  |=  p=pubkey
+  ^-  hexb:bc
+  %-  en:btc-script
+  :~  %op-dup
+      %op-hash160
+      [%op-pushdata (hash-160:bcu 33^(compress-point p))]
+      %op-equalverify
+      %op-checksig
+  ==
+::
 ++  funding-output
   |=  [p1=pubkey p2=pubkey]
   ^-  script:btc-script

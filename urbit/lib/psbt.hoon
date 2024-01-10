@@ -933,7 +933,7 @@
       ~|(%psbt-sighash-unsupported !!)
     =?  shared  ?=(~ shared)  `digest-fields
     ?>  ?=(^ shared)
-    %-  cat:byt:bcu:bc
+    =/  hash-values=(list hexb:bc)
     :~  nversion
         hash-prevouts.u.shared
         hash-sequence.u.shared
@@ -945,6 +945,9 @@
         nlocktime
         nhashtyp
     ==
+    ~&  >  "fields"
+    ~&  hash-values
+    (cat:byt:bcu:bc hash-values)
     ++  txin
       ^-  input
       (snag i inputs.tx)
@@ -1017,6 +1020,8 @@
         ?:  ~(is-segwit txin input)
           (witness-preimage i shared)
         (non-witness-preimage i shared)
+    ~&  >  "hashed elements"
+    ~&  hash
     %-  cat:byt:bcu:bc
     :~  (sign-transaction hash privkey)
         1^sig-hash

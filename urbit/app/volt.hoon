@@ -99,7 +99,7 @@
   =+  seed=(~(rad og eny.bowl) (bex 256))
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   ~&  >  '%volt initialized successfully'
-  :_  this(our.keys keypair, tau %.y)
+  :_  this(tau %.y, our.keys keypair)
   [%pass /btc-provider %agent our.bowl^%btc-provider %watch /clients]~
 ::
 ++  on-save
@@ -215,7 +215,7 @@
       ?-    -.sign
           %watch-ack
         ?~  p.sign
-          ~&  >  "%volt: spider watch for btcp succeeded"
+          :: ~&  >  "%volt: spider watch for btcp succeeded"
           `state
         =/  =tank  leaf+"%volt: spider watch for btcp failed"
         %-  (slog tank u.p.sign)
@@ -223,7 +223,7 @@
       ::
           %poke-ack
         ?~  p.sign
-          ~&  >  "%volt: spider poke for btcp succeeded"
+          :: ~&  >  "%volt: spider poke for btcp succeeded"
           `state
         =/  =tank  leaf+"%volt: spider poke for btcp failed"
         %-  (slog tank u.p.sign)
@@ -233,7 +233,7 @@
         ?>  =(%thread-done p.cage.sign)
         =/  res  !<(update:btc-provider q.cage.sign)
         ?:  ?=(%& -.res)
-          ~&  >  "%volt: btcp thread returned success"
+          :: ~&  >  "%volt: btcp thread returned success"
           ~&  +.res
           (handle-bitcoin-update:hc +.res)
         ~&  >  "%volt: btcp thread returned error"
@@ -872,6 +872,7 @@
         (volt-action [%give-pubkey chal] src.bowl)
     ==
   ::
+  ++  compress-point  compress-point:secp256k1:secp:crypto
   ++  handle-accept-channel
     |=  msg=accept-channel:msg:bolt
     ^-  (quip card _state)
@@ -937,16 +938,29 @@
     =.  fund.u.c  funding-address
     =/  compressed-pub=hexb:bc
       :-  %33  (compress-point:secp256k1:secp:crypto pub.our.keys)
-    =/  tau-addr  (from-pubkey:adr:bc %84 network.our.u.c compressed-pub)
+    :: =/  tau-addr  (from-pubkey:adr:bc %84 network.our.u.c compressed-pub)
+    =/  scriptpubkey=hexb:bc  (p2wpkh:script:tx pub.our.keys)
+    =/  b32-encoded=@t
+      (need (bech32-encode:bolt network.our.u.c scriptpubkey))
+    =/  alt  (need (encode-pubkey:bech32:bolt11 network.our.u.c compressed-pub))
+    :: ~&  >  "from-pubkey"
+    :: :: ~&  tau-addr
+    :: :: ~&  >  "scriptpubkey"
+    :: ~&  scriptpubkey
+    :: ~&  >  "bech32"
+    :: ~&  b32-encoded
+    :: ~&  >  "using encode-pubkey:bolt11"
+    :: ~&  alt
     ::  TODO reverse the conditional flow here
+    ::  TODO continue on failed channel open to other pending instead of crashing
     =?  heat.chan.state  tau
-      (~(put by heat.chan) tau-addr temporary-channel-id.msg)
+      (~(put by heat.chan) [%bech32 alt] temporary-channel-id.msg)
     =|  cards=(list card)
-    =?  cards  tau  ~[(give-update [%need-funding tau-addr initial-msats.our.u.c])]
+    =?  cards  tau  ~[(give-update [%need-funding [%bech32 alt] initial-msats.our.u.c])]
     ~&  >  "accepted channel"
     %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
     %-  (slog leaf+"funding-address={<funding-address>}" ~)
-    %-  (slog leaf+"wallet-address={<tau-addr>}" ~)
+    %-  (slog leaf+"wallet-address={<alt>}" ~)
     ::
     :_  %=  state
           larv.chan
@@ -2034,12 +2048,13 @@
       ?~  utxo  `state
       =|  funding-tx=psbt:psbt
       =|  =input:psbt
-      =+  witness=(p2wpkh:script:tx pub.our.keys)
+      =+  witness=(p2wpkh-spend:script:tx pub.our.keys)
       =+  compressed-pub=33^(compress-point:secp256k1:secp:crypto pub.our.keys)
+      :: =. funding-tx  (~(add-input update:psbt funding-tx) )
       =.  input
         %=  input
           prevout         [txid.u.utxo pos.u.utxo]
-          :: nsequence       0x0
+          nsequence       0xffff.ffff
           trusted-value   `value.u.utxo
           script-type     %p2wpkh
           witness-script  `witness
@@ -2054,6 +2069,8 @@
         sats-capacity
       =.  outputs.funding-tx  ~[output]
       =.  nversion.funding-tx  0x2
+      ~&  >  "presigning"
+      ~&  funding-tx
       =.  funding-tx
         %^  ~(add-signature update:psbt funding-tx)
             0
@@ -2075,10 +2092,10 @@
       :: ~&  "{<base-64>}"
       =/  extracted=tx:tx:psbt  (extract-unsigned:psbt funding-tx)
       =/  encoded=hexb:bc  (extract:psbt funding-tx)
-      ~&  >  "extracted"
-      ~&  "{<extracted>}"
-      ~&  >  "encoded finalized"
-      ~&  encoded
+      :: ~&  >  "extracted"
+      :: ~&  "{<extracted>}"
+      :: ~&  >  "encoded finalized"
+      :: ~&  encoded
       :_  state
       ~[(volt-command [%create-funding u.tbf funding-tx])]
       ::  TODO: unique funding addresses for larval tau channels
@@ -2547,7 +2564,7 @@
 ++  poke-btc-provider
   |=  =action:btc-provider
   ^-  (list card)
-  ~&  "hit poke-btc-provider with {<-.action>}"
+  :: ~&  "hit poke-btc-provider with {<-.action>}"
   =/  id  (scot %uv id.action)
   =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-req !>(action)]
   :+  :*  %pass  /btc-provider-update/[id]
