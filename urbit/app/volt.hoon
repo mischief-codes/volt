@@ -351,6 +351,9 @@
     :: ?.  btcp.prov  :: TODO: larval core pattern, avoid these checks everywhere
     ::   ~&  >>>  "%volt: no btc-provider set"
     ::   `state
+    ?:  =(who src.bowl)
+      ~|  "%volt: cannot open channel with self"
+        !!
     ?:  (gth funding-sats max-funding-sats:const:bolt)
       ~|  "%volt: must set funding-sats to less than 2^24 sats"
         !!
