@@ -8,23 +8,23 @@ const ChannelDisplay: React.FC = () => {
   const getStatusSortPriority = (status: ChannelStatus) => {
     switch (status) {
       case ChannelStatus.Open:
-        return 9;
+        return 1;
       case ChannelStatus.ForceClosing:
-        return 8;
+        return 2;
       case ChannelStatus.Closing:
-        return 7;
+        return 3;
       case ChannelStatus.Shutdown:
-        return 6;
+        return 4;
       case ChannelStatus.Funded:
         return 5;
       case ChannelStatus.Opening:
-        return 4;
+        return 6;
       case ChannelStatus.Preopening:
-        return 3;
+        return 7;
       case ChannelStatus.Closed:
-        return 2;
+        return 8;
       case ChannelStatus.Redeemed:
-        return 1;
+        return 9;
     }
   }
 
