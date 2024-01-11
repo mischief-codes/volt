@@ -14,10 +14,9 @@ interface DropdownProps {
 }
 
 const Dropdown: React.FC<DropdownProps> = (
-  {label, options, value, onChange, className}
+  { label, options, value, onChange, className = '' }
 ) => {
-  const classNames = `border border-gray-300 px-4 py-3 rounded-md w-full
-  ${className}`
+  const classNames = `border border-gray-300 px-4 py-3 rounded-md w-full ${className}`
 
   return (
     <div className={`mx-auto mt-2 w-10/12 col-span-2 col-start-2 ${className}`}>

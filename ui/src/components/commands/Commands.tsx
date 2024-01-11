@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext } from 'react';
 import AddInvoice from './AddInvoice';
 import CloseChannel from './CloseChannel';
 import CreateFunding from './CreateFunding';
@@ -10,12 +10,14 @@ import { ChannelStatus } from '../../types/Channel';
 import SetUrl from './SetUrl';
 import { ChannelContext } from '../../contexts/ChannelContext';
 import { ApiContext } from '../../contexts/ApiContext';
+// import TestInvoice from './TestInvoice';
 
 
 const Commands: React.FC = () => {
-  const [selectedCommand, setSelectedCommand] = useState('Set Provider');
   const api = useContext(ApiContext)
   const { channelsByStatus } = useContext(ChannelContext);
+
+  const [selectedCommand, setSelectedCommand] = useState('Set Provider');
 
     const openChannels = channelsByStatus[ChannelStatus.Open];
     const preopeningChannels = channelsByStatus[ChannelStatus.Preopening];

@@ -26,7 +26,6 @@ export const VoltProviderContextProvider: React.FC<{ children: React.ReactNode }
 
   useEffect(() => {
     const handleProviderStatusUpdate = (e: any) => {
-      console.log('handleProviderStatusUpdate', e);
       if (e?.connected === true && !providerIsConnected) {
         setProviderIsConnected(true);
       } else if (e?.connected === false) {

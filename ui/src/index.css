@@ -9,8 +9,6 @@ html {
 @font-face {
   font-family: 'Telegrama';
   src: local('Telegrama'), url(./assets/Telegrama.otf) format('opentype');
-  /* other formats include: 'woff2', 'truetype, 'opentype',
-                            'embedded-opentype', and 'svg' */
 }
 
 body, html {

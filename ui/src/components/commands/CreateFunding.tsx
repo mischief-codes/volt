@@ -13,13 +13,11 @@ const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
 
-  console.log('preopeningChannels', preopeningChannels);
+  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const ourPreopeningChannels = useMemo(() => {
     return preopeningChannels.filter(channel => channel.fundingAddress);
   }, [preopeningChannels]);
-
-  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const [channel, setChannel] = useState(ourPreopeningChannels[0] || null);
   const [psbt, setPsbt] = useState('');
 

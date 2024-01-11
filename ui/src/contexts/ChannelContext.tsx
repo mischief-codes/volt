@@ -1,11 +1,10 @@
 import React, { createContext, useState, useEffect, useContext, useMemo} from 'react';
-import Channel, { ChannelStatus } from '../types/Channel';
+import Channel, { ChannelJson, ChannelStatus } from '../types/Channel';
 import { FeedbackContext } from './FeedbackContext';
 import { ApiContext } from './ApiContext';
 import BitcoinAmount from '../types/BitcoinAmount';
 import { ChannelDeletedUpdate, ChannelStateUpdate, InitialStateUpdate, NewChannelUpdate, Update, UpdateType } from '../types/Update';
 
-// Define the shape of the context value
 interface ChannelContextValue {
   subscriptionConnected: boolean;
   inboundCapacity: BitcoinAmount;
@@ -24,7 +23,6 @@ interface ChannelContextValue {
   };
 }
 
-// Create the context
 export const ChannelContext = createContext<ChannelContextValue>({
   subscriptionConnected: false,
   inboundCapacity: new BitcoinAmount(0),
@@ -43,7 +41,6 @@ export const ChannelContext = createContext<ChannelContextValue>({
   },
 });
 
-// Create a provider component
 export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const api = useContext(ApiContext);
   const { displayJsInfo, displayJsSuccess, displayJsError } = useContext(FeedbackContext);
@@ -86,7 +83,6 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       } else {
         displayJsInfo("Got update from /all");
       }
-
       if (update.type === UpdateType.InitialState) {
         console.log('Got initial state update from /all', update);
         handleInitialState(update as InitialStateUpdate);
@@ -105,7 +101,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     const handleChannelUpdate = (update: ChannelStateUpdate) => {
-      const { id, status } = update;
+      const { id, status }: { id: string, status: ChannelStatus } = update;
       if (!id || !status) return;
       return setChannels((channels) => {
         const channel = channels.find((channel) => channel.id === id);
@@ -119,7 +115,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     const handleNewChannel = (update: NewChannelUpdate) => {
-      const { 'chan-info': jsonChan } = update;
+      const { 'chan-info': jsonChan }: { 'chan-info': ChannelJson } = update;
       setChannels((channels) => {
         if (channels.find((channel) => channel.id === jsonChan.id)) return channels;
         const channel = {
@@ -133,7 +129,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     const handleChannelDeleted = (update: ChannelDeletedUpdate) => {
-      const { id } = update;
+      const { id }: { id: string } = update;
       setChannels((channels) => {
         const channel = channels.find((channel) => channel.id === id);
         if (!channel) return channels;
@@ -142,7 +138,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     const handleInitialState = (update: InitialStateUpdate) => {
-      const { chans: jsonChans } = update;
+      const { chans: jsonChans }: { 'chans': Array<ChannelJson> } = update;
       const channels: Array<Channel> = jsonChans.map((chan) => {
         return {
           ...chan,

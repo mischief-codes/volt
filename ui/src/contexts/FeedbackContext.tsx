@@ -11,7 +11,6 @@ interface FeedbackContextValue {
   lines: Array<React.JSX.Element>;
 }
 
-// Create the context
 export const FeedbackContext = createContext<FeedbackContextValue>({
   displayCommandSuccess: () => {},
   displayCommandError: () => {},

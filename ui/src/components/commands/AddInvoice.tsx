@@ -43,7 +43,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
 
   const handleChangeAmountMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    // Use a regular expression to allow only positive integers
+    // Allow only positive integers
     const isEmptyString = input === '';
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
     if (isEmptyString) {
@@ -65,7 +65,10 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
 
   const addInvoice = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount) return;
+    if (!amount) {
+      displayJsError('Amount required');
+      return;
+    }
     try {
       api.poke({
         app: "volt",

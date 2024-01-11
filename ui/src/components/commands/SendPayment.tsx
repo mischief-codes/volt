@@ -60,7 +60,7 @@ const SendPayment = ({ api }: { api: Urbit }) => {
         onChange={onChangePayreq}
       />
       <Input
-        label={"Ship"}
+        label={"Ship (optional)"}
         value={shipInput}
         onChange={onChangeShipInput}
       />

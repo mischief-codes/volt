@@ -5,7 +5,7 @@ import Channel, { ChannelStatus } from '../../types/Channel';
 const ChannelDisplay: React.FC = () => {
   const { channelsByStatus, channels } = useContext(ChannelContext);
 
-  const statusToPriority = (status: ChannelStatus) => {
+  const getStatusSortPriority = (status: ChannelStatus) => {
     switch (status) {
       case ChannelStatus.Open:
         return 9;
@@ -31,7 +31,7 @@ const ChannelDisplay: React.FC = () => {
   const compareChannels = (a: Channel, b: Channel) => {
     // Group by status
     if (a.status !== b.status) {
-      return statusToPriority(a.status) - statusToPriority(b.status);
+      return getStatusSortPriority(a.status) - getStatusSortPriority(b.status);
     }
     // Order within status by liquidity
     const aLiquidity = a.our.add(a.his);
@@ -52,12 +52,12 @@ const ChannelDisplay: React.FC = () => {
   const notOpenChannels = useMemo(() => {
    return channels
     .filter((channel) => channel.status !== ChannelStatus.Open)
+    .sort(compareChannels)
   }, [channels]);
 
   const openChannels = useMemo(() => {
     return channelsByStatus.open.sort(compareChannels)
-  }
-  , [channelsByStatus]);
+  }, [channelsByStatus]);
 
   const headerClassnames = 'text-center font-normal w-1/4';
   const rowClassnames = 'text-center text-gray-500 font-normal w-1/4';

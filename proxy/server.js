@@ -8,10 +8,9 @@ const http = require('http')
 const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 
-const defaultLndDir = `~/.lnd`
-
-// (os.platform == 'darwin') ? `${process.env.HOME}/Library/Application Support/Lnd` :
-      // `${process.env.HOME}/.lnd`
+const defaultLndDir = (os.platform == 'darwin') ?
+      `${process.env.HOME}/Library/Application Support/Lnd` :
+      `${process.env.HOME}/.lnd`
 const lndDir = process.env.LND_DIR || defaultLndDir
 const lndHost = process.env.LND_HOST || 'localhost:10009'
 const shipHost = process.env.SHIP_HOST || 'localhost'
@@ -19,8 +18,6 @@ const shipPort = process.env.SHIP_PORT || '80'
 const network = process.env.BTC_NETWORK || 'mainnet'
 const port = process.env.SERVER_PORT || 5000
 const request = require('request')
-
-console.log(`LND_HOST: ${lndHost}`)
 
 process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA'
 
@@ -48,7 +45,6 @@ let invoicesrpc = rpcpkg.invoicesrpc
 let chainrpc = rpcpkg.chainrpc
 
 let cert = fs.readFileSync(`${lndDir}/tls.cert`)
-console.log('cert', cert)
 let sslCreds = grpc.credentials.createSsl(cert)
 let macaroonCreds = grpc.credentials.createFromMetadataGenerator (
     function(args, callback) {
@@ -61,9 +57,6 @@ let creds = grpc.credentials.combineChannelCredentials (
     sslCreds,
     macaroonCreds
 )
-
-    macaroonCreds
-    console.log('creds', sslCreds, macaroonCreds)
 
 let lightning = new lnrpc.Lightning(lndHost, creds)
 let router = new routerrpc.Router(lndHost, creds)
@@ -201,16 +194,16 @@ app.post('/payment', (req, res) => {
 
 function restCall (json) {
     // let requestBody = {
-    //     memo: <string>, // <string>
+    //     memo: <string>, // <string> 
     //     hash: <string>, // <bytes> (base64 encoded)
-    //     value: <string>, // <int64>
-    //     value_msat: <string>, // <int64>
+    //     value: <string>, // <int64> 
+    //     value_msat: <string>, // <int64> 
     //     description_hash: <string>, // <bytes> (base64 encoded)
-    //     expiry: <string>, // <int64>
-    //     fallback_addr: <string>, // <string>
-    //     cltv_expiry: <string>, // <uint64>
-    //     route_hints: <array>, // <RouteHint>
-    //     private: <boolean>, // <bool>
+    //     expiry: <string>, // <int64> 
+    //     fallback_addr: <string>, // <string> 
+    //     cltv_expiry: <string>, // <uint64> 
+    //     route_hints: <array>, // <RouteHint> 
+    //     private: <boolean>, // <bool> 
     //   };
     // const body = {
     //     value_msat: "1000000",
@@ -260,7 +253,7 @@ app.post('/invoice', (req, res) => {
         console.log(`error ${JSON.stringify(err)}`)
         console.log(`resp ${JSON.stringify(resp)}`)
 	let ret = returnToShip(res)
-	if (err) {
+	if (err) { 
         console.log('cond')
         ret(err, resp)
     }

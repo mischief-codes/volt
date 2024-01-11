@@ -29,7 +29,7 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
 
   const onChangePushMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    // Use a regular expression to allow only positive integers
+    // Only allow positive integers
     const isEmptyString = input === '';
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
     if (isEmptyString) {
@@ -96,19 +96,16 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
   return (
     <CommandForm>
       <Input
-        className='col-start-2'
         label={'Amount (msats)'}
         value={amountMsatsInput}
         onChange={onChangePushMsatsInput}
       />
       <Input
-          className='col-start-2'
           label={'Ship'}
           value={shipInput}
           onChange={onChangeShipInput}
       />
       <Dropdown
-        className='col-start-2'
         label={'Network'}
         options={networkOptions}
         value={network}

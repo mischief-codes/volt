@@ -8,7 +8,9 @@ interface CopyButtonProps {
   className?: string;
 }
 
-const CopyButton: React.FC<CopyButtonProps> = ({ buttonText, label = null, copyText = null, className}) => {
+const CopyButton: React.FC<CopyButtonProps> = (
+  { buttonText, label = null, copyText = null, className = ''}
+) => {
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const onClick = (e: React.FormEvent) => {

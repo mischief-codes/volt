@@ -24,12 +24,11 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
 
   const closeChannel  = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!channelId) return;
     try {
       api.poke({
         app: "volt",
         mark: "volt-command",
-        json: {"close-channel": channelId },
+        json: { "close-channel": channelId },
         onSuccess: () => displayCommandSuccess(Command.CloseChannel),
         onError: (e) => displayCommandError(Command.CloseChannel, e),
       });

@@ -31,11 +31,6 @@ export default class BitcoinAmount {
     return new BitcoinAmount(sum);
   }
 
-  sub(other: BitcoinAmount): BitcoinAmount {
-    const difference = this.millisatoshis - other.millisatoshis;
-    return new BitcoinAmount(difference);
-  }
-
   eq(other: BitcoinAmount): boolean {
     return this.millisatoshis === other.millisatoshis;
   }
