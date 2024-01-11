@@ -325,7 +325,6 @@
       [%payment-result =payreq success=?]
       [%new-channel =chan-info]
       [%channel-deleted id=@]
-      :: [%channel-balance =chan-id our=msats his=msats]
       $:  %initial-state
         chans=(list chan-info)
         txs=(list pay-info)

@@ -269,7 +269,13 @@
       ::  confirm LI/FI
       =+  our-com=(rear our.commitments.c)
       =+  her-com=(rear her.commitments.c)
-      [id ship.her.config.c balance.our.our-com balance.her.her-com `(unit address:bitcoin)`~ state.c]
+      :*  id
+        ship.her.config.c
+        balance.our.our-com
+        balance.her.her-com
+        `(unit address:bitcoin)`~
+        state.c
+      ==
     =/  payment-requests=(list payment-request)
       %+  turn  ~(tap by incoming.payments)
       |=  [=hexb:bc =payment-request]
@@ -500,10 +506,9 @@
       `(unit address:bitcoin)`~
       state.new-channel
     ==
-    :~
-    (send-message [%funding-created funding-created] ship.her.u.c)
-    (give-update [%channel-deleted temporary-channel-id])
-    (give-update [%new-channel chan-info])
+    :~  (send-message [%funding-created funding-created] ship.her.u.c)
+        (give-update [%channel-deleted temporary-channel-id])
+        (give-update [%new-channel chan-info])
     ==
   ::
   ++  close-channel
@@ -913,11 +918,11 @@
     ::
     =/  =chan-info
     :*  temporary-channel-id
-    ship.her.lar
-    initial-msats.our.lar
-    initial-msats.her.lar
-    ~
-    %preopening
+        ship.her.lar
+        initial-msats.our.lar
+        initial-msats.her.lar
+        ~
+        %preopening
     ==
     :_  %=  state
           larv.chan  (~(put by larv.chan) temporary-channel-id lar)
@@ -1002,11 +1007,11 @@
         ==  ==
     =/  =chan-info
     :*  temporary-channel-id.msg
-    ship.her.u.c
-    initial-msats.our.u.c
-    initial-msats.her.u.c
-    [~ funding-address]
-    %preopening
+        ship.her.u.c
+        initial-msats.our.u.c
+        initial-msats.her.u.c
+        [~ funding-address]
+        %preopening
     ==
     ~[(give-update [%new-channel chan-info])]
   ::
@@ -1070,9 +1075,17 @@
     =+  our-com=(rear our.commitments.new-channel)
     =+  her-com=(rear her.commitments.new-channel)
     ~&  >  "returning signed funding tx to initiator"
+    =/  =chan-info
+    :*  id.new-channel
+        ship.her.config.new-channel
+        balance.our.our-com
+        balance.her.her-com
+        `(unit address:bitcoin)`~
+        %opening
+    ==
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
         (give-update [%channel-deleted temporary-channel-id.msg])
-        (give-update [%new-channel id.new-channel ship.her.config.new-channel balance.our.our-com balance.her.her-com `(unit address:bitcoin)`~ %opening])
+        (give-update [%new-channel chan-info])
     ==
   ::
   ++  handle-funding-signed
@@ -1115,10 +1128,10 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output channel-id.msg)
       ==
-      ;:  welp
-        (poke-btc-provider action)
-        ~[(give-update [%channel-state id.c %opening])]
-      ==
+      %-  snoc
+      :-  (poke-btc-provider action)
+        (give-update [%channel-state id.c %opening])
+
   ::
   ++  handle-funding-locked
     |=  msg=funding-locked:msg:bolt
