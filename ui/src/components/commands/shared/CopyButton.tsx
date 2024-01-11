@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface CopyButtonProps {
   buttonText: string;
@@ -9,10 +9,14 @@ interface CopyButtonProps {
 }
 
 const CopyButton: React.FC<CopyButtonProps> = ({ buttonText, label = null, copyText = null, className}) => {
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   const onClick = (e: React.FormEvent) => {
     e.preventDefault();
     if (!copyText) return;
     navigator.clipboard.writeText(copyText);
+    setShowConfirmation(true);
+    setTimeout(() => setShowConfirmation(false), 1000);
   }
 
   return (
@@ -25,7 +29,7 @@ const CopyButton: React.FC<CopyButtonProps> = ({ buttonText, label = null, copyT
           `text-base cursor-pointer col-span-2 col-start-2 ${className}`
         }
       >
-        {buttonText}
+        {showConfirmation ? "Copied ✔️" : buttonText}
       </button>
     </div>
   )

@@ -81,7 +81,7 @@ const CreateFunding = (
           options={options}
           onChange={onChangeSelectedChannel}
         />
-        <CopyButton label={'Script to get PSBT'} buttonText='Copy script' copyText={psbtCommand}/>
+        <CopyButton label={'Run this to get PSBT'} buttonText='Copy script' copyText={psbtCommand}/>
         <Input label={"PSBT"} value={psbt} onChange={onChangePsbt} />
         <Button onClick={createFunding} label='Create Funding'/>
         </CommandForm>

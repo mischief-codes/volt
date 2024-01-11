@@ -255,7 +255,13 @@
     =/  chans=(list chan-info)
       %+  turn  ~(tap by larv.chan)
       |=  [=id:bolt l=larva-chan:bolt]
-      [id ship.her.l initial-msats.our.l initial-msats.her.l (get-funding-address id) %preopening]
+      :*  id
+        ship.her.l
+        initial-msats.our.l
+        initial-msats.her.l
+        ?.(initiator.l ~ (get-funding-address id))
+        %preopening
+      ==
     =.  chans
       %+  weld  chans
       %+  turn  ~(tap by live.chan)
