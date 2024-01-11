@@ -72,8 +72,6 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     );
   }, [channels]);
 
-  console.log('channelsByStatus', channelsByStatus);
-
   useEffect(() => {
     if (subscriptionConnected) {
       displayJsSuccess("Subscription to /all succeeded");

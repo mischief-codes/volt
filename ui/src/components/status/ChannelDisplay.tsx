@@ -5,28 +5,57 @@ import Channel, { ChannelStatus } from '../../types/Channel';
 const ChannelDisplay: React.FC = () => {
   const { channelsByStatus, channels } = useContext(ChannelContext);
 
-  const sortChannels = (a: Channel, b: Channel) => {
+  const statusToPriority = (status: ChannelStatus) => {
+    switch (status) {
+      case ChannelStatus.Open:
+        return 9;
+      case ChannelStatus.ForceClosing:
+        return 8;
+      case ChannelStatus.Closing:
+        return 7;
+      case ChannelStatus.Shutdown:
+        return 6;
+      case ChannelStatus.Funded:
+        return 5;
+      case ChannelStatus.Opening:
+        return 4;
+      case ChannelStatus.Preopening:
+        return 3;
+      case ChannelStatus.Closed:
+        return 2;
+      case ChannelStatus.Redeemed:
+        return 1;
+    }
+  }
+
+  const compareChannels = (a: Channel, b: Channel) => {
+    // Group by status
+    if (a.status !== b.status) {
+      return statusToPriority(a.status) - statusToPriority(b.status);
+    }
+    // Order within status by liquidity
     const aLiquidity = a.our.add(a.his);
     const bLiquidity = b.our.add(b.his);
     if (aLiquidity.gt(bLiquidity)) {
       return -1;
     } else if (bLiquidity.gt(aLiquidity)) {
       return 1;
+    // Order by channel partner ship as fallback
     } else if (a.who !== b.who) {
       return a.who.localeCompare(b.who);
-    } else {
-      return a.status.localeCompare(b.status);
-    }
+    // Order by channel id as fallback
+    } else {{
+      return a.id.localeCompare(b.id);
+    }}
   }
 
   const notOpenChannels = useMemo(() => {
    return channels
     .filter((channel) => channel.status !== ChannelStatus.Open)
-    .sort(sortChannels);
   }, [channels]);
 
   const openChannels = useMemo(() => {
-    return channelsByStatus.open.sort(sortChannels)
+    return channelsByStatus.open.sort(compareChannels)
   }
   , [channelsByStatus]);
 

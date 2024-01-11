@@ -12,6 +12,9 @@ import CopyButton from './shared/CopyButton';
 const CreateFunding = (
   { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
+
+  console.log('preopeningChannels', preopeningChannels);
+
   const ourPreopeningChannels = useMemo(() => {
     return preopeningChannels.filter(channel => channel.fundingAddress);
   }, [preopeningChannels]);
