@@ -21,7 +21,7 @@ export const FeedbackContext = createContext<FeedbackContextValue>({
 });
 
 export const FeedbackContextProvider: React.FC<{ children: React.ReactNode }> = ({ children })  => {
-  const defaultLine = <FeedbackConsoleLine isError={false} isSuccess={false} text={'Volt 1.0 UI Log ⚡'} />
+  const defaultLine = <FeedbackConsoleLine isError={false} isSuccess={false} text={'Volt UI Log ⚡'} />
   const [lines, setLines] = useState<Array<React.JSX.Element>>([defaultLine]);
 
   const displayCommandSuccess = useMemo(() => {
