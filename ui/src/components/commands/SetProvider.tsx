@@ -24,7 +24,10 @@ const SetProvider = ({ api }: { api: Urbit }) => {
 
   const setProvider = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!providerShip) return;
+    if (!providerShip) {
+      displayJsError("Invalid provider ship")
+      return;
+    };
     try {
       api.poke({
         app: "volt",
@@ -34,7 +37,8 @@ const SetProvider = ({ api }: { api: Urbit }) => {
         onError: (e) => displayCommandError(Command.SetProvider, e),
       });
     } catch (e) {
-      displayJsError("Error setting provider")
+      displayJsError("Error setting provider");
+      console.error(e);
     }
   }
 

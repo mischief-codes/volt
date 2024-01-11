@@ -8,7 +8,7 @@ import Input from './shared/Input';
 import Dropdown from './shared/Dropdown';
 import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
-import BitcoinAmount from '../../types/BitcoinAmount';
+import BitcoinAmount, { MIN_FUNDING_AMOUNT } from '../../types/BitcoinAmount';
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
@@ -32,7 +32,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
 
   const onChangeFundingSatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    // Use a regular expression to allow only positive integers
+    // Only allow only positive integers
     const isEmptyString = input === '';
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
     if (isEmptyString) {
@@ -46,7 +46,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
 
   const onChangePushMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    // Use a regular expression to allow only positive integers
+    // Only allow only positive integers
     const isEmptyString = input === '';
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) >= 0;
     if (isEmptyString) {
@@ -62,10 +62,38 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     setSelectedOption(e.target.value as Network);
   };
 
+  const validateOpenChannelParams = () => {
+    let valid = true;
+
+    if (channelPartner === null && ['', '~'].includes(channelPartnerInput)) {
+      displayJsError("Channel partner required")
+      valid = false;
+    } else if (channelPartner === null) {
+      displayJsError("Invalid channel partner")
+      valid = false;
+    } else if (channelPartner === api.ship || channelPartner === `~${api.ship}`) {
+      displayJsError("Cannot open channel with self")
+      valid = false;
+    }
+
+    if (fundingSats === null) {
+      displayJsError("Funding sats required")
+      valid = false;
+    } else if (MIN_FUNDING_AMOUNT.gt(BitcoinAmount.fromSatoshis(fundingSats))) {
+      displayJsError(`Funding sats must be at least ${MIN_FUNDING_AMOUNT.displayAsSats()}`)
+      valid = false;
+    }
+
+    if (fundingSats && pushAmount.gt(BitcoinAmount.fromSatoshis(fundingSats))) {
+      displayJsError(`Push msats must be less than or equal to funding`)
+      valid = false;
+    }
+    return valid;
+  }
 
   const openChannel = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!channelPartner || !fundingSats) return;
+    if (!validateOpenChannelParams()) return;
     try {
       api.poke({
         app: "volt",
@@ -82,7 +110,8 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
         onError: (e) => displayCommandError(Command.OpenChannel, e),
       });
     } catch (e) {
-      displayJsError('Error opening channel')
+      displayJsError('Error opening channel');
+      console.error(e);
     }
   };
 

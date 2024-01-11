@@ -35,15 +35,12 @@ const CreateFunding = (
     setPsbt(event.target.value);
   };
 
-  const handleCreateFundingSuccess = () => {
-    displayCommandSuccess(Command.CreateFunding);
-    console.log('removing channel', channel.id);
-    // setPsbt('');
-  }
-
   const createFunding = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!channel || !psbt) return;
+    if (!psbt) {
+      displayJsError("PSBT required")
+      return;
+    }
     try {
       api.poke({
         app: "volt",
@@ -58,7 +55,8 @@ const CreateFunding = (
         onError: (e) => displayCommandError(Command.CreateFunding, e),
       });
     } catch (e) {
-      displayJsError('Error creating funding')
+      displayJsError('Error creating funding');
+      console.error(e);
     }
   };
 

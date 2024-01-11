@@ -16,6 +16,16 @@ export default class BitcoinAmount {
     this.millisatoshis = millisatoshis;
   }
 
+  static fromSatoshis(satoshis: number): BitcoinAmount {
+    const millisatoshis = satoshis * MSAT_PER_SAT;
+    return new BitcoinAmount(millisatoshis);
+  }
+
+  static fromBtc(btc: number): BitcoinAmount {
+    const millisatoshis = btc * MSAT_PER_BTC;
+    return new BitcoinAmount(millisatoshis);
+  }
+
   add(other: BitcoinAmount): BitcoinAmount {
     const sum = this.millisatoshis + other.millisatoshis;
     return new BitcoinAmount(sum);
@@ -56,3 +66,6 @@ export default class BitcoinAmount {
     return `${btc} BTC`;
   }
 }
+
+const MIN_FUNDING_SATS = 200000;
+export const MIN_FUNDING_AMOUNT = new BitcoinAmount(MIN_FUNDING_SATS * MSAT_PER_SAT);

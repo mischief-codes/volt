@@ -84,7 +84,8 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         onError: (e) => displayCommandError(Command.AddInvoice, e),
       });
     } catch (e) {
-      displayJsError('Error adding invoice')
+      displayJsError('Error adding invoice');
+      console.error(e);
     }
   };
 

@@ -46,9 +46,28 @@ const TestInvoice = ({ api }: { api: Urbit }) => {
     setNetwork(target.value as Network);
   };
 
+  const validateTestInvoiceParams = () => {
+    let valid = true;
+    if (!ship && ['~', ''].includes(shipInput)) {
+      displayJsError('Ship required');
+      valid = false;
+    } else if (!ship) {
+      displayJsError('Invalid ship');
+      valid = false;
+    } else if (ship === api.ship) {
+      displayJsError('Cannot send invoice to self');
+      valid = false;
+    }
+    if (!amountMsats) {
+      displayJsError('Amount required');
+      valid = false;
+    }
+    return valid;
+  }
+
   const sendTestInvoice = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ship || !amountMsats) return;
+    if (!validateTestInvoiceParams()) return;
     try {
       api.poke({
         app: "volt",

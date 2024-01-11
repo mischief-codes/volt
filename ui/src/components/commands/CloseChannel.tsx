@@ -34,7 +34,8 @@ const CloseChannel = ({ api, openChannels }: { api: Urbit, openChannels: Array<C
         onError: (e) => displayCommandError(Command.CloseChannel, e),
       });
     } catch (e) {
-      displayJsError('Error closing channel')
+      displayJsError('Error closing channel');
+      console.error(e);
     }
   }
 

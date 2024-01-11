@@ -29,7 +29,10 @@ const SendPayment = ({ api }: { api: Urbit }) => {
 
   const sendPayment =  (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payreq) return;
+    if (!payreq) {
+      displayJsError("Payreq required");
+      return;
+    }
     try {
       api.poke({
         app: "volt",
@@ -44,7 +47,8 @@ const SendPayment = ({ api }: { api: Urbit }) => {
         onError: (e) => displayCommandError(Command.SendPayment, e),
       });
     } catch (e) {
-      displayJsError('Error sending payment')
+      displayJsError('Error sending payment');
+      console.error(e);
     }
   };
 
