@@ -14,19 +14,21 @@
       %testnet
       %signet
   ==
++$  swap-request
+  $:  =swap-id
+      =asset
+      =network
+      =scid
+      amount=sats:bc
+      pubkey=pubkey:bolt
+==
 ++  message
   $%
     $:  %test
         foo=@
     ==
     $:  %swap-in-request
-        =protocol-version
-        =swap-id
-        =asset
-        =network
-        =scid
-        amount=sats:bc
-        pubkey=pubkey:bolt
+        =swap-request
     ==
   ::
     $:  %swap-in-agreement
@@ -37,13 +39,7 @@
     ==
   ::
     $:  %swap-out-request
-        =protocol-version
-        =swap-id
-        =asset
-        =network
-        =scid
-        amount=sats:bc
-        pubkey=pubkey:bolt
+        =swap-request
     ==
   ::
     $:  %swap-out-agreement
@@ -70,6 +66,19 @@
         =swap-id
         message=@t
         privkey=privkey:bolt
+    ==
+  ==
+  ++  command
+  $%
+    $:  %request-swap-in
+        ship=@p
+        =network
+        amount=sats:bc
+    ==
+    $:  %request-swap-out
+        ship=@p
+        =network
+        amount=sats:bc
     ==
   ==
 --
