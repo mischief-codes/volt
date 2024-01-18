@@ -1,4 +1,5 @@
 /-  volt
+/+  volt-json
 |_  =update:provider:volt
 ++  grab
   |%
@@ -7,6 +8,7 @@
 ++  grow
   |%
   ++  noun  update
+  ++  json  (update:provider:enjs:volt-json update)
   --
 ++  grad  %noun
 --

@@ -302,8 +302,9 @@
 +$  chan-info
   $:  =id:bolt
       who=ship
-      our=sats:bc
-      his=sats:bc
+      our=msats
+      his=msats
+      funding-address=(unit address:bc)
       status=chan-state:bolt
   ==
 +$  pay-info
@@ -319,9 +320,15 @@
   $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]
-      [%new-invoice =payreq]
+      [%new-invoice =payment-request]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
-      [%initial-state chans=(list chan-info) txs=(list pay-info)]
+      [%new-channel =chan-info]
+      [%channel-deleted id=@]
+      $:  %initial-state
+        chans=(list chan-info)
+        txs=(list pay-info)
+        invoices=(list payment-request)
+      ==
   ==
 --
