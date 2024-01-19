@@ -62,6 +62,12 @@
       %op-endif
       %op-checksig
   ==
+:: ::
+:: ++  local-output-spend
+::   |=  [=revocation=pubkey =local-delayed=pubkey delay=@ud]
+::   ^-  hexb:bc
+::   %-  en:btc-script
+::   :~  
 ::
 ++  remote-output
   |=  =pubkey

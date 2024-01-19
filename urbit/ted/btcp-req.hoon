@@ -5,12 +5,13 @@
 |=  arg=vase
 =/  m  (strand ,vase)
 =/  =action:bp  !<(action:bp arg)
-:: ~&  >  "thread hit, got {<action>}"
+~&  >  "thread hit, got {<action>}"
 |^  ^-  form:m
 :: ;<  eny=@uvJ  bind:m  get-entropy:io
 :: =.  id.action  eny
 =/  id  (scot %uv id.action)
 ;<  ~  bind:m  (watch-our:io /btcp-update/[id] %btc-provider /clients/[id])
+~&  "after watch"
 ;<  =update:bp  bind:m  (request action)
 (pure:m !>(update))
 ::
@@ -22,12 +23,14 @@
   =|  try=@
   =/  id  (scot %uv id.action)
   |-  =*  loop  $
+  ~&  "inside request loop"
   ;<  ~  bind:m  (backoff:io try ~m1)
+  ~&  "after backoff"
   ;<  ~  bind:m  (poke-our:io %btc-provider [%btc-provider-action !>(act)])
-  :: ~&  >  "attempt {<try>} to poke btcp"
+  ~&  >  "attempt {<try>} to poke btcp"
   ;<  =cage  bind:m  (take-fact:io /btcp-update/[id])
   =/  =update:bp  !<(update:bp q.cage)
-  :: ~&  >  "thread received fact from btcp"
+  ~&  >  "thread received fact from btcp"
   ?:  ?=(%& -.update)
     ~&  >  "btcp successful result"
     (pure:m update)

@@ -650,7 +650,7 @@
     ^-  cord
     =/  combined=(list @)
       (weld data (checksum hrp data))
-    ~&  >  "data + checksum"
+    :: ~&  >  "data + checksum"
     ~&  `(list @ux)`combined
     %-  crip
     (zing ~[hrp "1" (tape (murn combined value-to-charset))])
