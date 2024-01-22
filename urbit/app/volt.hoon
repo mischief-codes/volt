@@ -11,7 +11,7 @@
 /=  volt-command  /mar/volt/command
 /=  volt-message  /mar/volt/message
 /=  volt-update  /mar/volt/update
-/=  lnd-rpc  /ted/lnd-rpc
+/=  lnd-rpc  /ted/rpc/lnd-rpc
 |%
 +$  card  $+(card card:agent:gall)
 +$  versioned-state
@@ -102,7 +102,7 @@
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   ~&  >  '%volt initialized successfully'
   :_  this(tau %.y, our.keys keypair)
-  [%pass /btc-provider %agent our.bowl^%btc-provider %watch /clients]~
+  [%pass /btc-provider %agent our.bowl^%bitcoin-rpc %watch /clients]~
 ::
 ++  on-save
   ^-  vase
@@ -236,9 +236,9 @@
         =/  res  !<(update:btc-provider q.cage.sign)
         ?:  ?=(%& -.res)
           :: ~&  >  "%volt: btcp thread returned success"
-          ~&  +.res
+          :: ~&  +.res
           (handle-bitcoin-update:hc +.res)
-        ~&  >  "%volt: btcp thread returned error"
+        :: ~&  >  "%volt: btcp thread returned error"
         ::  TODO differentiate critical and noncritical failures
         `state
       ::
@@ -265,13 +265,11 @@
   ^-  (quip card _this)
   ?.  ?=([%behn %wake *] sign)
     `this
-  =/  cid=(unit id:bolt)  %-  ~(rep by shut.chan)
-    |=  [[=id:bolt c=coop-close-state] acc=(unit id:bolt)]
-    ?:  =(now.bowl timeout.c)  `id  acc
-  ?~  cid  `this
-  =^  cards  state
-  (handle-lost-peer u.cid)
-  [cards this]
+  ?+    wire  `this
+      [%timer @ ~]
+    =^  cards  state  (handle-lost-peer (slav %uv i.t.wire))
+    [cards this]
+  ==
 ::
 ++  on-peek   on-peek:def
 ++  on-leave  on-leave:def
@@ -398,7 +396,6 @@
   ++  create-funding
     |=  [temporary-channel-id=@ funding=psbt:psbt]
     ^-  (quip card _state)
-    ~&  >  "creating funding"
     =/  c=(unit larva-chan:bolt)
       (~(get by larv.chan) temporary-channel-id)
     ?~  c
@@ -417,8 +414,6 @@
     :: =.  u.funding-tx  (finalize:^psbt u.funding-tx)
     ::  TODO: check tx is complete
     ::
-    ~&  >>  "PSBT from params"
-    ~&  "{<funding>}"
     =/  funding-output=output:psbt
       ::  (funding-output:tx [pub.multisig-key.our pub.multisig-key.her funding-sats.u.oc]:u.c)
       %^    funding-output:tx
@@ -556,43 +551,41 @@
     =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     ?~  who
-      ~&  >  "who null"
       ?:  own-provider
-        ~&  >  "own-provider"
         ?~  req
-          ~&  >  "req null"
-          ::  not one of ours, have LND send it
+          ::  not one of ours, check for a direct channel or have LND send it
           ::    TODO: fee-limit and timeout?
           ::
-          :_  state
-          ~[(provider-command [%send-payment payreq ~ ~])]
+          :: =/  prov-case
+            :_  state
+            ~[(provider-command [%send-payment payreq ~ ~])]
+          :: =+  chan-ids=(~(get by peer.chan) u.who)
+          :: ?~  chan-ids  prov-case
+          :: =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
+          :: ?~  channel  prov-case
+
         ::  internalize the payment and cancel the invoice in LND
         ::
-        ~&  >  "req found"
-        (pay-ship payee.u.req amount-msats payment-hash.u.invoice)
+        (pay-ship payee.u.req amount-msats payment-hash.u.invoice payreq)
       ::  try asking provider
       ::
-      ~&  >  "outside own provider"
       (forward-to-provider payreq ~)
     =+  chan-ids=(~(get by peer.chan) u.who)
     ?~  chan-ids
-      ~&  >  "no direct channel"
       ::  no direct channel, try asking provider
       ::
       (forward-to-provider payreq who)
     =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
     ?~  channel
-      ~&  >  "insufficient direct capacity"
       ::  no bilateral capacity, try asking provider
       ::
       (forward-to-provider payreq who)
-    ~&  >  "direct paying"
-    (pay-channel u.channel amount-msats payment-hash.u.invoice %.n)
+    =^  result  state  (pay-channel u.channel amount-msats payment-hash.u.invoice %.n)
+    [+.result state]
   ::
   ++  pay-ship
-    |=  [who=@p =amount=msats =payment=hash]
+    |=  [who=@p =amount=msats =payment=hash =payreq]
     ^-  (quip card _state)
-    ~&  >  "pay-ship"
     =+  ids=(~(get by peer.chan) who)
     ?~  ids
       ~&  >>>  "%volt: no channels with {<who>}"
@@ -601,12 +594,20 @@
     ?~  c
       ~&  >>>  "%volt: insufficient capacity with {<who>}"
       `state
-    (pay-channel u.c amount-msats payment-hash %.n)
+    =^  result  state  (pay-channel u.c amount-msats payment-hash %.n)
+    =|  req=forward-request
+    =.  req
+      %=  req
+        htlc  -.result
+        ours  %.y
+        payreq  payreq
+        dest  `who
+      ==
+    [+.result state(outgoing.payments (~(put by outgoing.payments) payment-hash req))]
   ::
   ++  forward-to-provider
     |=  [pay=payreq who=(unit ship)]
     ^-  (quip card _state)
-    ~&  >  "forward-to-provider"
     ?~  volt.prov
       ~&  >>>  "%volt: no provider configured"
       `state
@@ -960,9 +961,6 @@
       (~(put by heat.chan) [%bech32 tau-addr] temporary-channel-id.msg)
     =|  cards=(list card)
     =?  cards  tau  ~[(give-update [%need-funding [%bech32 tau-addr] initial-msats.our.u.c])]
-    ~&  >  "accepted channel"
-    %-  (slog leaf+"chan-id={<temporary-channel-id.msg>}" ~)
-    %-  (slog leaf+"funding-address={<funding-address>}" ~)
     %-  (slog leaf+"wallet-address={<tau-addr>}" ~)
     ::
     :_  %=  state
@@ -1032,7 +1030,6 @@
           wach.chan
         (~(put by wach.chan) script-pubkey.funding-output id.new-channel)
       ==
-    ~&  >  "returning signed funding tx to initiator"
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
         (give-update [%channel-state id.new-channel %opening])
     ==
@@ -1057,12 +1054,8 @@
       sats.funding-outpoint.c
     =.  c  (~(receive-first-commitment channel c) signature.msg)
     =.  c  (~(set-state channel c) %opening)
-    ~&  >>  "FINAL PSBT"
-    ~&  "{<funding-tx>}"
     :: =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
     =+  tx=(extract:psbt funding-tx)
-    ~&  >>  "ENCODED"
-    ~&  "{<tx>}"
     =+  id=(request-id dat.tx)
     =/  =action:btc-provider  [id %broadcast-tx tx]
     :_
@@ -1169,6 +1162,10 @@
       =.  initiator.close   src.bowl
       =.  her-script.close  script-pubkey
       =.  our-script.close  ~(shutdown-script channel u.c)
+      ~&  >  "her-script"
+      ~&  her-script.close
+      ~&  >  "our-script"
+      ~&  our-script.close
       =.  timeout.close  (add now.bowl ~m1)
       =^  ack-cards  u.c      (send-shutdown u.c close)
       =^  sig-cards  close    (maybe-sign-closing u.c close)
@@ -1184,7 +1181,7 @@
     ?>  =(initiator.u.close our.bowl)
     =.  her-script.u.close  script-pubkey
     =^  sig-cards  u.close  (maybe-sign-closing u.c u.close)
-    =^  time-cards  u.close  (reset-timer u.close)
+    =^  time-cards  u.close  (reset-timer id.u.c u.close)
     :-  (weld sig-cards time-cards)
     %=  state
       live.chan  (~(put by live.chan) id.u.c u.c)
@@ -1204,11 +1201,16 @@
         her-fee  fee-sats
         her-sig  signature
       ==
+    ~&  >  "her-script"
+      ~&  her-script.close
+      ~&  >  "our-script"
+      ~&  our-script.close
     =/  [closing-tx=psbt:psbt our-sig=signature:bolt]
       %^    ~(make-closing-tx channel u.c)
           our-script.close
         her-script.close
       her-fee.close
+    ~|  [closing-tx her-sig.close]
     ?>  (verify-signature u.c closing-tx her-sig.close)
     =/  fee-diff=sats:bc
       ?:  (gth our-fee.close her-fee.close)
@@ -1251,7 +1253,7 @@
         cards
         (poke-btc-provider action)
         ~[(give-update [%channel-state id.u.c %closing])]
-        [%pass /timer %arvo %b %rest timeout.close]^~
+        [%pass /timer/(scot %uv id.u.c) %arvo %b %rest timeout.close]^~
       ==
     ::  set fee 'strictly between' the previous values
     ::
@@ -1261,7 +1263,7 @@
     ::  another round
     ::
     =^  sig-cards  close  (maybe-sign-closing u.c close)
-    =^  time-cards  close  (reset-timer close)
+    =^  time-cards  close  (reset-timer id.u.c close)
     :-  (weld sig-cards time-cards)
     state(shut.chan (~(put by shut.chan) id.u.c close))
   ::
@@ -1382,10 +1384,10 @@
     ?~  c  !!
     ?>  =(ship.her.config.u.c src.bowl)
     ?>  =(state.u.c %open)
-    ~&  >>  "%volt: received htlc {<htlc-id.htlc.action>} from {<src.bowl>}"
+    :: ~&  >>  "%volt: received htlc {<htlc-id.htlc.action>} from {<src.bowl>}"
     =^  her-htlc=update-add-htlc:msg:bolt  u.c
       (~(receive-htlc channel u.c) htlc.action)
-    ~&  >>  "%volt: added htlc {<htlc-id.her-htlc>} from {<src.bowl>}"
+    :: ~&  >>  "%volt: added htlc {<htlc-id.her-htlc>} from {<src.bowl>}"
     =|  req=forward-request
     =.  req
       %=  req
@@ -1498,7 +1500,8 @@
         ~&  >>>  "%volt: no capacity with peer"
         (cancel-invoice r-hash.result)
       ::  can apply fees here
-      (pay-channel u.c value-msats.result r-hash.result %.n)
+      =^  res  state  (pay-channel u.c value-msats.result r-hash.result %.n)
+      [+.res state]
     ?:  =(state.result %'SETTLED')
       `state(incoming.payments (~(del by incoming.payments) r-hash.result))
     `state
@@ -1530,7 +1533,6 @@
   :: ?.  =(host.u.btcp.prov src.bowl)  `state
   ?-    -.status
       %new-block
-    ~&  "volt received new block"
     =.  btcp.prov  %.y
     =.  chain      [block.status fee.status now.bowl]
     =/  addr-info=(list card)
@@ -1548,8 +1550,6 @@
       |=  [=address:bc]
       =/  rd  (request-id +.address)
       =/  =action:btc-provider  [rd %address-info address]
-      ~&  >  "heat.chan addr-info action"
-      ~&  action
       (poke-btc-provider action)
     =/  [exp=(list [hexb:bc pending-timelock]) unexp=(list [hexb:bc pending-timelock])]
       %+  skid  ~(tap by onchain.payments)
@@ -2033,13 +2033,11 @@
             used=?
             block=@
         ==
-    ~&  >  "handle-address-info"
     ^-  (quip card _state)
     ?.  ?=([%bech32 *] address)  `state
     =/  tbf  (~(get by heat.chan) address)
     ::  see if this is "tau" (passthrough wallet) address we're using to fund channels
     ?:  ?=(^ tbf)
-      ~&  tbf
       ::  it is, find the associated
       =+  larva=(~(get by larv.chan) u.tbf)
       ?~  larva  `state
@@ -2190,7 +2188,6 @@
       `channel
     ::
         %funded
-      ~&  >  "sending funding-locked"
       (send-funding-locked channel)
     ::
         %force-closing
@@ -2210,13 +2207,15 @@
   |=  [=id:bolt acc=(unit chan:bolt)]
   =+  c=(~(get by live.chan) id)
   ?~  c  acc
+  :: ~&  >  "STATE"
+  :: ~&  state.u.c
   ?:  ?&(=(state.u.c %open) (~(can-pay channel u.c) amount-msats))
     `u.c
   acc
 ::
 ++  pay-channel
   |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc fwd=?]
-  ^-  (quip card _state)
+  ^-  [[update-add-htlc:msg:bolt (list card)] _state]
   ?>  =(state.c %open)
   =|  update=update-add-htlc:msg:bolt
   =.  update
@@ -2229,7 +2228,10 @@
   =?  cltv-expiry.update  fwd  (sub cltv-expiry.update 10)
   =^  htlc   c  (~(add-htlc channel c) update)
   =^  cards  c  (maybe-send-commitment c)
-  :_  state(live.chan (~(put by live.chan) id.c c))
+  :_  %=  state
+        live.chan  (~(put by live.chan) id.c c)
+      ==
+  :-  update
   [(send-message [%update-add-htlc htlc] ship.her.config.c) cards]
 ::
 ++  add-peer-channel
@@ -2294,7 +2296,7 @@
 ++  send-revoke-and-ack
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
-  ~&  >>  "%volt: revoking current commitment {<id.c>}"
+  :: ~&  >>  "%volt: revoking current commitment"
   =^  rev    c  ~(revoke-current-commitment channel c)
   =^  cards  c  (maybe-send-commitment c)
   :_  c
@@ -2303,11 +2305,17 @@
 ++  send-shutdown
   |=  [c=chan:bolt close=coop-close-state]
   |^  ^-  (quip card _c)
+  ~|  "state"
+    ~|  state.c
+    ~|  "our updates"
+    ~|  our.updates.c
+    ~|  "her updates"
+    ~|  her.updates.c
   ?>  (can-send-shutdown c)
   :_  (~(set-state channel c) %shutdown)
   :~  (send-message [%shutdown id.c our-script.close] ship.her.config.c)
       (give-update [%channel-state id.c %shutdown])
-      [%pass /timer %arvo %b %wait timeout.close]
+      [%pass /timer/(scot %uv id.c) %arvo %b %wait timeout.close]
   ==
   ++  can-send-shutdown
     |=  c=chan:bolt
@@ -2329,9 +2337,9 @@
 ++  maybe-send-commitment
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
-  ?:  (~(has-unacked-commitment channel c) %remote)  `c
+  ?:  (~(has-unacked-commitment channel c) %remote)  
+  `c
   ?.  (~(owes-commitment channel c) %local)          `c
-  ~&  >>  "%volt: sending next commitment on channel {<id.c>}"
   =^  sigs  c  ~(sign-next-commitment channel c)
   =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
     sigs
@@ -2369,10 +2377,9 @@
     ?~  req  `state
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
-    ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
+    :: ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
     =/  hop=(unit chan:bolt)  (forwarding-channel payreq.u.req dest.u.req)
     ?~  hop
-      ~&  >>  "with lnd"
     ::  should we validate the route hint info to prevent LND seeing a selfpayment?
     ::  need to handle LND errors better (and fail the incoming HTLC?) even if we do filter this case internally
     ::  what to do in case of filtering an unfulfillable route?
@@ -2381,10 +2388,9 @@
       :_  =-  state(outgoing.payments -)
           (~(put by outgoing.payments) payment-hash.h u.req)
       ~[(provider-command [%send-payment payreq.u.req ~ ~])]
-    ~&  >>  "with volt"
-    =^  cards  state
+    =^  result  state
       (pay-channel u.hop amount-msats.h payment-hash.h %.y)
-    [cards state]
+    [+.result state]
   --
 ::
 ++  maybe-send-settle
@@ -2400,7 +2406,7 @@
   ?~  with-preimages  `c
   =+  h=(head with-preimages)
   =+  preimage=(~(got by preimages.payments) payment-hash.h)
-  ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
+  :: ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
   =|  cards=(list card)
   =+  pr=(~(got by incoming.payments) payment-hash.h)
   =?  cards  =(our.bowl payee.pr)
@@ -2415,7 +2421,6 @@
   ?.  own-provider
     `state
   ?:  (~(has by incoming.payments) payment-hash)
-    ~&  >>  "%volt: settling invoice"
     :_  %=    state
             incoming.payments
           %+  ~(jab by incoming.payments)
@@ -2426,7 +2431,6 @@
   =+  fwd=(~(get by outgoing.payments) payment-hash)
   ?~  fwd  `state
   ?.  =(%.y lnd.u.fwd)  `state
-  ~&  >>  "settling fwd payment"
   =+  c=(~(got by live.chan) channel-id.htlc.u.fwd)
   =.  c  (~(settle-htlc channel c) preimage htlc-id.htlc.u.fwd)
   =^  cards  c  (maybe-send-commitment c)
@@ -2567,9 +2571,9 @@
 ++  poke-btc-provider
   |=  =action:btc-provider
   ^-  (list card)
-  ~&  "hit poke-btc-provider with {<-.action>}"
+  :: ~&  "hit poke-btc-provider with {<-.action>}"
   =/  id  (scot %uv id.action)
-  =/  start  [~ `id byk.bowl(r da+now.bowl) %btcp-req !>(action)]
+  =/  start  [~ `id byk.bowl(r da+now.bowl) %rpc-btcp-req !>(action)]
   :+  :*  %pass  /btc-provider-update/[id]
           %agent  our.bowl^%spider
           %watch  /thread-result/[id]
@@ -2609,7 +2613,6 @@
 ++  volt-command
   |=  [=command]
   ^-  card
-  ~&  >  "making card"
   :*  %pass   /command/[(scot %da now.bowl)]
       %agent  our.bowl^%volt
       %poke   %volt-command  !>(command)
@@ -2651,7 +2654,7 @@
 ++  watch-btc-provider
   |=  who=@p
   ^-  (list card)
-  =/  =dock     [who %btc-provider]
+  =/  =dock     [who %bitcoin-rpc]
   =/  wir=wire  /btc-provider
   :+
     :*  %pass   wir
@@ -2670,11 +2673,11 @@
   =/  wir=wire  /set-btc-provider/[(scot %p who)]
   :+
     :*  %pass   wir
-        %agent  who^%btc-provider
+        %agent  who^%bitcoin-rpc
         %leave  ~
     ==
     :*  %pass   (welp wir %priv^~)
-        %agent  who^%btc-provider
+        %agent  who^%bitcoin-rpc
         %leave  ~
     ==
   ~
@@ -2711,18 +2714,16 @@
   ?~  amount.u.invoice  ~
   =+  chan-ids=(~(get by peer.chan) u.who)
   ?~  chan-ids
-    ~&  >  "no channel with payee"
     ~
-  ~&  >  "got channel"
   (find-channel-with-capacity u.chan-ids (amount-to-msats:bolt11 u.amount.u.invoice))
 ::
 ++  reset-timer
-  |=  close=coop-close-state
+  |=  [=id:bolt close=coop-close-state]
   ^-  (quip card _close)
   =/  timer=@da  (add now.bowl ~m1)
   :_  close(timeout timer)
-  :~  [%pass /timer %arvo %b %rest timeout.close]
-      [%pass /timer %arvo %b %wait timer]
+  :~  [%pass /timer/(scot %uv id) %arvo %b %rest timeout.close]
+      [%pass /timer/(scot %uv id) %arvo %b %wait timer]
   ==
 ::
 ++  handle-lost-peer
@@ -2747,4 +2748,6 @@
     live.chan  (~(put by live.chan) id c)
     dead.chan  (~(put by dead.chan) id close)
   ==
+::
+::  TODO add command type for hard force close in case of problem with updates log etc - not for app, footgun, troubleshoot only
 --

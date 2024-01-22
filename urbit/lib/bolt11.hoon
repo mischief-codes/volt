@@ -650,8 +650,6 @@
     ^-  cord
     =/  combined=(list @)
       (weld data (checksum hrp data))
-    :: ~&  >  "data + checksum"
-    ~&  `(list @ux)`combined
     %-  crip
     (zing ~[hrp "1" (tape (murn combined value-to-charset))])
   ::
@@ -701,7 +699,6 @@
     |=  [network=?(%main %testnet %regtest) pubkey=byts]
     ^-  (unit cord)
     ?.  =(33 wid.pubkey)
-      ~&  >>>  pubkey
       ~|('pubkey must be a 33 byte ECC compressed public key' !!)
     =/  prefix  (~(get by prefixes) network)
     ?~  prefix  ~

@@ -235,7 +235,6 @@
       ?=(^ script-witness.i)
   %-  cat:byt:bcu:bc
   %-  zing
-  =-  ~&  -  -
   :~  ~[(flip:byt:bcu:bc 4^nversion.tx)]
       ?:  is-segwit
         ~[1^0x0 1^0x1]
@@ -575,8 +574,8 @@
       ==
     ?:  ?=(%p2wpkh script-type.input)
       =+  wit=(head ~(tap by partial-sigs.input))
-      ~&  "PUB AND SIG"
-      ~&  wit
+      :: ~&  "PUB AND SIG"
+      :: ~&  wit
       :~  +.wit
           -.wit
       ==
@@ -589,7 +588,7 @@
         ==
       input
     ?:  is-complete
-      ~&  >>>  "FINALIZING"
+      :: ~&  >>>  "FINALIZING"
       %=  input
         final-script-sig      input-script
         final-script-witness  `script-witness
@@ -945,8 +944,6 @@
         nlocktime
         nhashtyp
     ==
-    ~&  >  "fields"
-    ~&  hash-values
     (cat:byt:bcu:bc hash-values)
     ++  txin
       ^-  input
@@ -1020,8 +1017,8 @@
         ?:  ~(is-segwit txin input)
           (witness-preimage i shared)
         (non-witness-preimage i shared)
-    ~&  >  "hashed elements"
-    ~&  hash
+    :: ~&  >  "hashed elements"
+    :: ~&  hash
     %-  cat:byt:bcu:bc
     :~  (sign-transaction hash privkey)
         1^sig-hash
@@ -1108,10 +1105,10 @@
   |=  =psbt
   ^-  hexb:bc
   =.  psbt  (finalize psbt)
-  ~&  "FINALIZED PSBT"
-  ~&  psbt
+  :: ~&  "FINALIZED PSBT"
+  :: ~&  psbt
   ?:  (is-complete psbt)
-    ~&  "IS COMPLETE"
+    :: ~&  "IS COMPLETE"
     (encode-tx (extract-unsigned psbt))
   (en psbt)
 ::  +estimated-size: return an estimated virtual tx size in vbytes

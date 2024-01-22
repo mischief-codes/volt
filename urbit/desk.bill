@@ -1,4 +1,4 @@
-:~  %volt-provider
+:~  %bitcoin-rpc
+    %volt-provider
     %volt
-    %volt-wallet
 ==

@@ -176,7 +176,10 @@
 ++  has-pending-changes
   |=  who=owner
   ^-  ?
-  !=(~ ~(entries log (updates-for who)))
+  =/  log  ~(entries log (updates-for who))
+  =/  filtered
+    (skim log |=(=update !=(%add-htlc -.update)))
+  !=(~ filtered)
 ::
 ++  make-funding-address
   |=  [=network =local-funding=pubkey =remote-funding=pubkey]
@@ -241,8 +244,8 @@
 ++  compact-logs
   |=  $:  our-log=update-log
           her-log=update-log
-          local-tail=@
-          remote-tail=@
+          local-tail=@  ::  2
+          remote-tail=@  ::  3
       ==
   |^
   ^-  [ours=update-log hers=update-log]
