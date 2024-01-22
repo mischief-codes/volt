@@ -652,7 +652,8 @@
         ==
   ::
   ++  add-invoice
-    |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
+    |=  [=amount=sats memo=(unit @t) network=(unit network:bolt)]
+    =+  amount-msats=(sats-to-msats:bolt amount-sats)
     ?~  volt.prov  !!
     =/  rng  ~(. og eny.bowl)
     =^  preimage  rng  (rads:rng (bex 256))
@@ -856,7 +857,7 @@
         max-htlc-value-in-flight-msats  max-htlc-value-in-flight-msats.local-config
         channel-reserve-sats            reserve-sats.local-config
         htlc-minimum-msats              htlc-minimum-msats.local-config
-        minimum-depth                   3
+        minimum-depth                   2
         to-self-delay                   to-self-delay.local-config
         max-accepted-htlcs              max-accepted-htlcs.local-config
         funding-pubkey                  pub.multisig-key.local-config
