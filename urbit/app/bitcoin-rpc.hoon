@@ -86,7 +86,7 @@
         %noun
       ?.  =(q.vase %kick-timer)  `state
       :_  state(timer `now.bowl)
-      :*  (start-ping-timer ~s0)
+      :*  (start-ping-timer ~s1)
           ?~  timer  ~
           [[%pass /block-time %arvo %b %rest u.timer] ~]
       ==
@@ -103,7 +103,7 @@
               host-info  [`api-state `our.bowl %.n network.comm 0 *(set ship)]
               timer      `now.bowl
           ==
-      :*  (start-ping-timer:hc ~s0)
+      :*  (start-ping-timer:hc ~s1)
           :*  %give  %fact  ~[/rpc]  %btc-provider-status
               !>(`status`[%new-rpc url.comm port.comm network.comm])
           ==
@@ -301,8 +301,10 @@
       ::  TODO: attempt to reestablish connection if %bad-request from client app?
       ?:  !=(%ping -.wire)
         ~[(send-update-request:hc [%| u.conn-err])]
-      :~  do-ping
+      :*  do-ping
           (start-ping-timer:hc interval)
+          ?~  timer  ~
+          [[%pass /block-time %arvo %b %rest u.timer] ~]
       ==
     ::
     %+  handle-rpc-result  wire
@@ -435,7 +437,7 @@
       ::         clients.host-info
       ::     ==
       ::   :_  this
-      ::   [(start-ping-timer:hc ~s0)]~
+      ::   [(start-ping-timer:hc ~s1)]~
       :: ::
           %btc-provider-status
         =/  =status  !<(status q.cage.sign)
@@ -444,7 +446,7 @@
         =.  api.host-info  `[url.status port.status %.n]
         :_  this
         :*  (send-status:hc [%disconnected ~])
-            (start-ping-timer:hc ~s0)
+            (start-ping-timer:hc ~s1)
             ::  todo ??
             ?~  timer  ~
             [[%pass /block-time %arvo %b %rest u.timer] ~]
