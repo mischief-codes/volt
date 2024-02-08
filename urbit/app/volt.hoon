@@ -652,7 +652,7 @@
         ==
   ::
   ++  add-invoice
-    |=  [=amount=sats memo=(unit @t) network=(unit network:bolt)]
+    |=  [=amount=sats:bc memo=(unit @t) network=(unit network:bolt)]
     =+  amount-msats=(sats-to-msats:bolt amount-sats)
     ?~  volt.prov  !!
     =/  rng  ~(. og eny.bowl)
