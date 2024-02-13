@@ -13,6 +13,7 @@
     |=  act=action:rpc:volt
     |^  ^-  json
     ?+  -.act  ~|("Unknown request type" !!)
+      %list-channels       ~  :: (list-channels +.act)
       %open-channel        (open-channel +.act)
       %send-payment        (send-payment +.act)
       %add-hold-invoice    (add-hold-invoice +.act)
@@ -279,6 +280,7 @@
         %settle-invoice      [%settle-invoice ~]
         %subscribe-confirms  [%subscribe-confirms ~]
         %subscribe-spends    [%subscribe-spends ~]
+        %list-channels        [%list-channels ~]
     ==
     ++  node-info
       %-  ot
@@ -333,6 +335,12 @@
   |=  act=action:rpc:volt
   |^  ^-  request:http
   ?-    -.act
+  ::
+      %list-channels
+    %-  get-request
+    %+  url  '/listChannels'  ''
+    :: act
+  ::
       %get-info
     %-  get-request
     %+  url  '/getinfo'  ''
@@ -383,6 +391,7 @@
     %+  post-request
     %+  url  '/spends'  ''
     act
+
   ==
   ++  url
     |=  [route=@t params=@t]

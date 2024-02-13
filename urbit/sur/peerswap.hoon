@@ -1,84 +1,87 @@
 :: https://github.com/ElementsProject/peerswap/blob/master/docs/peer-protocol.md
-/-  bc=bitcoin, bolt
+/-  bc=bitcoin, bolt, volt
 |%
 +$  protocol-version  @u
 +$  asset             (unit @t)  :: only used for Liquid Network
-+$  swap-id           @t
-+$  scid              @ud
++$  swap-id           @
 +$  payreq            @t
 +$  txid              hexb:bc
-+$  network
-  $~  %liquid
-  $?  %liquid
-      %mainnet
-      %testnet
-      %signet
-  ==
++$  scid              scid:volt
++$  network  ?(%liquid %mainnet %testnet %signet)
++$  swap-status
+  $?  %awaiting-agreement
+  %generating-tx-fee-payreq
+  %paying-tx-fee-payreq
+  %awaiting-tx-fee-payment
+  %awaiting-tx-open
+  %awaiting-fee-invoice
+  %awaiting-fee-invoice-payment
+  %awaiting-swap
+==
++$  swap-type  ?(%swap-in %swap-out)
++$  swap-params  [ship=@p =network =sats:bc]
++$  swap  $:
+    =protocol-version
+    =swap-id
+    =asset
+    =network
+    =scid
+    amount=sats:bc
+    our-pubkey=pubkey:bolt
+    their-pubkey=(unit pubkey:bolt)
+    premium=(unit sats:bc)
+    payreq=(unit payreq)
+    initiator=?
+    =swap-type
+    =swap-status
+    txid=(unit txid)
+    script-out=(unit @)
+    cancel-message=(unit @t)
+    coop-close-message=(unit @t)
+    coop-close-privkey=(unit privkey:bolt)
+==
 +$  swap-request
-  $:  =swap-id
+  $:  =protocol-version
+      =swap-id
       =asset
       =network
       =scid
       amount=sats:bc
       pubkey=pubkey:bolt
 ==
++$  swap-in-agreement
+  $:  =protocol-version
+      =swap-id
+      pubkey=pubkey:bolt
+      premium=sats:bc
+==
++$  swap-out-agreement
+  $:  =protocol-version
+      =swap-id
+      pubkey=pubkey:bolt
+      payreq=payreq:volt
+==
++$  opening-tx-broadcasted
+  $:  =swap-id
+      =payreq
+      =txid
+      script-out=@
+      blinding-key=(unit @)  :: only used for Liquid Network
+==
 ++  message
   $%
-    $:  %test
-        foo=@
-    ==
-    $:  %swap-in-request
-        =swap-request
-    ==
-  ::
-    $:  %swap-in-agreement
-        =protocol-version
-        =swap-id
-        pubkey=pubkey:bolt
-        premium=sats:bc
-    ==
-  ::
-    $:  %swap-out-request
-        =swap-request
-    ==
-  ::
-    $:  %swap-out-agreement
-        =protocol-version
-        =swap-id
-        pubkey=pubkey:bolt
-        premium=sats:bc
-    ==
-  ::
-    $:  %opening-tx-broadcasted
-        =swap-id
-        =payreq
-        =txid
-        script-out=@
-        blinding-key=(unit @)  :: only used for Liquid Network
-    ==
-  ::
-    $:  %cancel
-        =swap-id
-        message=@t
-    ==
-  ::
-    $:  %coop-close
-        =swap-id
-        message=@t
-        privkey=privkey:bolt
-    ==
+    $:(%swap-in-request =swap-request)
+    $:(%swap-in-agreement =swap-in-agreement)
+    $:(%swap-out-request =swap-request)
+    $:(%swap-out-agreement =swap-out-agreement)
+    $:(%opening-tx-broadcasted =opening-tx-broadcasted)
+    $:(%cancel =swap-id message=@t)
+    $:(%coop-close =swap-id message=@t privkey=privkey:bolt)
   ==
   ++  command
   $%
-    $:  %request-swap-in
-        ship=@p
-        =network
-        amount=sats:bc
-    ==
-    $:  %request-swap-out
-        ship=@p
-        =network
-        amount=sats:bc
-    ==
+    $:(%request-swap-in =swap-params)
+    $:(%request-swap-out =swap-params)
+    $:(%debug-print swap-id=(unit swap-id) all=?)
   ==
 --

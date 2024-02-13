@@ -7,6 +7,9 @@
 +$  hash      hexb:bc
 +$  preimage  hexb:bc
 +$  rpc-tx    [=txid rawtx=hexb:bc]
+:: todo:
+:: +$  scid  [height=@ tx-index=@ output-idx=@]
++$  scid  @t
 ::
 +$  msats    msats:bolt
 +$  chan-id  id:bolt
@@ -23,6 +26,7 @@
   +$  action
     $%  [%get-info ~]
         [%wallet-balance ~]
+        [%list-channels ~]
         [%open-channel node=pubkey local-amount=sats:bc push-amount=sats:bc]
         [%close-channel funding-txid=txid output-index=@]
         [%send-payment invoice=cord timeout=(unit @dr) fee-limit=(unit sats:bc)]
@@ -41,6 +45,7 @@
   +$  result
     $%  [%get-info node-info]
         [%wallet-balance total=msats confirmed=msats unconfirmed=msats]
+        [%list-channels ~]
         [%open-channel channel-point]
         [%close-channel ~]
         [%send-payment ~]
@@ -210,6 +215,7 @@
   ::
   +$  action
     $%  [%ping ~]
+        [%list-channels ~]
         [%add-hold-invoice =amt=msats memo=(unit @t) =payment=hash expiry=(unit @dr)]
         [%settle-invoice =preimage]
         [%cancel-invoice =payment=hash]
@@ -225,6 +231,7 @@
   ::
   +$  result
     $%  [%node-info =node-info]
+        [%list-channels ~]
         [%hold-invoice payment-request=cord]
         [%invoice-added add-invoice-response:rpc]
         [%invoice-update invoice:rpc]

@@ -1,5 +1,5 @@
-/-  *bolt
-/+  bc=bitcoin, bolt11
+/-  *bolt, volt
+/+  bc=bitcoin, bolt11, bcu=bitcoin-utils
 /+  der, psbt, ring
 |%
 ++  bcu  bcu:bc
@@ -173,4 +173,15 @@
       %bech32
     (bech32-decode +.address)
   ==
+::
+::
+++  get-scid
+  |=  =utxo:bc
+  ^-  scid:volt
+  ::  https://developers.urbit.org/reference/hoon/stdlib/4k
+  =/  block  "{((em-co:co [16 1] |=([? b=@ c=tape] [~(x ne b) c])) height.utxo)}"
+  =/  tx-index  "{((em-co:co [16 1] |=([? b=@ c=tape] [~(x ne b) c])) tx-index.utxo)}"
+  =/  vout  "{((em-co:co [16 1] |=([? b=@ c=tape] [~(x ne b) c])) pos.utxo)}"
+  (crip "{block}:{tx-index}:{vout}")
 --
+

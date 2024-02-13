@@ -104,7 +104,7 @@
   ^-  vase
   !>(state)
 ::
-++  on-load
+++  on-load    ::  on-load:def
   |=  old-state=vase
   ^-  (quip card _this)
   ~&  >  '%volt recompiled successfully'
@@ -289,15 +289,32 @@
   ==
 ::
 ++  on-arvo   on-arvo:def
-++  on-peek    on-peek:def
+++  on-peek
+  |=  =path
+  ^-  (unit (unit cage))
+  ?+    path  (on-peek:def path)
+      [%x %channels %open %partner @ ~]
+    =/  who=@p  (slav %p i.t.t.t.t.path)
+    =/  peer-ids=(list id:bolt)  ~(tap in (fall (~(get by peer.chan) who) [~]))
+    =/  peer-chans=(list chan:bolt)
+      %+  turn
+        %+  skim
+          %+  turn
+            peer-ids
+          |=  =id:bolt  (~(get by live.chan) id)
+        |=  c=(unit chan:bolt)  ?=(^ c)
+      need
+    ``noun+!>(peer-chans)
+  ==
+::
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
 ::
 |_  =bowl:gall
 ++  get-funding-address
-  |=  foo=id:bolt
-  =/  c=(unit larva-chan:bolt)  (~(get by larv.chan) foo)
+  |=  =id:bolt
+  =/  c=(unit larva-chan:bolt)  (~(get by larv.chan) id)
   ^-  (unit address:bc)
   ?>  ?=(^ c)
   ?>  ?=(^ u.c)
@@ -1604,6 +1621,7 @@
     =/  =action:btc-provider  [id %block-txs blockhash.status]
     :_  state(pend.prov (~(put by pend.prov) id action))
     (welp cards (poke-btc-provider action))
+
     :: [addr-info state]
   ::
       %connected
@@ -2096,10 +2114,13 @@
     ::  if the funding utxo is found
     ?:  ?=(^ utxo)
       =/  channel=chan:bolt
+        :: todo: does height = block number
+        ~&  'get SCID!'  ~&  state.channel  ::  ~&  (get-scid:bolt u.utxo)
         %^  ~(update-onchain-state ^channel channel)
             height.u.utxo
           0
         block
+      =.  scid.channel  `(unit @t)`[~ (get-scid:bolt u.utxo)]
       ::  update the channel, if it's being found for the first time trigger funding-locked flow
       =^  cards  channel
         (on-channel-update channel u.utxo block)

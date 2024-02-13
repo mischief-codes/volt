@@ -20,7 +20,7 @@
 +$  sats  @ud
 +$  vbytes  @ud
 +$  txid  hexb
-+$  utxo  [pos=@ =txid height=@ value=sats recvd=(unit @da)]
++$  utxo  [tx-index=@ pos=@ =txid height=@ value=sats recvd=(unit @da)]
 ++  address-info
   $:  =address
       confirmed-value=sats

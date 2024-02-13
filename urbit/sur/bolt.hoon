@@ -8,10 +8,11 @@
 ::  [our-view=? our=a her=a]
 ::  TODO: remove =foo=type turn into foo=type
     ::  EXCEPT where this pattern is used to distinguish sat- and msat-denominated values
-+$  id       @  ::  channel ID
++$  id       @   ::  channel ID
++$  scid     @t  ::  short channel ID
 +$  htlc-id  @
-+$  blocks   @  ::  number of blocks
-+$  msats    @  ::  millisats
++$  blocks   @   ::  number of blocks
++$  msats    @   ::  millisats
 +$  commitment-number  @
 ::
 ::  TODO: unify key types
@@ -257,6 +258,7 @@
 ::
 +$  chan
   $:  =id
+      scid=(unit scid)
       state=chan-state
       =funding=outpoint
       $=  constraints

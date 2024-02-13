@@ -72,7 +72,8 @@
     ::
     ++  utxo
       %-  ot
-      :~  ['tx_pos' ni]
+      :~  ['tx_index' ni]
+          ['tx_pos' ni]
           ['tx_hash' (cu from-cord:hxb:bcu so)]
           [%height ni]
           [%value ni]

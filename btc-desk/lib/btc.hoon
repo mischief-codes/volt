@@ -161,7 +161,7 @@
     `(encode:pbt:bc %.y get-rawtx get-txid ins outs)
   --
 ::  wad: door for processing walts (wallets)
-::        parameterized on a walt and it's chyg account 
+::        parameterized on a walt and it's chyg account
 ::
 ++  wad
   |_  [w=walt =chyg]
@@ -468,7 +468,8 @@
       ==
     ++  utxo
       %-  ot
-      :~  ['tx_pos' ni]
+      :~  ['tx_index' ni]
+          ['tx_pos' ni]
           ['tx_hash' (cu from-cord:hxb:bcu so)]
           [%height ni]
           [%value ni]
@@ -510,7 +511,7 @@
       ==
     ++  block-headers
       %-  ot
-      :~  [%count ni] 
+      :~  [%count ni]
           [%hex (cu from-cord:hxb:bcu so)]
           [%max ni]
           [%root (cu:dejs-soft:format from-cord:hxb:bcu so:dejs-soft:format)]
@@ -519,7 +520,7 @@
     ++  tx-from-pos
       %-  ot
       :~  [%tx-hash (cu from-cord:hxb:bcu so)]
-          [%merkle (ar (cu from-cord:hxb:bcu so))] 
+          [%merkle (ar (cu from-cord:hxb:bcu so))]
       ==
     ++  block-txs
       %-  ot
@@ -569,27 +570,27 @@
     (mk-url '/feehistogram' '')
     ::
       %get-block-headers
-    %+  post-request    
-    %+  mk-url  '/blockheaders'  '' 
+    %+  post-request
+    %+  mk-url  '/blockheaders'  ''
     %-  pairs
-    :~  [%start (numb start.ract)]  
+    :~  [%start (numb start.ract)]
         [%count (numb count.ract)]
-        [%cp (numb (fall cp.ract 0))] 
-    == 
+        [%cp (numb (fall cp.ract 0))]
+    ==
     ::
       %get-tx-from-pos
-    %+  post-request    
-    %+  mk-url  '/txfrompos'  ''  
+    %+  post-request
+    %+  mk-url  '/txfrompos'  ''
     %-  pairs
-    :~  [%height (numb height.ract)]  
+    :~  [%height (numb height.ract)]
         [%pos (numb pos.ract)]
-        [%merkle %b merkle.ract] 
-    == 
+        [%merkle %b merkle.ract]
+    ==
     ::
       %get-fee
     %-  get-request
     %+  mk-url  '/estimatefee/'
-    %-  crip 
+    %-  crip
     %+  scow  %ud  block.ract
     ::
       %update-psbt

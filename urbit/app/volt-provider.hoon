@@ -139,6 +139,9 @@
       %ping
     [(do-rpc [%get-info ~]) state]
   ::
+      %list-channels
+    [(do-rpc [%list-channels ~]) state]
+  ::
       %add-hold-invoice
     [(do-rpc [%add-hold-invoice +.action]) state]
   ::
@@ -305,6 +308,9 @@
   |=  [=wire =result:rpc:volt]
   ^-  (quip card _state)
   ?+    -.wire  ~|("Unexpected RPC result" !!)
+      %list-channels
+    ~&  'list channels result!!'
+    `state
       %get-info
     ?>  ?=([%get-info *] result)
     :_  state(connected.host-info %.y, node-info +.result)
@@ -357,6 +363,9 @@
   :_  state
   ~[(give-update [%err %rpc-error error])]
 ::
+
+
+
 ++  do-rpc
   |=  =action:rpc:volt
   ^-  (list card)

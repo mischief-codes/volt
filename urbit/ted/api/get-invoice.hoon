@@ -14,9 +14,9 @@
   (take-fact:io /volt)
 --
 ^-  thread:spider
-|=  arg=vase
+|=  v=vase
 =/  m  (strand ,vase)
-=+  !<(=command:volt vase)
+=+  !<(=command:volt v)
 ;<  ~  bind:m  watch-volt
 ;<  ~  bind:m  (poke-volt command)
 ;<  =cage  bind:m  take-result
