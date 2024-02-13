@@ -1,5 +1,6 @@
 /-  *peerswap, bc=bitcoin
 |%
+:: todo: sub-cores for responder vs initiator
 ++  new-responder-swap-in
   |=  [req=swap-request our-pubkey=pubkey:bolt premium=sats:bc]
   ^-  swap
