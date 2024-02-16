@@ -16,7 +16,7 @@
     premium           (some premium)
     initiator         |
     swap-type         %swap-in
-    swap-status       %awaiting-tx-open
+    status            %awaiting-tx-open
   ==
 ::
 ++  new-responder-swap-out
@@ -33,7 +33,7 @@
     their-pubkey      (some pubkey.req)
     initiator         |
     swap-type         %swap-out
-    swap-status       %generating-tx-fee-payreq
+    status            %generating-tx-fee-payreq
   ==
 ::
 ++  new-initiator-swap
@@ -49,15 +49,15 @@
     our-pubkey        pubkey.req
     initiator         &
     swap-type         swap-type
-    swap-status       %awaiting-agreement
+    status            %awaiting-agreement
   ==
 ::
 ++  add-tx-fee-payreq
   |=  [old=swap =payreq]
   ^-  swap
   %=  old
-    payreq        (some payreq)
-    swap-status   %awaiting-tx-fee-payment
+    payreq   (some payreq)
+    status   %awaiting-tx-fee-payment
   ==
 ::
 ++  add-swap-out-agreement
@@ -66,8 +66,13 @@
   %=  old
     payreq        (some payreq.agreement)
     their-pubkey  (some pubkey.agreement)
-    swap-status   %paying-tx-fee-payreq
+    status        %paying-tx-fee-payreq
   ==
+::
+++  update-swap-payed-tx-fee-payreq
+  |=  [old=swap]
+  ^-  swap
+  old(status %awaiting-tx-open)
 ::
 ++  update-swap-opening-tx-broadcasted
   |=  [old=swap msg=opening-tx-broadcasted]
@@ -76,6 +81,7 @@
     payreq        (some payreq.msg)
     txid          (some txid.msg)
     script-out    (some script-out.msg)
-    swap-status   %awaiting-swap
+    status        %awaiting-swap
   ==
+::
 --

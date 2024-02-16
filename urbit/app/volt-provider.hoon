@@ -363,9 +363,6 @@
   :_  state
   ~[(give-update [%err %rpc-error error])]
 ::
-
-
-
 ++  do-rpc
   |=  =action:rpc:volt
   ^-  (list card)

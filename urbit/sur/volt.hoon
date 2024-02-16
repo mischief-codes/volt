@@ -324,12 +324,14 @@
   ==
 ::
 +$  update
-  $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
+  $%
+      ::  [%need-funding-signature temporary-channel-id=@ =address:bc]
+      ::  [%received-payment from=ship =amt=msats]
+      ::  [%invoice-paid =payreq]
       [%channel-state =chan-id =chan-state:bolt]
-      [%received-payment from=ship =amt=msats]
       [%new-invoice =payment-request]
-      [%invoice-paid =payreq]
-      [%payment-result =payreq success=?]
+      [%outgoing-payment =payreq success=?]  :: ship? amount?
+      [%incoming-payment =payreq]  ::  :: ship? amount?
       [%new-channel =chan-info]
       [%channel-deleted id=@]
       $:  %initial-state

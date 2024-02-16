@@ -4,13 +4,15 @@
 +$  protocol-version  @u
 +$  asset             (unit @t)  :: only used for Liquid Network
 +$  swap-id           @
-+$  payreq            @t
++$  payreq            payreq:volt
 +$  txid              hexb:bc
 +$  scid              scid:volt
 +$  network  ?(%liquid %mainnet %testnet %signet)
-+$  swap-status
++$  status
   $?  %awaiting-agreement
+  :: I think if the state is ever updated for this one, it has succeded?
   %generating-tx-fee-payreq
+  :: same as ^^
   %paying-tx-fee-payreq
   %awaiting-tx-fee-payment
   %awaiting-tx-open
@@ -33,7 +35,7 @@
     payreq=(unit payreq)
     initiator=?
     =swap-type
-    =swap-status
+    =status
     txid=(unit txid)
     script-out=(unit @)
     cancel-message=(unit @t)
@@ -68,6 +70,11 @@
       script-out=@
       blinding-key=(unit @)  :: only used for Liquid Network
 ==
+++  thread-type
+  $?
+    %get-opening-tx-fee-payreq
+    %pay-opening-tx-fee-payreq
+  ==
 ++  message
   $%
     $:(%swap-in-request =swap-request)

@@ -57,32 +57,9 @@
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
   =^  cards  state
-  =/  swap-id-raw  (snag 1 wire)
   ?+    -.wire  `state
       %thread
-    ?+    -.sign  `state
-        %poke-ack
-      ?~  p.sign
-        ::  %-  (slog leaf+"Thread started successfully" ~)
-        `state
-      ::  %-  (slog leaf+"Thread failed to start" u.p.sign)
-      `state
-    ::
-        %fact
-      ?+    p.cage.sign  `state
-          %thread-fail
-        =/  err  !<  (pair term tang)  q.cage.sign
-        ::  %-  (slog leaf+"Thread failed: {(trip p.err)}" q.err)
-        `state
-          %thread-done
-        =/  =swap-id  (scan (trip swap-id-raw) dem:ag)
-        =/  =swap  (get-swap swap-id)
-        =/  res  !<(=update:volt q.cage.sign)
-        ?+  -.res  `state
-            %new-invoice  (send-swap-out-agreement:hc swap +.res)
-        ==
-      ==
-    ==
+    (handle-thread wire sign)
   ==
   [cards this]
 ++  on-arvo   on-arvo:def
@@ -90,6 +67,37 @@
 --
 ::
 |_  =bowl:gall
+++  handle-thread
+  |=  [=wire =sign:agent:gall]
+  ?+    -.sign  `state
+    %poke-ack
+  ?~  p.sign
+    %-  (slog leaf+"Thread started successfully" ~)
+    `state
+  %-  (slog leaf+"Thread failed to start" u.p.sign)
+  `state
+::
+    %fact
+  ?+    p.cage.sign  `state
+      %thread-fail
+    =/  err  !<  (pair term tang)  q.cage.sign
+    %-  (slog leaf+"Thread failed: {(trip p.err)}" q.err)
+    `state
+      %thread-done
+    =/  =swap-id      (get-swap-id-from-wire wire)
+    =/  =thread-type  (get-thread-type-from-wire wire)
+    =/  =swap  (get-swap swap-id)
+    =/  res  !<(=update:volt q.cage.sign)
+    ~&  'thread done'
+    ~&  thread-type
+    ~&  -.res
+    ?+  -.res  `state
+        %new-invoice  (send-swap-out-agreement swap +.res)
+        %outgoing-payment  ~&  'invoice payed'  ~&  +>.res  (handle-payed-tx-fee-payreq swap)
+    ==
+  ==
+==
+::
 ++  print-swap
   |=  =swap
   ~&  'swap:'
@@ -215,12 +223,22 @@
 ++  handle-swap-out-agreement
   |=  a=swap-out-agreement
   ^-  (quip card _state)
-  :: pay invoice
-  =/  new=swap  (add-swap-out-agreement (get-swap swap-id.a) a)
-  :-  (pay-tx-fee-invoice new)
+  =/  =swap  (add-swap-out-agreement (get-swap swap-id.a) a)
+  :-  (pay-opening-tx-fee-payreq bowl swap)
   %=  state
-    swaps     (~(put by swaps) swap-id.new new)
+    swaps     (~(put by swaps) swap-id.swap swap)
   ==
+::
+++  handle-payed-tx-fee-payreq
+  |=  =swap
+  :-  ~
+  %=  state
+    swaps     (~(put by swaps) swap-id.swap (update-swap-payed-tx-fee-payreq swap))
+  ==
+::
+++  handle-received-tx-fee-payment
+  |=  =swap
+  !!
 ::
 ++  pay-tx-fee-invoice
   |=  =swap
