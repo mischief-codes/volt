@@ -136,7 +136,7 @@
         ==
     ^-  [? (list input:psbt)]
     =/  anchor-script
-      (remote-output:script pub)
+      (anchor-output:script pub)
     =/  addr
       ?.  anchors  (p2wpkh:script pub)
       (p2wsh:script anchor-script)

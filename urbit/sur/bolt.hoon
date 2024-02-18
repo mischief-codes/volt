@@ -228,6 +228,7 @@
       her=remote-config
       oc=(unit open-channel:msg)
       ac=(unit accept-channel:msg)
+      fund=address:bc
   ==
 ::  +revocation-store: BOLT-03 revocation storage
 ::

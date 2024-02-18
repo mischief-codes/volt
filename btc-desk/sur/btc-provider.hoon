@@ -125,6 +125,7 @@
         [%get-block-info block=@ud fee=(unit sats) blockhash=hexb blockfilter=hexb]
         [%get-histogram hist=(list (list @ud))]
         [%get-block-headers count=@ud hex=hexb max=@ud root=(unit hexb) branch=(list hexb)]
+        ::  TODO: differentiate 'pos' in this context (block tx index) from 'pos' in the usual outpoint sense (vout index) ie. for submarine swap/short channel id purposes
         [%get-tx-from-pos tx-hash=hexb merkle=(list hexb)]
         [%get-fee fee=@rd]
         [%update-psbt psbt=@t]

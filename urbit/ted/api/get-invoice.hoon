@@ -16,7 +16,7 @@
 ^-  thread:spider
 |=  arg=vase
 =/  m  (strand ,vase)
-=+  !<(=command:volt vase)
+=+  !<(=command:volt arg)
 ;<  ~  bind:m  watch-volt
 ;<  ~  bind:m  (poke-volt command)
 ;<  =cage  bind:m  take-result
