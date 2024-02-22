@@ -1,4 +1,5 @@
-/-  volt, bitcoin
+/-  volt, bitcoin  :: psbt
+/+  psbt
 |%
 ++  dejs
   =,  dejs:format
@@ -11,12 +12,20 @@
     %-  of
     :~  set-provider+(mu ship)
         open-channel+(ot ~[who+ship funding-sats+ni push-msats+ni network+network])
-        create-funding+(ot ~[temporary-channel-id+(se %ud) psbt+so])
+        create-funding+(ot ~[temporary-channel-id+(se %ud) psbt+psbt])
         close-channel+(se %ud)
         send-payment+(ot ~[payreq+so who+(mu ship)])
         add-invoice+(ot ~[amount+ni memo+so:dejs-soft:format network+(mu network)])
         test-invoice+(ot ~[ship+ship msats+ni network+network])
     ==
+  ::
+  ++  psbt
+    |=  jon=json
+    ^-  psbt:^psbt
+    ?.  ?=([%s @t] jon)
+      ~|  "%volt: invalid psbt"
+        !!
+    (need (from-base64:create:^psbt +.jon))
   ::
   ++  provider
     |%

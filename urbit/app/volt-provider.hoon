@@ -367,7 +367,7 @@
   |=  =action:rpc:volt
   ^-  (list card)
   =/  tid     `@ta`(cat 3 'thread_' (scot %uv (sham eny.bowl)))
-  =/  args     [~ `tid byk.bowl(r da+now.bowl) %lnd-rpc !>([~ host-info.state action])]
+  =/  args     [~ `tid byk.bowl(r da+now.bowl) %rpc-lnd-rpc !>([~ host-info.state action])]
   =/  wire     (rpc-wire action)
   :~
     :*  %pass   wire

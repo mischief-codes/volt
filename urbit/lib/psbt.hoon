@@ -1,5 +1,7 @@
 ::  psbt.hoon -- A more complete implementation of BIP-174
 ::
+::  V2 notes: better distinguish types, methods for PSBT noun representation, PSBT bytecode, and transaction bytecode
+::
 /-  *psbt
 /+  bc=bitcoin, der
 |%
@@ -48,8 +50,11 @@
 ++  full-key
   |=  [typ=@ key=hexb:bc]
   ^-  hexb:bc
+  =/  size=hexb:bc  (encode-compact-size typ)
+  :: ~&  >  "size {<size>}"
+  :: ~&  >  "key {<key>}"
   %-  cat:byt:bcu:bc
-  ~[(encode-compact-size typ) key]
+  ~[size key]
 ::  +next-key-value: parse next key-value pair from map
 ::
 ++  next-key-value
@@ -279,7 +284,7 @@
   ^-  (list map)
   =^  magc=hexb:bc  b  (read-bytes 5 b)
   ?.  =(dat.magc magic)
-    ~|(%psbt-bad-magic !!)
+    ~|([%psbt-bad-magic dat.magc] !!)
   =|  acc=(list map)
   =|  m=map
   |-
@@ -537,7 +542,8 @@
   ::
   ++  is-segwit
     ^-  ?
-    ?=(^ witness-script.input)
+    :: ?=(^ witness-script.input)
+    %.y
   ::
   ++  input-script
     ^-  (unit hexb:bc)
@@ -566,6 +572,13 @@
           signature-list
           [(need witness-script.input)]~
       ==
+    ?:  ?=(%p2wpkh script-type.input)
+      =+  wit=(head ~(tap by partial-sigs.input))
+      :: ~&  "PUB AND SIG"
+      :: ~&  wit
+      :~  +.wit
+          -.wit
+      ==
     [(encode-compact-size 0)]~
   ::
   ++  finalize
@@ -575,6 +588,7 @@
         ==
       input
     ?:  is-complete
+      :: ~&  >>>  "FINALIZING"
       %=  input
         final-script-sig      input-script
         final-script-witness  `script-witness
@@ -918,7 +932,7 @@
       ~|(%psbt-sighash-unsupported !!)
     =?  shared  ?=(~ shared)  `digest-fields
     ?>  ?=(^ shared)
-    %-  cat:byt:bcu:bc
+    =/  hash-values=(list hexb:bc)
     :~  nversion
         hash-prevouts.u.shared
         hash-sequence.u.shared
@@ -930,6 +944,7 @@
         nlocktime
         nhashtyp
     ==
+    (cat:byt:bcu:bc hash-values)
     ++  txin
       ^-  input
       (snag i inputs.tx)
@@ -1002,6 +1017,8 @@
         ?:  ~(is-segwit txin input)
           (witness-preimage i shared)
         (non-witness-preimage i shared)
+    :: ~&  >  "hashed elements"
+    :: ~&  hash
     %-  cat:byt:bcu:bc
     :~  (sign-transaction hash privkey)
         1^sig-hash
@@ -1088,7 +1105,10 @@
   |=  =psbt
   ^-  hexb:bc
   =.  psbt  (finalize psbt)
+  :: ~&  "FINALIZED PSBT"
+  :: ~&  psbt
   ?:  (is-complete psbt)
+    :: ~&  "IS COMPLETE"
     (encode-tx (extract-unsigned psbt))
   (en psbt)
 ::  +estimated-size: return an estimated virtual tx size in vbytes

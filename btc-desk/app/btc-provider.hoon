@@ -332,6 +332,8 @@
       ~[(send-update-request:hc [%.y req-id %raw-tx +.r])]
       ::
         %broadcast-tx
+      ~&  >  "result"
+      ~&  "{<r>}"
       ?>  ?=([%broadcast-tx *] r)
       ~&  >  "rpc returned broadcast-tx response"
       :_  state

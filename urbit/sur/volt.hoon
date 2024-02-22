@@ -1,6 +1,6 @@
 ::  sur/volt.hoon
 ::
-/-  bc=bitcoin, bolt
+/-  bc=bitcoin, bolt, psbt
 |%
 +$  pubkey    pubkey:bolt
 +$  txid      hexb:bc
@@ -291,7 +291,7 @@
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
-      [%create-funding temporary-channel-id=@ psbt=@t]
+      [%create-funding temporary-channel-id=@ =psbt:psbt]
       [%close-channel =chan-id]
       [%send-payment =payreq who=(unit ship)]
       [%add-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
@@ -324,11 +324,7 @@
   ==
 ::
 +$  update
-  $%
-      ::  [%need-funding-signature temporary-channel-id=@ =address:bc]
-      ::  [%received-payment from=ship =amt=msats]
-      ::  [%invoice-paid =payreq]
-      [%channel-state =chan-id =chan-state:bolt]
+  $%  [%channel-state =chan-id =chan-state:bolt]
       [%new-invoice =payment-request]
       [%outgoing-payment =payreq success=?]  :: ship? amount?
       [%incoming-payment =payreq]  ::  :: ship? amount?

@@ -168,7 +168,6 @@
 ++  address-to-script
   |=  =address:bc
   ^-  hexb:bc
-  ~&  >>  address
   ?+    -.address  !!
       %bech32
     (bech32-decode +.address)
