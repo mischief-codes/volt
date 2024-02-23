@@ -279,10 +279,10 @@
 ++  get-chan
   |=  =scid
   ^-  chan:bolt
-  =/  maybe-chan=(unit chan:bolt)  (some -:(skim (query-chans src.bowl) |=(=chan:bolt =(+.scid.chan scid))))
-  ?.  ?=(^ maybe-chan)
+  =/  chans  (skim (query-chans src.bowl) |=(=chan:bolt &(?=(^ scid.chan) =(+.scid.chan scid))))
+  ?.  =(1 (lent chans))
     ~|('%peerswap: Unrecognized channel id={<scid>} in swap request' !!)
-  +.maybe-chan
+  -:chans
 ::
 :: scries
 ++  query-chans
@@ -291,6 +291,5 @@
   ^-  (list chan:bolt)
   =/  bas=path  /(scot %p our.bowl)/volt/(scot %da now.bowl)
   .^((list chan:bolt) %gx (weld bas /channels/open/partner/(scot %p ship)/noun))
-::  move to peerswap utils
 ::
 --
