@@ -1169,8 +1169,9 @@
       sats.funding-outpoint.c
     =.  c  (~(receive-first-commitment channel c) signature.msg)
     =.  c  (~(set-state channel c) %opening)
-    :: =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
-    =+  tx=(extract:psbt funding-tx)
+    =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
+    :: todo: commenting this seems to fix my problem
+    :: =+  tx=(extract:psbt funding-tx)
     =+  id=(request-id dat.tx)
     =/  =action:btc-provider  [id %broadcast-tx tx]
     :_
@@ -2244,8 +2245,6 @@
     ::  if the funding utxo is found
     ?:  ?=(^ utxo)
       =/  channel=chan:bolt
-        :: todo: does height = block number
-        ~&  'get SCID!'  ~&  state.channel  ::  ~&  (get-scid:bolt u.utxo)
         %^  ~(update-onchain-state ^channel channel)
             height.u.utxo
           0
@@ -2331,8 +2330,6 @@
   |=  [=id:bolt acc=(unit chan:bolt)]
   =+  c=(~(get by live.chan) id)
   ?~  c  acc
-  :: ~&  >  "STATE"
-  :: ~&  state.u.c
   ?:  ?&(=(state.u.c %open) (~(can-pay channel u.c) amount-msats))
     `u.c
   acc
