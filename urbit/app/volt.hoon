@@ -550,26 +550,45 @@
       `state
     =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
-    ?~  who
-      ?:  own-provider
-        ?~  req
-          ::  not one of ours, check for a direct channel or have LND send it
-          ::    TODO: fee-limit and timeout?
+    ::  new flow
+    ::  do we have a direct channel with capacity? pay on it
+    ::  are we running a provider? send to LND
+    ::  else, attempt to forward
+    ?^  who
+      ?.  own-provider
+        =+  chan-ids=(~(get by peer.chan) u.who)
+        ?~  chan-ids
+          ::  no direct channel, try asking provider
           ::
-          :: =/  prov-case
-            :_  state
-            ~[(provider-command [%send-payment payreq ~ ~])]
-          :: =+  chan-ids=(~(get by peer.chan) u.who)
-          :: ?~  chan-ids  prov-case
-          :: =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
-          :: ?~  channel  prov-case
-
-        ::  internalize the payment and cancel the invoice in LND
+          (forward-to-provider payreq who)
+        =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
+        ?~  channel
+          ::  no bilateral capacity, try asking provider
+          ::
+          (forward-to-provider payreq who)
+        =^  result  state  (pay-channel u.channel amount-msats payment-hash.u.invoice %.n)
+        [+.result state]
+      ?~  
+    ?~  who
+    ?:  own-provider
+      ?~  req
+        ::  not one of ours, check for a direct channel or have LND send it
+        ::    TODO: fee-limit and timeout?
         ::
-        (pay-ship payee.u.req amount-msats payment-hash.u.invoice payreq)
-      ::  try asking provider
+        :: =/  prov-case
+          :_  state
+          ~[(provider-command [%send-payment payreq ~ ~])]
+        :: =+  chan-ids=(~(get by peer.chan) u.who)
+        :: ?~  chan-ids  prov-case
+        :: =+  channel=(find-channel-with-capacity u.chan-ids amount-msats)
+        :: ?~  channel  prov-case
+
+      ::  internalize the payment and cancel the invoice in LND
       ::
-      (forward-to-provider payreq ~)
+      (pay-ship payee.u.req amount-msats payment-hash.u.invoice payreq)
+    ::  try asking provider
+    ::
+    (forward-to-provider payreq ~)
     =+  chan-ids=(~(get by peer.chan) u.who)
     ?~  chan-ids
       ::  no direct channel, try asking provider
