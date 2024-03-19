@@ -271,7 +271,21 @@
     [cards this]
   ==
 ::
-++  on-peek   on-peek:def
+++  on-peek
+  |=  =path
+  ^-  (unit (unit cage))
+  ?+  path  (on-peek:def path)
+      [%x %balance ~]
+    ::  note: this ignores balances in channels that are closing and is
+    ::  optimisitic on commitment updates
+    =/  total-msats=@
+      %-  ~(rep by live.chan)
+      |=  [[=id:bolt =chan:bolt] out=@]
+      =/  last-commitment  (snag (dec (lent our.commitments.chan)) our.commitments.chan)
+      (add out balance.our.last-commitment)
+    ``noun+!>((div total-msats 1.000))
+  ==
+::
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
