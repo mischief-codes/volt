@@ -757,7 +757,8 @@
         ==
   ::
   ++  add-invoice
-    |=  [=amount=msats memo=(unit @t) network=(unit network:bolt)]
+    |=  [=amount=sats:b memo=(unit @t) network=(unit network:bolt)]
+    =+  amount-msats=(sats-to-msats:bolt amount-sats)
     ?~  volt.prov
       ~|  "%volt: no provider configured"
         !!
