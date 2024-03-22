@@ -18,7 +18,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const { latestInvoice } = useContext(InvoiceContext);
 
-  const [amountMsatsInput, setAmountMsatsInput] = useState<string>('');
+  const [amountSatsInput, setAmountSatsInput] = useState<string>('');
   const [amount, setAmount] = useState<BitcoinAmount | null>(null);
   const [memo, setMemo] = useState('');
   const [network, setNetwork] = useState(Network.Regtest);
@@ -41,17 +41,17 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     }
   }, [latestInvoice])
 
-  const handleChangeAmountMsatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeAmountSatsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     // Allow only positive integers
     const isEmptyString = input === '';
     const isPositiveInteger = /^\d*$/.test(input) && parseInt(input) > 0;
     if (isEmptyString) {
-      setAmountMsatsInput(input);
+      setAmountSatsInput(input);
       setAmount(null);
     } else if (isPositiveInteger) {
-      setAmountMsatsInput(input);
-      setAmount(new BitcoinAmount(parseInt(input)));
+      setAmountSatsInput(input);
+      setAmount(BitcoinAmount.fromSatoshis(parseInt(input)));
     }
   };
 
@@ -75,7 +75,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
         mark: "volt-command",
         json: {
           'add-invoice': {
-            'amount': (amount as BitcoinAmount).millisatoshis,
+            'amount': (amount as BitcoinAmount).asSats(),
             memo: memo,
             network: network
           }
@@ -110,7 +110,7 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     return (
       <CommandForm>
         {latestInvoice?.payreq ? <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={latestInvoice?.payreq} /> : null}
-        <Text text={`Amount: ${submittedInvoiceAmount.displayAsMsats()}`}/>
+        <Text text={`Amount: ${submittedInvoiceAmount.displayAsSats()}`}/>
         <Text text={`Network: ${network}`}/>
         {memo ? <Text className='col-start-2 text-center' text={`Memo: ${memo}`} /> : null}
         {latestInvoice?.payreq ?
@@ -127,9 +127,9 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     return (
     <CommandForm>
       <Input
-        label={'Amount (msats)'}
-        value={amountMsatsInput}
-        onChange={handleChangeAmountMsatsInput}
+        label={'Amount (satoshis)'}
+        value={amountSatsInput}
+        onChange={handleChangeAmountSatsInput}
       />
       <Dropdown
         label={'Network'}
