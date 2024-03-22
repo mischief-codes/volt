@@ -1,6 +1,9 @@
 PRIVATE.scratch.md
 *~undo-tree~
 node_modules
-dev
 .DS_Store
 ui/dist
+proxy/node_modules/*
+dev
+*.swo
+*.swp
