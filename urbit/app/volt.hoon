@@ -261,7 +261,6 @@
         ship.her.l
         initial-msats.our.l
         initial-msats.her.l
-        ?.(initiator.l ~ (get-funding-address id))
         %preopening
       ==
     =.  chans
@@ -275,16 +274,26 @@
         ship.her.config.c
         balance.our.our-com
         balance.her.her-com
-        `(unit address:bitcoin)`~
         state.c
       ==
     =/  payment-requests=(list payment-request)
       %+  turn  ~(tap by incoming.payments)
       |=  [=hexb:bc =payment-request]
       payment-request
+    =/  funding-info=(list funding-info)
+      %+  turn  ~(tap by larv.chan)
+      |=  [=id:bolt l=larva-chan:bolt]
+      :*  id
+        (get-tau-address l)
+        (get-funding-address id)
+        initial-msats.our.l
+      ==
+    ~&  'funding info'  ~&  funding-info
     ::  pays
     :_  this
-    ~[[%give %fact ~ %volt-update !>(`update`[%initial-state chans ~ payment-requests])]]
+    :~  (give-update [%initial-state chans ~ payment-requests])
+        (give-update [%need-funding funding-info])
+    ==
       [%latest-invoice ~]
     ?>  (team:title our.bowl src.bowl)
     `this
@@ -301,25 +310,49 @@
     [cards this]
   ==
 ::
-++  on-peek   on-peek:def
+++  on-peek
+  |=  =path
+  ^-  (unit (unit cage))
+  ?+    path  (on-peek:def path)
+      [%x %test ~]
+    ``noun+!>(0)
+      [%x %fees %opening-tx ~]
+    ``noun+!>(154)
+    :: ~&  'fees.chain'  ~&  fees.chain
+    :: ?.  ?=(^ fees.chain)
+    ::   ~|  "%volt: fee estimate unavailable"  !!
+    :: =/  expected-vbytes=@  127
+    :: =/  fee-estimate  (mul expected-vbytes +:fees.chain)
+    ::  ``noun+!>(fee-estimate)
+  ==
+::
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
 ::
 |_  =bowl:gall
 ++  get-funding-address
-  |=  foo=id:bolt
-  =/  c=(unit larva-chan:bolt)  (~(get by larv.chan) foo)
-  ^-  (unit address:bc)
+  |=  =id:bolt
+  ^-  address:bc
+  =/  c=(unit larva-chan:bolt)  (~(get by larv.chan) id)
   ?>  ?=(^ c)
   ?>  ?=(^ u.c)
   ?>  ?=(^ ac.u.c)
-  =+  ^=  funding-address
+  =/  funding-address=address:bc
     %^    make-funding-address:channel
         network.our.u.c
       pub.multisig-key.our.u.c
     funding-pubkey.u.ac.u.c
-  [~ funding-address]
+  funding-address
+::
+++  get-tau-address
+  |=  l=larva-chan:bolt
+  ^-  address:bc
+  =/  compressed-pub=hexb:bc
+  :-  %33  (compress-point:secp256k1:secp:crypto pub.payment.basepoints.our.l)
+  =/  tau-addr  (need (encode-pubkey:bech32:bolt11 network.our.l compressed-pub))
+  [%bech32 tau-addr]
+::
 ++  handle-command
   |=  =command
   |^  ^-  (quip card _state)
@@ -521,7 +554,6 @@
       ship.her.config.new-channel
       initial-msats.our.u.c
       initial-msats.her.u.c
-      `(unit address:bitcoin)`~
       state.new-channel
     ==
     :~  (send-message [%funding-created funding-created] ship.her.u.c)
@@ -947,7 +979,6 @@
         ship.her.lar
         initial-msats.our.lar
         initial-msats.her.lar
-        ~
         %preopening
     ==
     :_  %=  state
@@ -1029,8 +1060,6 @@
     ::  TODO reverse the conditional flow here
     =?  heat.chan.state  tau
       (~(put by heat.chan) [%bech32 tau-addr] temporary-channel-id.msg)
-    =|  cards=(list card)
-    =?  cards  tau  ~[(give-update [%need-funding [%bech32 tau-addr] initial-msats.our.u.c])]
     %-  (slog leaf+"wallet-address={<tau-addr>}" ~)
     ::
     :_  %=  state
@@ -1045,10 +1074,17 @@
         ship.her.u.c
         initial-msats.our.u.c
         initial-msats.her.u.c
-        [~ funding-address]
         %preopening
     ==
-    ~[(give-update [%new-channel chan-info])]
+    =/  =funding-info
+    :*  temporary-channel-id.msg
+        [%bech32 tau-addr]
+        funding-address
+        initial-msats.our.u.c
+    ==
+    :~  (give-update [%new-channel chan-info])
+     (give-update [%need-funding ~[funding-info]])
+    ==
   ::
   ++  handle-funding-created
     |=  msg=funding-created:msg:bolt
@@ -1115,7 +1151,6 @@
         ship.her.config.new-channel
         balance.our.our-com
         balance.her.her-com
-        `(unit address:bitcoin)`~
         %opening
     ==
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
@@ -1722,7 +1757,9 @@
     (handle-block-txs +.+.result)
   ::
       %fee
-    `state(fees.chain `(abs:si (need (toi:rd fee.+.+.result))))
+    =/  new-fee-per-vbyte=sats:bc  (abs:si (need (toi:rd fee.+.+.result)))
+    :-  ~[(give-update [%on-chain-fee-estimate new-fee-per-vbyte])]
+    state(fees.chain `new-fee-per-vbyte)
   ::
   ::  TODO: need any of these?
       %tx-info
@@ -2125,6 +2162,7 @@
             block=@
         ==
     ^-  (quip card _state)
+    ~&  'handle-address-info!!'
     ?.  ?=([%bech32 *] address)  `state
     =/  tbf  (~(get by heat.chan) address)
     ::  see if this is "tau" (passthrough wallet) address we're using to fund channels
@@ -2141,7 +2179,7 @@
       =/  utxo=(unit utxo:bc)
         %-  ~(rep in utxos)
         |=  [output=utxo:bc acc=(unit utxo:bc)]
-        ?:  (gth value.output sats-capacity)
+        ?:  (gte value.output sats-capacity)
           `output
         acc
       ::  TODO: handle this case - suggest amount to send with fees - either auto send back extra or add sweep-change method
@@ -2169,6 +2207,8 @@
       =.  nversion.funding-tx  0x2
       :: ~&  >  "presigning"
       :: ~&  funding-tx
+
+
       =.  funding-tx
         %^  ~(add-signature update:psbt funding-tx)
             0

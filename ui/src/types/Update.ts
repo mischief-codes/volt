@@ -1,6 +1,7 @@
 import { ChannelStatus } from "./Channel";
 
 export enum UpdateType {
+  NeedFunding = "need-funding",
   ChannelState = "channel-state",
   ReceivedPayment = "received-payment",
   NewInvoice = "new-invoice",
@@ -14,6 +15,11 @@ export enum UpdateType {
 export type Update = {
   type: UpdateType;
   [key: string]: any;
+};
+
+export type NeedFundingUpdate = {
+  type: UpdateType.ChannelState;
+  'funding-info': Array<FundingInfo>
 };
 
 export type ChannelStateUpdate = {
@@ -47,11 +53,17 @@ export type InitialStateUpdate = {
   invoices: Array<any>;
 };
 
+export type FundingInfo = {
+  'temporary-channel-id': string;
+  'tau-address': string;
+  'funding-address': string;
+  'amount-msats': number;
+}
+
 export type ChanInfo = {
   id: string;
   who: string;
   our: number;
   his: number;
-  'funding-address': string | null;
   status: ChannelStatus;
 };

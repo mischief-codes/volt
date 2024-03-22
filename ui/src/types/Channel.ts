@@ -1,5 +1,8 @@
 import BitcoinAmount from "./BitcoinAmount";
 
+export type BitcoinAddress = string;
+export type FundingAddress = BitcoinAddress;
+export type TauAddress = BitcoinAddress;
 export type ChannelId = string;
 export type Satoshis = number;
 export type Millisatoshis = number;
@@ -22,7 +25,6 @@ export interface ChannelJson {
   who: Ship;
   our: number;
   his: number;
-  'funding-address': string | null;
   status: ChannelStatus;
 }
 
@@ -31,7 +33,6 @@ type Channel = {
   who: Ship;
   our: BitcoinAmount;
   his: BitcoinAmount;
-  fundingAddress: string | null;
   status: ChannelStatus;
 };
 

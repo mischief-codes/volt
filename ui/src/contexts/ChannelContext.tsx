@@ -83,7 +83,10 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       } else {
         displayJsInfo("Got update from /all");
       }
-      if (update.type === UpdateType.InitialState) {
+      if (update.type === UpdateType.NeedFunding) {
+        console.log('Got need funding update from /all', update);
+      // handled in HotWalletContext
+      } if (update.type === UpdateType.InitialState) {
         console.log('Got initial state update from /all', update);
         handleInitialState(update as InitialStateUpdate);
       } else if (update.type === UpdateType.ChannelState) {
@@ -122,7 +125,6 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
           ...jsonChan,
           his: new BitcoinAmount(jsonChan.his),
           our: new BitcoinAmount(jsonChan.our),
-          fundingAddress: jsonChan['funding-address'],
         };
         return [...channels, channel];
       });
@@ -144,7 +146,6 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
           ...chan,
           his: new BitcoinAmount(chan.his),
           our: new BitcoinAmount(chan.our),
-          fundingAddress: chan['funding-address']
         }
       });
       setChannels(channels);

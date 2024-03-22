@@ -8,10 +8,12 @@ import Commands from './components/commands/Commands';
 import LiquidityDisplay from './components/status/LiquidityDisplay';
 import ChannelDisplay from './components/status/ChannelDisplay';
 import { VoltProviderContextProvider } from './contexts/VoltProviderContext';
+import { HotWalletContextProvider } from './contexts/HotWalletContext';
 
 export function App() {
   return (
     <FeedbackContextProvider>
+      <HotWalletContextProvider>
       <ChannelContextProvider>
         <VoltProviderContextProvider>
           <InvoiceContextProvider>
@@ -34,6 +36,7 @@ export function App() {
           </InvoiceContextProvider>
         </VoltProviderContextProvider>
       </ChannelContextProvider>
+      </HotWalletContextProvider>
     </FeedbackContextProvider>
   );
 }

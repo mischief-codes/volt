@@ -304,8 +304,13 @@
       who=ship
       our=msats
       his=msats
-      funding-address=(unit address:bc)
       status=chan-state:bolt
+  ==
++$  funding-info
+  $:  temporary-channel-id=@
+      tau-address=address:bc
+      funding-address=address:bc
+      =msats
   ==
 +$  pay-info
   $:  =payreq
@@ -317,8 +322,8 @@
   ==
 ::
 +$  update
-  $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
-      [%need-funding =address:bc =msats]
+  $%  [%on-chain-fee-estimate sats-per-vbyte=sats:bc]
+      [%need-funding funding-info=(list funding-info)]
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]
       [%new-invoice =payment-request]

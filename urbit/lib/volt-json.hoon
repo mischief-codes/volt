@@ -75,6 +75,20 @@
     |=  upd=update:volt
     ^-  json
     ?+    -.upd  (frond 'type' s+'unimplemented')
+        %on-chain-fee-estimate
+      %-  pairs
+        :~  ['type' s+'on-chain-fee-estimate']
+            ['sats-per-vbyte' (numb sats-per-vbyte.upd)]
+        ==
+      ::
+        %need-funding
+      %-  pairs
+        :~  ['type' s+'need-funding']
+            ['funding-info' a+(turn funding-info.upd funding-info)]
+
+            ::  (funding-info funding-info.upd)]
+        ==
+      ::
         %channel-state
       %-  pairs
       :~  ['type' s+'channel-state']
@@ -109,6 +123,15 @@
       ==
     ==
   ::
+  ++  funding-info
+    |=  info=funding-info:volt
+    %-  pairs
+    :~  ['temporary-channel-id' s+`@t`(scot %ud temporary-channel-id.info)]
+        ['tau-address' (bitcoin-address tau-address.info)]
+        ['funding-address' (bitcoin-address funding-address.info)]
+        ['msats' (numb msats.info)]
+    ==
+  ::
   ++  chan-info
     |=  info=chan-info:volt
     ^-  json
@@ -117,19 +140,16 @@
         ['who' (ship who.info)]
         ['our' (numb our.info)]
         ['his' (numb his.info)]
-        ['funding-address' (funding-address funding-address.info)]
         ['status' s+status.info]
     ==
-  ::
-  ++  funding-address
-    |=  f=(unit address:bitcoin)
+  ++  bitcoin-address
+    |=  =address:bitcoin
     ^-  json
-    ?~  f  ~
-    ?-   +<.f
+    ?-   -.address
       %base58
     !!
       %bech32
-    s++>.f
+    s++.address
     ==
   ::
   ++  payment-request
