@@ -19,7 +19,7 @@
 =+  !<(=command:volt arg)
 ?>  ?=(%send-payment -.command)
 ;<  =bowl:spider  bind:m  get-bowl:io
-;<  ~  bind:m  (watch-our:io /[payreq.command] %volt /latest-invoice)
+;<  ~  bind:m  (watch-our:io /[payreq.command] %volt /latest-payment)
 ;<  ~  bind:m  (poke-our:io %volt %volt-command !>(command))
 ;<  =cage  bind:m  (take-fact:io /[payreq.command])
 ?>  =(%volt-update p.cage)
