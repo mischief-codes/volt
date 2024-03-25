@@ -1501,13 +1501,13 @@
     =+  inv=(de:bolt11 payreq.action)
     ?~  inv  `state
     ?~  description.u.inv  `state
-    =/  who  (slav %p u.description.u.inv)
+    =/  who  (slaw %p u.description.u.inv)
     =+  pr=(~(got by incoming.payments) payment-hash.u.inv)
     =.  payreq.pr  payreq.action
+    =/  cards=(list card)  ~[(give-update-invoice [%new-invoice pr])]
+    =?  cards  ?!(=(~ who))  (snoc cards (give-update-invoice-ship +.who [%new-invoice pr]))
     :_  state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
-    :~  (give-update-invoice [%new-invoice pr])
-        (give-update-invoice-ship who [%new-invoice pr])
-    ==
+    cards
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
