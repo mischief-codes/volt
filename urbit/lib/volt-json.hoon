@@ -169,13 +169,5 @@
     |=  info=pay-info:volt
     ^-  json
     ~
-  ::
-  ++  hexb
-    |=  h=hexb:bitcoin
-    ^-  json
-    %-  pairs
-    :~  wid+(numb:enjs wid.h)
-        dat+s+(scot %ux dat.h)
-    ==
   --
 --
