@@ -548,18 +548,19 @@
     ?:  =(0 amount-msats)
       ~&  >>>  "%volt: payreq amount is below 1 msat"
       `state
-    =+  pubkey-point=(decompress-point:secp256k1:secp:crypto dat.pubkey.u.invoice)
     =+  req=(~(get by incoming.payments) payment-hash.u.invoice)
     =/  fwd=(unit chan:bolt)  (forwarding-channel payreq who)
     ?~  fwd
+      ~&  >  "didn't find channel"
       ?.  own-provider
         (forward-to-provider payreq who)
       ?~  req
         :_  state
         ~[(provider-command [%send-payment payreq ~ ~])]
       (pay-ship payee.u.req amount-msats payment-hash.u.invoice payreq)
+    ~&  >  "found channel"
     =^  result  state
-      (pay-channel u.channel amount-msats payment-hash.u.invoice %.n)
+      (pay-channel u.fwd amount-msats payment-hash.u.invoice %.n)
     [+.result state]
   ::
   ++  pay-ship
@@ -1084,6 +1085,7 @@
   ++  handle-update-add-htlc
     |=  msg=update-add-htlc:msg:bolt
     ^-  (quip card _state)
+    ~&  >  "handle-update-add-htlc"
     ?>  (~(has by live.chan) channel-id.msg)
     =+  c=(~(got by live.chan) channel-id.msg)
     ?>  =(ship.her.config.c src.bowl)
@@ -1094,6 +1096,7 @@
   ++  handle-commitment-signed
     |=  msg=commitment-signed:msg:bolt
     ^-  (quip card _state)
+    ~&  >  "handle-commitment-signed"
     ?>  (~(has by live.chan) channel-id.msg)
     =+  c=(~(got by live.chan) channel-id.msg)
     =+  msg
@@ -1254,6 +1257,8 @@
     =+  c=(~(got by live.chan) channel-id)
     ?>  =(ship.her.config.c src.bowl)
     =+  payment-hash=(sha256:bcu:bc preimage)
+    ~&  >  "payhash"
+    ~&  payment-hash
     =.  c  (~(receive-htlc-settle channel c) preimage htlc-id)
     =^  cards-1  c      (maybe-send-commitment c)
     =^  cards-2  state  (maybe-settle-external payment-hash preimage)
@@ -2196,6 +2201,8 @@
 ++  pay-channel
   |=  [c=chan:bolt =amount=msats payment-hash=hexb:bc fwd=?]
   ^-  [[update-add-htlc:msg:bolt (list card)] _state]
+  ~&  >  "pay-channel hit"
+  ~&  payment-hash
   ?>  =(state.c %open)
   =|  update=update-add-htlc:msg:bolt
   =.  update
@@ -2321,9 +2328,11 @@
   `c
   ?.  (~(owes-commitment channel c) %local)          `c
   =^  sigs  c  ~(sign-next-commitment channel c)
+  ~&  >  "next commitment signed"
   =/  [sig=signature:bolt htlc-sigs=(list signature:bolt)]
     sigs
   =+  n-htlc-sigs=(lent htlc-sigs)
+  ~&  >  n-htlc-sigs
   :_  c
   =-  ~[(send-message - ship.her.config.c)]
   :*  %commitment-signed
@@ -2689,11 +2698,13 @@
   |=  [=payreq who=(unit ship)]
   ^-  (unit chan:bolt)
   =+  invoice=(de:bolt11 payreq)
-  ?~  who  ~
+  ?~  who
+    ~
   ?~  invoice  ~
   ?~  amount.u.invoice  ~
   =+  chan-ids=(~(get by peer.chan) u.who)
   ?~  chan-ids
+    ~&  >  "no chan found"
     ~
   (find-channel-with-capacity u.chan-ids (amount-to-msats:bolt11 u.amount.u.invoice))
 ::
