@@ -262,6 +262,7 @@
         initial-msats.our.l
         initial-msats.her.l
         %preopening
+        network.our.l
       ==
     =.  chans
       %+  weld  chans
@@ -275,6 +276,7 @@
         balance.our.our-com
         balance.her.her-com
         state.c
+        network.our.config.c
       ==
     =/  payment-requests=(list payment-request)
       %+  turn  ~(tap by incoming.payments)
@@ -569,6 +571,7 @@
       initial-msats.our.u.c
       initial-msats.her.u.c
       state.new-channel
+      network.our.config.new-channel
     ==
     :~  (send-message [%funding-created funding-created] ship.her.u.c)
         (give-update [%channel-deleted temporary-channel-id])
@@ -995,6 +998,7 @@
         initial-msats.our.lar
         initial-msats.her.lar
         %preopening
+        network.our.lar
     ==
     :_  %=  state
           larv.chan  (~(put by larv.chan) temporary-channel-id lar)
@@ -1090,6 +1094,7 @@
         initial-msats.our.u.c
         initial-msats.her.u.c
         %preopening
+        network.our.u.c
     ==
     =/  =funding-info
     :*  temporary-channel-id.msg
@@ -1167,6 +1172,7 @@
         balance.our.our-com
         balance.her.her-com
         %opening
+        network.our.config.new-channel
     ==
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
         (give-update [%channel-deleted temporary-channel-id.msg])

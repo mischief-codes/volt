@@ -306,6 +306,7 @@
       our=msats
       his=msats
       status=chan-state:bolt
+      =network:bolt
   ==
 +$  funding-info
   $:  temporary-channel-id=@

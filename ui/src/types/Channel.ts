@@ -1,4 +1,5 @@
 import BitcoinAmount from "./BitcoinAmount";
+import Network from "./Network";
 
 export type BitcoinAddress = string;
 export type FundingAddress = BitcoinAddress;
@@ -26,6 +27,7 @@ export interface ChannelJson {
   our: number;
   his: number;
   status: ChannelStatus;
+  network: Network;
 }
 
 type Channel = {
@@ -34,6 +36,7 @@ type Channel = {
   our: BitcoinAmount;
   his: BitcoinAmount;
   status: ChannelStatus;
+  network: Network;
 };
 
 export default Channel;

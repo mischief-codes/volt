@@ -141,6 +141,7 @@
         ['our' (numb our.info)]
         ['his' (numb his.info)]
         ['status' s+status.info]
+        ['network' s+network.info]
     ==
   ++  bitcoin-address
     |=  =address:bitcoin

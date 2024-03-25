@@ -11,6 +11,7 @@ import CommandForm from './shared/CommandForm';
 import CopyButton from './shared/CopyButton';
 import { HotWalletContext } from '../../contexts/HotWalletContext';
 import BitcoinAmount from '../../types/BitcoinAmount';
+import Network from '../../types/Network';
 
 const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
 const FUNDING_SOURCE_PSBT = 'PSBT';
@@ -84,7 +85,9 @@ const CreateFundingPSBT = (
   const psbtCommand: null | string = useMemo(() => {
     const fundingAddress = fundingAddressByTempChanId[selectedChannel.id];
     if (!fundingAddress) return null;
-    return `bitcoin-cli -regtest walletprocesspsbt $(bitcoin-cli -regtest walletcreatefundedpsbt "[]" `
+    const networkFlag = selectedChannel.network === Network.Regtest ? '-regtest' : '';
+    return `bitcoin-cli ${networkFlag} walletprocesspsbt `
+      + `$(bitcoin-cli ${networkFlag} walletcreatefundedpsbt "[]" `
       + `"[{\\"${fundingAddress as string}\\":${selectedChannel.our.asBtc()}}]" `
       + `| grep -o '"psbt": "[^"]*' | cut -d'"' -f4) | grep -o '"psbt": "[^"]*' | cut -d'"' -f4`;
   }, [selectedChannel, fundingAddressByTempChanId]);
@@ -133,16 +136,20 @@ const CreateFundingHotWallet = (
   const { tauAddressByTempChanId } = useContext(HotWalletContext);
   const tauAddress = tauAddressByTempChanId[selectedChannel.id];
   const { hotWalletFee } = useContext(HotWalletContext);
-  const totalAmount = hotWalletFee ? selectedChannel.our.add(hotWalletFee as BitcoinAmount) : null;
+  let totalAmount = hotWalletFee ? selectedChannel.our.add(hotWalletFee as BitcoinAmount) : null;
+  if (selectedChannel.network === Network.Regtest && !hotWalletFee) {
+    const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.0001);
+    totalAmount = selectedChannel.our.add(DEFAULT_REGTEST_FEE);
+  }
   return (
     <>
-    {hotWalletFee ? (
+    {totalAmount ? (
     <>
       <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
       <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
       <CopyButton label={null} buttonText={'Copy Address'} copyText={tauAddress} />
     </>
-    ): <Text className='text-lg text-start mt-4' text={`Fee estimate unavailable'}`} />}
+    ): <Text className='text-lg text-start mt-4' text={'Fee estimate unavailable'} />}
     </>
   )
 }

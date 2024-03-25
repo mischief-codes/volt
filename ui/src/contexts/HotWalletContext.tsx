@@ -33,8 +33,7 @@ export const HotWalletContextProvider: React.FC<{ children: React.ReactNode }> =
           path: "/hot-wallet-fee",
         });
         if (response.sats === null) {
-          const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.001);
-          setHotWalletFee(DEFAULT_REGTEST_FEE)
+          setHotWalletFee(null);
         } else {
           setHotWalletFee(BitcoinAmount.fromSatoshis(response.sats));
         }
