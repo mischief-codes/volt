@@ -84,7 +84,7 @@ const CreateFundingPSBT = (
   const psbtCommand: null | string = useMemo(() => {
     const fundingAddress = fundingAddressByTempChanId[selectedChannel.id];
     if (!fundingAddress) return null;
-    return `bitcoin-cli walletprocesspsbt $(bitcoin-cli walletcreatefundedpsbt "[]" `
+    return `bitcoin-cli -regtest walletprocesspsbt $(bitcoin-cli -regetest walletcreatefundedpsbt "[]" `
       + `"[{\\"${fundingAddress as string}\\":${selectedChannel.our.asBtc()}}]" `
       + `| grep -o '"psbt": "[^"]*' | cut -d'"' -f4) | grep -o '"psbt": "[^"]*' | cut -d'"' -f4`;
   }, [selectedChannel, fundingAddressByTempChanId]);
