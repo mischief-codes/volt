@@ -75,10 +75,10 @@
     |=  upd=update:volt
     ^-  json
     ?+    -.upd  (frond 'type' s+'unimplemented')
-        %on-chain-fee-estimate
+        %hot-wallet-fee
       %-  pairs
-        :~  ['type' s+'on-chain-fee-estimate']
-            ['sats-per-vbyte' (numb sats-per-vbyte.upd)]
+        :~  ['type' s+'hot-wallet-fee']
+            ['sats' ?^(sats.upd (numb +.sats.upd) ~)]
         ==
       ::
         %need-funding

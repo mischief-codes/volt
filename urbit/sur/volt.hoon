@@ -323,7 +323,7 @@
   ==
 ::
 +$  update
-  $%  [%on-chain-fee-estimate sats-per-vbyte=sats:bc]
+  $%  [%hot-wallet-fee sats=(unit sats:bc)]
       [%need-funding funding-info=(list funding-info)]
       [%channel-state =chan-id =chan-state:bolt]
       [%received-payment from=ship =amt=msats]

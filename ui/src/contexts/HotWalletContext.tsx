@@ -1,4 +1,3 @@
-import Urbit from '@urbit/http-api';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import BitcoinAmount from '../types/BitcoinAmount';
 import { ApiContext } from './ApiContext';
@@ -7,13 +6,13 @@ import { NeedFundingUpdate, UpdateType } from '../types/Update';
 import { ChannelId, FundingAddress, TauAddress } from '../types/Channel';
 
 interface HotWalletContextValue {
-  openingTxFee: BitcoinAmount | null;
+  hotWalletFee: BitcoinAmount | null;
   tauAddressByTempChanId: Record<ChannelId, TauAddress>;
   fundingAddressByTempChanId: Record<ChannelId, FundingAddress>;
 };
 
 export const HotWalletContext = createContext<HotWalletContextValue>({
-  openingTxFee: null,
+  hotWalletFee: null,
   tauAddressByTempChanId: {},
   fundingAddressByTempChanId: {},
 });
@@ -22,32 +21,34 @@ export const HotWalletContextProvider: React.FC<{ children: React.ReactNode }> =
   const api = useContext(ApiContext);
   const { displayJsError } = useContext(FeedbackContext);
 
-  const [openingTxFee, setOpeningTxFee] = useState<BitcoinAmount | null>(null);
+  const [hotWalletFee, setHotWalletFee] = useState<BitcoinAmount | null>(null);
   const [tauAddressByTempChanId, setTauAddressByTempChanId] = useState({});
   const [fundingAddressByTempChanId, setFundingAddressByTempChanId] = useState({});
 
-  // useEffect(() => {
-  //   const getOpeningTxFee = async () => {
-  //     console.log('getting opening tx fee!!')
-  //     try {
-  //       const response = await api.scry({
-  //         app: "volt",
-  //         path: "/fees/opening-tx",
-  //       });
-  //       console.log('response', response)
-  //       setOpeningTxFee(BitcoinAmount.fromSatoshis(response));
-  //     } catch (e) {
-  //       console.error(e);
-  //       displayJsError("Subscription to /all rejected")
-  //       return null;
-  //       }
-  //   }
-  //   getOpeningTxFee()
-  // }, []);
+  useEffect(() => {
+    const getHotWalletFee = async () => {
+      try {
+        const response = await api.scry({
+          app: "volt",
+          path: "/hot-wallet-fee",
+        });
+        if (response.sats === null) {
+          const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.001);
+          setHotWalletFee(DEFAULT_REGTEST_FEE)
+        } else {
+          setHotWalletFee(BitcoinAmount.fromSatoshis(response.sats));
+        }
+      } catch (e) {
+        console.error(e);
+        displayJsError("Subscription to /hot-wallet-fee rejected")
+        return null;
+        }
+    }
+    getHotWalletFee()
+  }, []);
 
   useEffect(() => {
     const handleNeedFunding = (update: NeedFundingUpdate) => {
-      console.log('handling need funding!!', update);
       const fundingInfo = update['funding-info'];
       let newTauAddressByTempChanId: Record<ChannelId, TauAddress> = {...tauAddressByTempChanId,};
       let newFundingAddressByTempChanId: Record<ChannelId, FundingAddress> = {...fundingAddressByTempChanId};
@@ -65,7 +66,6 @@ export const HotWalletContextProvider: React.FC<{ children: React.ReactNode }> =
           app: "volt",
           path: "/all",
           event: (update) => {
-            console.log('update!!', update)
             if (update.type === UpdateType.NeedFunding) handleNeedFunding(update);
           },
           err: () => displayJsError("Subscription to /all rejected"),
@@ -80,7 +80,7 @@ export const HotWalletContextProvider: React.FC<{ children: React.ReactNode }> =
   }, []);
 
   const value: HotWalletContextValue  = {
-    openingTxFee,
+    hotWalletFee,
     tauAddressByTempChanId,
     fundingAddressByTempChanId,
   }

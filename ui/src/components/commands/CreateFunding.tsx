@@ -10,6 +10,7 @@ import Dropdown from './shared/Dropdown';
 import CommandForm from './shared/CommandForm';
 import CopyButton from './shared/CopyButton';
 import { HotWalletContext } from '../../contexts/HotWalletContext';
+import BitcoinAmount from '../../types/BitcoinAmount';
 
 const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
 const FUNDING_SOURCE_PSBT = 'PSBT';
@@ -67,7 +68,7 @@ const CreateFunding = (
         />
         { fundingSource === FUNDING_SOURCE_PSBT ? <CreateFundingPSBT api={api} selectedChannel={selectedChannel}/> : <CreateFundingHotWallet selectedChannel={selectedChannel} />}
         </CommandForm>
-      ) : <div className='text-center'>No preopening channels</div>}
+      ) : <div className='text-center'>No fundable channels</div>}
     </>
   );
 };
@@ -81,18 +82,12 @@ const CreateFundingPSBT = (
   const [psbt, setPsbt] = useState('');
 
   const psbtCommand: null | string = useMemo(() => {
-    console.log('fundingAddressByTempChanId', fundingAddressByTempChanId);
-    console.log('selectedChannel', selectedChannel);
-
     const fundingAddress = fundingAddressByTempChanId[selectedChannel.id];
-    console.log('fundingAddress', fundingAddress);
     if (!fundingAddress) return null;
     return `bitcoin-cli walletprocesspsbt $(bitcoin-cli walletcreatefundedpsbt "[]" `
       + `"[{\\"${fundingAddress as string}\\":${selectedChannel.our.asBtc()}}]" `
       + `| grep -o '"psbt": "[^"]*' | cut -d'"' -f4) | grep -o '"psbt": "[^"]*' | cut -d'"' -f4`;
   }, [selectedChannel, fundingAddressByTempChanId]);
-
-  console.log('psbtCommand', psbtCommand);
 
   const onChangePsbt = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPsbt(event.target.value);
@@ -137,11 +132,17 @@ const CreateFundingHotWallet = (
 ) => {
   const { tauAddressByTempChanId } = useContext(HotWalletContext);
   const tauAddress = tauAddressByTempChanId[selectedChannel.id];
+  const { hotWalletFee } = useContext(HotWalletContext);
+  const totalAmount = hotWalletFee ? selectedChannel.our.add(hotWalletFee as BitcoinAmount) : null;
   return (
     <>
-    <Text className='text-lg text-start mt-4' text={`Send: ${selectedChannel.our.asBtc()} BTC `} />
-    <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
-    <CopyButton label={null} buttonText={'Copy Address'} copyText={tauAddress} />
+    {hotWalletFee ? (
+    <>
+      <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
+      <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
+      <CopyButton label={null} buttonText={'Copy Address'} copyText={tauAddress} />
+    </>
+    ): <Text className='text-lg text-start mt-4' text={`Fee estimate unavailable'}`} />}
     </>
   )
 }

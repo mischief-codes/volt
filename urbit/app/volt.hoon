@@ -281,14 +281,15 @@
       |=  [=hexb:bc =payment-request]
       payment-request
     =/  funding-info=(list funding-info)
-      %+  turn  ~(tap by larv.chan)
+      %+  turn
+        %+  skim
+        ~(tap by larv.chan)  |=  [=id:bolt l=larva-chan:bolt]  ?=(^ ac.l)
       |=  [=id:bolt l=larva-chan:bolt]
       :*  id
         (get-tau-address l)
         (get-funding-address id)
         initial-msats.our.l
       ==
-    ~&  'funding info'  ~&  funding-info
     ::  pays
     :_  this
     :~  (give-update [%initial-state chans ~ payment-requests])
@@ -321,14 +322,13 @@
   |=  =path
   ^-  (unit (unit cage))
   ?+    path  (on-peek:def path)
-      [%x %fees %opening-tx ~]
-    ``noun+!>(154)
-    :: ~&  'fees.chain'  ~&  fees.chain
-    :: ?.  ?=(^ fees.chain)
-    ::   ~|  "%volt: fee estimate unavailable"  !!
-    :: =/  expected-vbytes=@  127
-    :: =/  fee-estimate  (mul expected-vbytes +:fees.chain)
-    ::  ``noun+!>(fee-estimate)
+      [%x %hot-wallet-fee ~]
+    ?.  ?=(^ fees.chain)
+      ``[%volt-update !>([%hot-wallet-fee ~])]
+    =/  expected-vbytes=@  127
+    =/  fee-estimate  (mul expected-vbytes +:fees.chain)
+    ``[%volt-update !>([%hot-wallet-fee fee-estimate])]
+    ::
       [%x %balance ~]
     ::  note: this ignores balances in channels that are closing and is
     ::  optimisitic on commitment updates
@@ -1782,8 +1782,7 @@
   ::
       %fee
     =/  new-fee-per-vbyte=sats:bc  (abs:si (need (toi:rd fee.+.+.result)))
-    :-  ~[(give-update [%on-chain-fee-estimate new-fee-per-vbyte])]
-    state(fees.chain `new-fee-per-vbyte)
+    `state(fees.chain `new-fee-per-vbyte)
   ::
   ::  TODO: need any of these?
       %tx-info
