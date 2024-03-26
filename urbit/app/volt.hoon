@@ -561,7 +561,16 @@
     ~&  >  "found channel"
     =^  result  state
       (pay-channel u.fwd amount-msats payment-hash.u.invoice %.n)
-    [+.result state]
+    =|  req=forward-request
+    =.  req
+      %=  req
+        htlc  -.result
+        ours  %.y
+        payreq  payreq
+        dest  who
+      ==
+    :-  +.result
+    state(outgoing.payments (~(put by outgoing.payments) payment-hash.u.invoice req))
   ::
   ++  pay-ship
     |=  [who=@p =amount=msats =payment=hash =payreq]
@@ -583,7 +592,8 @@
         payreq  payreq
         dest  `who
       ==
-    [+.result state(outgoing.payments (~(put by outgoing.payments) payment-hash req))]
+    :-  +.result
+    state(outgoing.payments (~(put by outgoing.payments) payment-hash req))
   ::
   ++  forward-to-provider
     |=  [pay=payreq who=(unit ship)]
@@ -1112,6 +1122,7 @@
   ++  handle-revoke-and-ack
     |=  msg=revoke-and-ack:msg:bolt
     ^-  (quip card _state)
+    ~&  >  "handle-revoke-and-ack"
     ?>  (~(has by live.chan) channel-id.msg)
     =+  c=(~(got by live.chan) channel-id.msg)
     ?>  =(ship.her.config.c src.bowl)
@@ -1253,6 +1264,7 @@
   ++  handle-update-fulfill-htlc
     |=  [=channel=id:bolt =htlc-id:bolt preimage=hexb:bc]
     ^-  (quip card _state)
+    ~&  >  "handle-update-fulfill-htlc"
     ?>  (~(has by live.chan) channel-id)
     =+  c=(~(got by live.chan) channel-id)
     ?>  =(ship.her.config.c src.bowl)
@@ -1263,9 +1275,10 @@
     =^  cards-1  c      (maybe-send-commitment c)
     =^  cards-2  state  (maybe-settle-external payment-hash preimage)
     ~|  "%volt: recvd fulfill for unknown htlc"
-    =+  fwd=(~(got by outgoing.payments) payment-hash)
-    =?  cards-2  ours.fwd
-      (snoc cards-2 (give-update-payment [%payment-result payreq.fwd %.y]))
+    =+  fwd=(~(get by outgoing.payments) payment-hash)
+    ?~  fwd  ~|("outgoing not found" !!)
+    =?  cards-2  ours.u.fwd
+      (snoc cards-2 (give-update-payment [%payment-result payreq.u.fwd %.y]))
     :-  (weld cards-1 cards-2)
     %=    state
         live.chan
@@ -2283,7 +2296,7 @@
 ++  send-revoke-and-ack
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
-  :: ~&  >>  "%volt: revoking current commitment"
+  ~&  >  "send-revoke-and-ack"
   =^  rev    c  ~(revoke-current-commitment channel c)
   =^  cards  c  (maybe-send-commitment c)
   :_  c
@@ -2324,6 +2337,7 @@
 ++  maybe-send-commitment
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
+  ~&  >  "maybe-send-commitment"
   ?:  (~(has-unacked-commitment channel c) %remote)  
   `c
   ?.  (~(owes-commitment channel c) %local)          `c
@@ -2343,6 +2357,7 @@
 ++  maybe-forward-htlcs
   |=  c=chan:bolt
   |^  ^-  (quip card _state)
+  ~&  >  "maybe-forward-htlcs"
   =+  commitment=(~(oldest-unrevoked-commitment channel c) %remote)
   ?~  commitment  `state
   =^  cards  state
@@ -2366,7 +2381,7 @@
     ?~  req  `state
     ?:  forwarded.u.req  `state
     =.  forwarded.u.req  %.y
-    :: ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
+    ~&  >>  "%volt: {<id.c>} forwarding htlc: {<htlc-id.h>}"
     =/  hop=(unit chan:bolt)  (forwarding-channel payreq.u.req dest.u.req)
     ?~  hop
     ::  should we validate the route hint info to prevent LND seeing a selfpayment?
@@ -2385,6 +2400,7 @@
 ++  maybe-send-settle
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
+  ~&  >  "maybe-send-settle"
   =+  commitment=(~(oldest-unrevoked-commitment channel c) %remote)
   ?~  commitment  `c
   =/  with-preimages=(list add-htlc:update:bolt)
@@ -2394,8 +2410,9 @@
     (~(has by preimages.payments) payment-hash.h)
   ?~  with-preimages  `c
   =+  h=(head with-preimages)
+  ~|  "data not found in maybe-send-settle"
   =+  preimage=(~(got by preimages.payments) payment-hash.h)
-  :: ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
+  ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
   =|  cards=(list card)
   =+  pr=(~(got by incoming.payments) payment-hash.h)
   =?  cards  =(our.bowl payee.pr)
