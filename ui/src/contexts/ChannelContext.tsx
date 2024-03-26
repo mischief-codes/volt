@@ -3,7 +3,14 @@ import Channel, { ChannelJson, ChannelStatus } from '../types/Channel';
 import { FeedbackContext } from './FeedbackContext';
 import { ApiContext } from './ApiContext';
 import BitcoinAmount from '../types/BitcoinAmount';
-import { ChannelDeletedUpdate, ChannelStateUpdate, InitialStateUpdate, NewChannelUpdate, Update, UpdateType } from '../types/Update';
+import {
+  TempChanUpgradedUpdate,
+  ChannelStateUpdate,
+  InitialStateUpdate,
+  NewChannelUpdate,
+  Update,
+  UpdateType
+} from '../types/Update';
 
 interface ChannelContextValue {
   subscriptionConnected: boolean;
@@ -95,9 +102,9 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       } else if (update.type === UpdateType.NewChannel) {
         console.log('Got new channel update from /all', update);
         handleNewChannel(update as NewChannelUpdate);
-      } else if (update.type === UpdateType.ChannelDeleted) {
+      } else if (update.type === UpdateType.TempChanUpgraded) {
         console.log('Got channel deleted update from /all', update);
-        handleChannelDeleted(update as ChannelDeletedUpdate);
+        handleTemporaryChannelUpgraded(update as TempChanUpgradedUpdate);
       } else {
         console.log('Unimplemented update type', update);
       }
@@ -130,7 +137,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       });
     }
 
-    const handleChannelDeleted = (update: ChannelDeletedUpdate) => {
+    const handleTemporaryChannelUpgraded = (update: TempChanUpgradedUpdate) => {
       const { id }: { id: string } = update;
       setChannels((channels) => {
         const channel = channels.find((channel) => channel.id === id);

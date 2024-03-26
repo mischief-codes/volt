@@ -574,7 +574,7 @@
       network.our.config.new-channel
     ==
     :~  (send-message [%funding-created funding-created] ship.her.u.c)
-        (give-update [%channel-deleted temporary-channel-id])
+        (give-update [%temp-chan-upgraded temporary-channel-id])
         (give-update [%new-channel chan-info])
     ==
   ::
@@ -1175,7 +1175,7 @@
         network.our.config.new-channel
     ==
     :~  (send-message [%funding-signed id.new-channel sig] src.bowl)
-        (give-update [%channel-deleted temporary-channel-id.msg])
+        (give-update [%temp-chan-upgraded temporary-channel-id.msg])
         (give-update [%new-channel chan-info])
     ==
   ::

@@ -108,9 +108,9 @@
           ['chan-info' (chan-info chan-info.upd)]
       ==
     ::
-        %channel-deleted
+        %temp-chan-upgraded
       %-  pairs
-      :~  ['type' s+'channel-deleted']
+      :~  ['type' s+'temp-chan-upgraded']
           ['id' s+`@t`(scot %ud id.upd)]
       ==
     ::

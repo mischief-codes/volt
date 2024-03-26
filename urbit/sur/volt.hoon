@@ -327,12 +327,12 @@
   $%  [%hot-wallet-fee sats=(unit sats:bc)]
       [%need-funding funding-info=(list funding-info)]
       [%channel-state =chan-id =chan-state:bolt]
+      [%temp-chan-upgraded id=@]
       [%received-payment from=ship =amt=msats]
       [%new-invoice =payment-request]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
       [%new-channel =chan-info]
-      [%channel-deleted id=@]
       $:  %initial-state
         chans=(list chan-info)
         txs=(list pay-info)

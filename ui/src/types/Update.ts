@@ -7,7 +7,7 @@ export enum UpdateType {
   NewInvoice = "new-invoice",
   InvoicePaid = "invoice-paid",
   PaymentResult = "payment-result",
-  ChannelDeleted = "channel-deleted",
+  TempChanUpgraded = "temp-chan-upgraded",
   NewChannel = "new-channel",
   InitialState = "initial-state",
 }
@@ -41,8 +41,8 @@ export type NewChannelUpdate = {
   'chan-info': ChanInfo;
 };
 
-export type ChannelDeletedUpdate = {
-  type: UpdateType.ChannelDeleted;
+export type TempChanUpgradedUpdate = {
+  type: UpdateType.TempChanUpgraded;
   id: string;
 };
 
