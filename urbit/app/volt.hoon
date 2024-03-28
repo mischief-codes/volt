@@ -259,6 +259,13 @@
       [%latest-invoice ~]
     ?>  (team:title our.bowl src.bowl)
     `this
+      [%latest-invoice @ ~]
+    =/  who=@p  (slav %p i.t.path)
+    ?>  =(who src.bowl)
+    `this
+      [%latest-payment ~]
+    ?>  (team:title our.bowl src.bowl)
+    `this
   ==
 ::
 ++  on-arvo
@@ -272,7 +279,21 @@
     [cards this]
   ==
 ::
-++  on-peek   on-peek:def
+++  on-peek
+  |=  =path
+  ^-  (unit (unit cage))
+  ?+  path  (on-peek:def path)
+      [%x %balance ~]
+    ::  note: this ignores balances in channels that are closing and is
+    ::  optimisitic on commitment updates
+    =/  total-msats=@
+      %-  ~(rep by live.chan)
+      |=  [[=id:bolt =chan:bolt] out=@]
+      =/  last-commitment  (snag (dec (lent our.commitments.chan)) our.commitments.chan)
+      (add out balance.our.last-commitment)
+    ``noun+!>((div total-msats 1.000))
+  ==
+::
 ++  on-leave  on-leave:def
 ++  on-fail   on-fail:def
 --
@@ -1380,6 +1401,11 @@
   |=  =action
   ^-  (quip card _state)
   ?-    -.action
+      %get-invoice
+    =^  cards  state
+      (handle-command [%add-invoice +.action])
+    [cards state]
+  ::
       %give-invoice
     ?>  own-provider
     =|  req=payment-request
@@ -1401,10 +1427,14 @@
     %-  (slog leaf+"{<payreq.action>}" ~)
     =+  inv=(de:bolt11 payreq.action)
     ?~  inv  `state
+    ?~  description.u.inv  `state
+    =/  who  (slav %p u.description.u.inv)
     =+  pr=(~(got by incoming.payments) payment-hash.u.inv)
     =.  payreq.pr  payreq.action
-    :-  ~[(give-update-invoice [%new-invoice payreq.action])]
-    state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
+    :_  state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
+    :~  (give-update-invoice [%new-invoice payreq.action])
+        (give-update-invoice-ship who [%new-invoice payreq.action])
+    ==
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
@@ -2772,12 +2802,17 @@
   ^-  card
   [%give %fact ~[/latest-invoice] %volt-update !>(update)]
 ::
+++  give-update-invoice-ship
+  |=  [who=@p =update]
+  ^-  card
+  [%give %fact ~[/latest-invoice/(scot %p who)] %volt-update !>(update)]
+::
 ++  give-update-payment
   |=  =update
   ^-  card
   ?+    -.update  !!
       %payment-result
-    [%give %fact ~[/[payreq.update]] %volt-update !>(update)]
+    [%give %fact ~[/latest-payment] %volt-update !>(update)]
   ==
 ::
 ++  request-id

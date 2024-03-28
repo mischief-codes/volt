@@ -307,6 +307,7 @@
 ::
 +$  action
   $%  [%give-invoice =amount=msats =payment=hash memo=(unit @t) network=(unit network:bolt)]
+      [%get-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
       [%take-invoice =payreq]
       [%give-pubkey nonce=@]
       [%take-pubkey sig=[v=@ r=@ s=@]]

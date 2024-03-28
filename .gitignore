@@ -2,3 +2,5 @@ PRIVATE.scratch.md
 *~undo-tree~
 proxy/node_modules/*
 dev
+*.swo
+*.swp
