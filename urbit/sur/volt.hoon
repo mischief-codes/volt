@@ -287,7 +287,7 @@
         $~  %pending  ?(%pending %success %fail)
       ship=(unit ship)
       =time  ::  based on status: time of payment attempt if pending, time of resolution if success or failure
-      =sats
+      =sats:bc
       payhash=hexb:bc
       memo=(unit @t)
         ::  sending to earth node: can present node key + link to LN explorer (not guaranteed coverage)
@@ -323,5 +323,6 @@
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
       [%payment-update =payment]
+      [%payment-history log=(map hexb:bc payment)]
   ==
 --

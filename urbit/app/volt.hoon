@@ -266,6 +266,10 @@
       [%latest-payment ~]
     ?>  (team:title our.bowl src.bowl)
     `this
+      [%payment-updates ~]
+    ?>  (team:title our.bowl src.bowl)
+    :_  this
+    ~[[%give %fact ~ %volt-update !>([%payment-history history.payments])]]
   ==
 ::
 ++  on-arvo
@@ -595,7 +599,7 @@
     =.  p
       %=  p
         ship     who
-        sats     u.amount.u.invoice
+        sats     (div (amount-to-msats:bolt11 u.amount.u.invoice) 1.000)
         time     now.bowl
         way      %out
         memo     description.u.invoice
@@ -1137,20 +1141,20 @@
     ?>  =(state.c %open)
     =^  htlc  c  (~(receive-htlc channel c) msg)
     =+  know=(~(get by incoming.payments) payment-hash.msg)
-    =|  cards=(list card)
-    =?  [history.payments cards]
-      ?&  =(^ know)
-          ours.u.know
-      ==
+    =^  cards  history.payments
+      ?~  know
+        `history.payments
+      ?.  =(our.bowl payee.u.know)
+        `history.payments
     =|  p=payment
     =.  p
       %=  p
         time  now.bowl
-        sats  (div amount-msats.msg 1000)
+        sats  (div amount-msats.msg 1.000)
         payhash  payment-hash.msg
         way  %in
       ==
-    :_  (give-update [%payment-update p])
+    :-  ~[(give-payment-history [%payment-update p])]
     (~(put by history.payments) payment-hash.msg p)
     [cards state(live.chan (~(put by live.chan) channel-id.msg c))]
   ::
@@ -1330,15 +1334,18 @@
     ?~  fwd  ~|("outgoing not found" !!)
     =?  cards-2  ours.u.fwd
       (snoc cards-2 (give-update-payment [%payment-result payreq.u.fwd %.y]))
-    :-  (weld cards-1 cards-2)
     =+  ours=(~(get by history.payments) payment-hash)
-    =?  [history.payments cards-2]  =(^ ours)
-      :_  %+  ~(put by history.payments)  payment-hash
-        %=  u.ours
-          time  now.bowl
-          stat  %success
-        ==
-      (snoc cards-2 (give-update [%payment-update u.ours(time now.bowl, stat %success)]))
+    =^  cards-3  history.payments
+    ?~  ours
+      `history.payments
+    =/  p=payment
+      %=  u.ours
+        time  now.bowl
+        stat  %success
+      ==
+    :_  (~(put by history.payments) payment-hash p)
+    ~[(give-payment-history [%payment-update p])]
+    :-  :(weld cards-1 cards-2 cards-3)
     %=    state
         live.chan
       (~(put by live.chan) id.c c)
@@ -1362,19 +1369,21 @@
       ours.fwd  %.n
     =?  cards  =(^ reqs)
       (snoc cards (give-update-payment [%payment-result payreq:(head reqs) %.n]))
-    =?  [history.payments cards]
-      ?&  =(^ reqs)
-          (~(has by history.payments) payment-hash.htlc:(head reqs))
-      ==
+    =^  cards-2  history.payments
+    ?.  ?&  =(^ reqs)
+            (~(has by history.payments) payment-hash.htlc:(head reqs))
+        ==
+      `history.payments
+    =+  pay=(~(got by history.payments) payment-hash.htlc:(head reqs))
     =/  p=payment
-      %=  (~(got by history.payments) payment-hash.htlc:(head reqs))
+      %=  pay
         time  now.bowl
         stat  %fail
       ==
     :_  (~(put by history.payments) payment-hash.htlc:(head reqs) p)
-    (snoc cards (give-update [%payment-update p]))
+    ~[(give-payment-history [%payment-update p])]
     ~&  >>>  "{<id.c>} failed HTLC: {<reason>}"
-    [cards state(live.chan (~(put by live.chan) id.c c))]
+    [(weld cards cards-2) state(live.chan (~(put by live.chan) id.c c))]
   ::
   ++  handle-update-fail-malformed-htlc
     |=  [=channel=id:bolt =htlc-id:bolt]
@@ -1597,7 +1606,7 @@
           time  now.bowl
           stat  %success
         ==
-      :-  (give-update [%payment-update p])
+      :-  ~[(give-payment-history [%payment-update p])]
       state(history.payments (~(put by history.payments) r-hash.result p))
     `state
   ::
@@ -2499,26 +2508,26 @@
   ^-  (quip card _state)
   ~&  >  "maybe-send-settle"
   =+  commitment=(~(oldest-unrevoked-commitment channel c) %remote)
-  ?~  commitment  `c
+  ?~  commitment  `state
   =/  with-preimages=(list add-htlc:update:bolt)
     %+  skim  recd-htlcs.u.commitment
     |=  h=add-htlc:update:bolt
     ^-  ?
     (~(has by preimages.payments) payment-hash.h)
-  ?~  with-preimages  `c
+  ?~  with-preimages  `state
   =+  h=(head with-preimages)
   ~|  "data not found in maybe-send-settle"
   =+  preimage=(~(got by preimages.payments) payment-hash.h)
   ~&  >>  "%volt: settling {<htlc-id.h>} {<ship.her.config.c>}"
-  =|  cards=(list card)
   =+  pr=(~(got by incoming.payments) payment-hash.h)
-  =?  [cards history.payments]  =(our.bowl payee.pr)
+  =^  cards  history.payments
+    ?.  =(our.bowl payee.pr)
+      `history.payments
     =+  ours=(~(got by history.payments) payment-hash.h)
     =/  p=payment  ours(stat %success, time now.bowl)
     :_  (~(put by history.payments) payment-hash.h p)
-    %+  weld  cards
-    :~  (give-update [%payment-update p])
-        (give-update-payment [%payment-result payreq.pr %.y]))
+    :~  (give-payment-history [%payment-update p])
+        (give-update-payment [%payment-result payreq.pr %.y])
     ==
   =.  c  (~(settle-htlc channel c) preimage htlc-id.h)
   :_  state(live.chan (~(put by live.chan) id c))
@@ -2814,6 +2823,11 @@
       %payment-result
     [%give %fact ~[/latest-payment] %volt-update !>(update)]
   ==
+::
+++  give-payment-history
+  |=  =update
+  ^-  card
+  [%give %fact ~[/payment-history] %volt-update !>(update)]
 ::
 ++  request-id
   |=  salt=@
