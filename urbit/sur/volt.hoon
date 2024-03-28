@@ -281,6 +281,20 @@
       ours=?
   ==
 ::
++$  payment
+  $:  way=?(%in %out)
+      $=  stat
+        $~  %pending  ?(%pending %success %fail)
+      ship=(unit ship)
+      =time  ::  based on status: time of payment attempt if pending, time of resolution if success or failure
+      =sats
+      payhash=hexb:bc
+      memo=(unit @t)
+        ::  sending to earth node: can present node key + link to LN explorer (not guaranteed coverage)
+        ::  sending or receiving with earth node: show memo from our or their invoice for identifying information
+        ::  receiving from earth node: no info besides memo, best privacy for counterparty
+  ==
+::
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
@@ -307,5 +321,6 @@
       [%new-invoice =payreq]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
+      [%payment-update =payment]
   ==
 --
