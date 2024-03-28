@@ -1483,7 +1483,22 @@
         lnd        %.n
         dest       dest.action
       ==
-    :-  ~
+    =^  cards  history.payments
+      ?.  (~(has by preimages.payments) payment-hash.her-htlc)
+        `history.payments
+      =|  p=payment
+      =.  p
+        %=  p
+          ship  `src.bowl
+          time  now.bowl
+          sats  (div amount-msats.her-htlc 1.000)
+          way   %in
+          payhash  payment-hash.her-htlc
+        ==
+      
+      :-  ~[(give-payment-history [%payment-update p])]
+      (~(put by history.payments) payment-hash.her-htlc p)
+    :-  cards
     %=    state
         live.chan
       (~(put by live.chan) id.u.c u.c)
