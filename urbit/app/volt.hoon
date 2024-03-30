@@ -1143,8 +1143,8 @@
       sats.funding-outpoint.c
     =.  c  (~(receive-first-commitment channel c) signature.msg)
     =.  c  (~(set-state channel c) %opening)
-    :: =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
-    =+  tx=(extract:psbt funding-tx)
+    =+  tx=(encode-tx:psbt (extract-unsigned:psbt funding-tx))
+    :: =+  tx=(extract:psbt funding-tx)
     =+  id=(request-id dat.tx)
     =/  =action:btc-provider  [id %broadcast-tx tx]
     :_
