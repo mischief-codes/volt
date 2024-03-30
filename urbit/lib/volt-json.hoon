@@ -75,6 +75,20 @@
     |=  upd=update:volt
     ^-  json
     ?+    -.upd  (frond 'type' s+'unimplemented')
+        %hot-wallet-fee
+      %-  pairs
+        :~  ['type' s+'hot-wallet-fee']
+            ['sats' ?^(sats.upd (numb +.sats.upd) ~)]
+        ==
+      ::
+        %need-funding
+      %-  pairs
+        :~  ['type' s+'need-funding']
+            ['funding-info' a+(turn funding-info.upd funding-info)]
+
+            ::  (funding-info funding-info.upd)]
+        ==
+      ::
         %channel-state
       %-  pairs
       :~  ['type' s+'channel-state']
@@ -94,9 +108,9 @@
           ['chan-info' (chan-info chan-info.upd)]
       ==
     ::
-        %channel-deleted
+        %temp-chan-upgraded
       %-  pairs
-      :~  ['type' s+'channel-deleted']
+      :~  ['type' s+'temp-chan-upgraded']
           ['id' s+`@t`(scot %ud id.upd)]
       ==
     ::
@@ -109,6 +123,15 @@
       ==
     ==
   ::
+  ++  funding-info
+    |=  info=funding-info:volt
+    %-  pairs
+    :~  ['temporary-channel-id' s+`@t`(scot %ud temporary-channel-id.info)]
+        ['tau-address' (bitcoin-address tau-address.info)]
+        ['funding-address' (bitcoin-address funding-address.info)]
+        ['msats' (numb msats.info)]
+    ==
+  ::
   ++  chan-info
     |=  info=chan-info:volt
     ^-  json
@@ -117,19 +140,17 @@
         ['who' (ship who.info)]
         ['our' (numb our.info)]
         ['his' (numb his.info)]
-        ['funding-address' (funding-address funding-address.info)]
         ['status' s+status.info]
+        ['network' s+network.info]
     ==
-  ::
-  ++  funding-address
-    |=  f=(unit address:bitcoin)
+  ++  bitcoin-address
+    |=  =address:bitcoin
     ^-  json
-    ?~  f  ~
-    ?-   +<.f
+    ?-   -.address
       %base58
     !!
       %bech32
-    s++>.f
+    s++.address
     ==
   ::
   ++  payment-request
@@ -149,13 +170,5 @@
     |=  info=pay-info:volt
     ^-  json
     ~
-  ::
-  ++  hexb
-    |=  h=hexb:bitcoin
-    ^-  json
-    %-  pairs
-    :~  wid+(numb:enjs wid.h)
-        dat+s+(scot %ux dat.h)
-    ==
   --
 --

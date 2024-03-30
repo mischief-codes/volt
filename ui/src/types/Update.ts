@@ -1,12 +1,13 @@
 import { ChannelStatus } from "./Channel";
 
 export enum UpdateType {
+  NeedFunding = "need-funding",
   ChannelState = "channel-state",
   ReceivedPayment = "received-payment",
   NewInvoice = "new-invoice",
   InvoicePaid = "invoice-paid",
   PaymentResult = "payment-result",
-  ChannelDeleted = "channel-deleted",
+  TempChanUpgraded = "temp-chan-upgraded",
   NewChannel = "new-channel",
   InitialState = "initial-state",
 }
@@ -14,6 +15,11 @@ export enum UpdateType {
 export type Update = {
   type: UpdateType;
   [key: string]: any;
+};
+
+export type NeedFundingUpdate = {
+  type: UpdateType.ChannelState;
+  'funding-info': Array<FundingInfo>
 };
 
 export type ChannelStateUpdate = {
@@ -35,8 +41,8 @@ export type NewChannelUpdate = {
   'chan-info': ChanInfo;
 };
 
-export type ChannelDeletedUpdate = {
-  type: UpdateType.ChannelDeleted;
+export type TempChanUpgradedUpdate = {
+  type: UpdateType.TempChanUpgraded;
   id: string;
 };
 
@@ -47,11 +53,17 @@ export type InitialStateUpdate = {
   invoices: Array<any>;
 };
 
+export type FundingInfo = {
+  'temporary-channel-id': string;
+  'tau-address': string;
+  'funding-address': string;
+  'amount-msats': number;
+}
+
 export type ChanInfo = {
   id: string;
   who: string;
   our: number;
   his: number;
-  'funding-address': string | null;
   status: ChannelStatus;
 };

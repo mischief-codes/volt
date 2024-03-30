@@ -281,6 +281,20 @@
       ours=?
   ==
 ::
++$  payment
+  $:  way=?(%in %out)
+      $=  stat
+        $~  %pending  ?(%pending %success %fail)
+      ship=(unit ship)
+      =time  ::  based on status: time of payment attempt if pending, time of resolution if success or failure
+      =sats:bc
+      payhash=hexb:bc
+      memo=(unit @t)
+        ::  sending to earth node: can present node key + link to LN explorer (not guaranteed coverage)
+        ::  sending or receiving with earth node: show memo from our or their invoice for identifying information
+        ::  receiving from earth node: no info besides memo, best privacy for counterparty
+  ==
+::
 +$  command
   $%  [%set-provider provider=(unit ship)]
       [%open-channel who=ship =funding=sats:bc =push=msats =network:bolt]
@@ -293,6 +307,7 @@
 ::
 +$  action
   $%  [%give-invoice =amount=msats =payment=hash memo=(unit @t) network=(unit network:bolt)]
+      [%get-invoice =amount=msats memo=(unit @t) network=(unit network:bolt)]
       [%take-invoice =payreq]
       [%give-pubkey nonce=@]
       [%take-pubkey sig=[v=@ r=@ s=@]]
@@ -304,8 +319,14 @@
       who=ship
       our=msats
       his=msats
-      funding-address=(unit address:bc)
       status=chan-state:bolt
+      =network:bolt
+  ==
++$  funding-info
+  $:  temporary-channel-id=@
+      tau-address=address:bc
+      funding-address=address:bc
+      =msats
   ==
 +$  pay-info
   $:  =payreq
@@ -317,19 +338,21 @@
   ==
 ::
 +$  update
-  $%  [%need-funding-signature temporary-channel-id=@ =address:bc]
-      [%need-funding =address:bc =msats]
+  $%  [%hot-wallet-fee sats=(unit sats:bc)]
+      [%need-funding funding-info=(list funding-info)]
       [%channel-state =chan-id =chan-state:bolt]
+      [%temp-chan-upgraded id=@]
       [%received-payment from=ship =amt=msats]
       [%new-invoice =payment-request]
       [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
       [%new-channel =chan-info]
-      [%channel-deleted id=@]
       $:  %initial-state
         chans=(list chan-info)
         txs=(list pay-info)
         invoices=(list payment-request)
       ==
+      [%payment-update =payment]
+      [%payment-history log=(map hexb:bc payment)]
   ==
 --

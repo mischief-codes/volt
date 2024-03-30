@@ -106,7 +106,10 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
             network: selectedOption
           }
         },
-        onSuccess: () => displayCommandSuccess(Command.OpenChannel),
+        onSuccess: () => {
+          displayCommandSuccess(Command.OpenChannel);
+
+        },
         onError: (e) => displayCommandError(Command.OpenChannel, e),
       });
     } catch (e) {

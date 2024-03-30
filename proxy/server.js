@@ -187,7 +187,10 @@ app.post('/payment', (req, res) => {
     }
     let call = router.sendPaymentV2(body)
     call.on('data', sendToShip('/~volt-payments'))
-    call.on('error', () => sendToShip('/~volt-payments'))
+    call.on('error', () => {
+        console.log('error in invoices')
+        sendToShip('/~volt-payments')
+    })
     call.on('end', () => {})
     res.status(200).send({})
 })
@@ -243,22 +246,21 @@ app.post('/invoice', (req, res) => {
     let call = invoices.subscribeSingleInvoice (
         { 'r_hash' : body.hash }
     )
-    const callback = sendToShip('/~volt-invoices')
-    call.on('data', (res) => {
-        console.log(res)
-    })
-    call.on('status', () => sendToShip('/~volt-invoices'))
+    // const callback = sendToShip('/~volt-invoices')
+    call.on('data', sendToShip('/~volt-invoices'))
+    // call.on('status', () => sendToShip('/~volt-invoices'))
+    call.on('error', () => sendToShip('/~volt-invoices'))
     call.on('end', () => {console.log('stream ended')})
     invoices.addHoldInvoice(body, (err, resp) => {
         console.log(`error ${JSON.stringify(err)}`)
         console.log(`resp ${JSON.stringify(resp)}`)
-	let ret = returnToShip(res)
-	if (err) { 
-        console.log('cond')
-        ret(err, resp)
-    }
-        console.log('outside cond')
-        ret(err, resp)
+        let ret = returnToShip(res)
+        if (err) { 
+            console.log('cond')
+            ret(err, resp)
+        }
+            console.log('outside cond')
+            ret(err, resp)
     })
     // console.log('got out')
 })

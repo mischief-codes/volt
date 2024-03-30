@@ -5,12 +5,10 @@ import CreateFunding from './CreateFunding';
 import OpenChannel from './OpenChannel';
 import SendPayment from './SendPayment';
 import SetProvider from './SetProvider';
-import TestInvoice from './TestInvoice';
 import { ChannelStatus } from '../../types/Channel';
 import SetUrl from './SetUrl';
 import { ChannelContext } from '../../contexts/ChannelContext';
 import { ApiContext } from '../../contexts/ApiContext';
-// import TestInvoice from './TestInvoice';
 
 
 const Commands: React.FC = () => {
@@ -39,7 +37,6 @@ const Commands: React.FC = () => {
         component: <CloseChannel api={api} openChannels={openChannels}  />
       },
       { name: 'Add Invoice', component: <AddInvoice api={api} /> },
-      { name: 'Test Invoice', component: <TestInvoice api={api} /> },
     ];
 
     const handleCommandChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
