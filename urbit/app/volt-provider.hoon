@@ -54,6 +54,9 @@
   =^  cards  state
   ?+    mark  (on-poke:def mark vase)
       %volt-provider-command
+    =+  !<(com=command:provider:volt vase)
+    ~|  [mark com]
+    ~|  [our.bowl src.bowl]
     ?>  (team:title our.bowl src.bowl)
     (handle-command:hc !<(command:provider:volt vase))
   ::

@@ -579,12 +579,13 @@
     ?~  fwd
       ~&  >  "didn't find channel"
       =/  prov=(unit @p)  get-provider
+      ~&  prov+prov
       ?^  prov
         (forward-to-provider payreq who u.prov)
       ?~  req
         :_  state
         ~[(provider-command [%send-payment payreq ~ ~])]
-      (pay-ship payee.u.req amount-msats payment-hash.u.invoice payreq)
+      (pay-ship payee.u.req amount-msats u.invoice payreq)
     ~&  >  "found channel"
     =^  result  state
       (pay-channel u.fwd amount-msats payment-hash.u.invoice %.n)
@@ -613,7 +614,7 @@
     ==
   ::
   ++  pay-ship
-    |=  [who=@p =amount=msats =payment=hash =payreq]
+    |=  [who=@p =amount=msats =invoice:bolt11 =payreq]
     ^-  (quip card _state)
     =+  ids=(~(get by peer.chan) who)
     ?~  ids
@@ -623,7 +624,7 @@
     ?~  c
       ~&  >>>  "%volt: insufficient capacity with {<who>}"
       `state
-    =^  result  state  (pay-channel u.c amount-msats payment-hash %.n)
+    =^  result  state  (pay-channel u.c amount-msats payment-hash.invoice %.n)
     =|  req=forward-request
     =.  req
       %=  req
@@ -632,8 +633,21 @@
         payreq  payreq
         dest  `who
       ==
+    =|  p=payment
+    =.  p
+      %=  p
+        ship     `who
+        sats     (div amount-msats 1.000)
+        time     now.bowl
+        way      %out
+        memo     description.invoice
+        payhash  payment-hash.invoice
+      ==
     :-  +.result
-    state(outgoing.payments (~(put by outgoing.payments) payment-hash req))
+    %=  state
+      outgoing.payments  (~(put by outgoing.payments) payment-hash.invoice req)
+      history.payments   (~(put by history.payments) payment-hash.invoice p)
+    ==
   ::
   ++  forward-to-provider
     |=  [pay=payreq who=(unit ship) prov=ship]
@@ -664,21 +678,31 @@
     =.  live.chan  (~(put by live.chan) id.u.c u.c)
     =^  cards  state
       (maybe-send-commitment id.u.c)
-     =|  fwd=forward-request
-     =.  fwd
-       %=  fwd
-         htlc  update
-         payreq  pay
-         forwarded  %.n
-         lnd  %.n
-         dest  who
-         ours  %.y
-       ==
-     :-  [(volt-action [%forward-payment pay htlc who] prov) cards]
-         %=  state
-           :: live.chan          (~(put by live.chan) id.u.c u.c)
-           outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
-         ==
+    =|  fwd=forward-request
+    =.  fwd
+      %=  fwd
+        htlc  update
+        payreq  pay
+        forwarded  %.n
+        lnd  %.n
+        dest  who
+        ours  %.y
+      ==
+   =|  p=payment
+   =.  p
+     %=  p
+       ship     who
+       sats     (div amount-msats 1.000)
+       time     now.bowl
+       way      %out
+       memo     description.u.invoice
+       payhash  payment-hash.u.invoice
+     ==
+   :-  [(volt-action [%forward-payment pay htlc who] prov) cards]
+   %=  state
+     history.payments   (~(put by history.payments) payment-hash.u.invoice p)
+     outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
+   ==
   ::
   ++  add-invoice
     |=  [=amount=sats:bc memo=(unit @t) network=(unit network:bolt)]
@@ -1487,7 +1511,12 @@
         lnd        %.n
         dest       dest.action
       ==
+    =+  know=(~(get by incoming.payments) payment-hash.her-htlc)
     =^  cards  history.payments
+      ?~  know
+        `history.payments
+      ?.  =(our.bowl payee.u.know)
+        `history.payments
       ?.  (~(has by preimages.payments) payment-hash.her-htlc)
         `history.payments
       =|  p=payment
@@ -1499,7 +1528,6 @@
           way   %in
           payhash  payment-hash.her-htlc
         ==
-      
       :-  ~[(give-payment-history [%payment-update p])]
       (~(put by history.payments) payment-hash.her-htlc p)
     :-  cards
