@@ -47,7 +47,7 @@
   ==
 ::
 +$  state-0
-  :: $+  state-0
+  $+  state-0
   $:  %0
       tau=?
       $=  keys
@@ -61,24 +61,15 @@
           info=node-info
           pend=(map @ action:btc-provider)
       ==
-      $+  chan
       $=  chan
       $:  live=(map id:bolt chan:bolt)
-          $+  doncare
           larv=(map id:bolt larva-chan:bolt)
-          $+  doncare1
           fund=(map id:bolt psbt:psbt)
-          $+  doncare2
           peer=(map ship (set id:bolt))
-          $+  doncare3
           wach=(map hexb:bc id:bolt)
-          $+  doncare4
           heat=(map address:bc id:bolt)
-          $+  doncare5
           htlc=(map outpoint psbt:psbt)
-          $+  doncare6
           shut=(map id:bolt coop-close-state)
-          $+  doncare7
           dead=(map id:bolt force-close-state)
       ==
       $=  chain
@@ -86,7 +77,6 @@
           fees=(unit sats:bc)
           =time
       ==
-      $+  payments
       $=  payments
       $:  outgoing=(map hexb:bc forward-request)
           incoming=(map hexb:bc payment-request)
@@ -588,8 +578,9 @@
     =/  fwd=(unit chan:bolt)  (forwarding-channel payreq who)
     ?~  fwd
       ~&  >  "didn't find channel"
-      ?.  own-provider
-        (forward-to-provider payreq who)
+      =/  prov=(unit @p)  get-provider
+      ?^  prov
+        (forward-to-provider payreq who u.prov)
       ?~  req
         :_  state
         ~[(provider-command [%send-payment payreq ~ ~])]
@@ -645,13 +636,9 @@
     state(outgoing.payments (~(put by outgoing.payments) payment-hash req))
   ::
   ++  forward-to-provider
-    |=  [pay=payreq who=(unit ship)]
-    ~!  state
+    |=  [pay=payreq who=(unit ship) prov=ship]
     ^-  (quip card _state)
-    ?~  volt.prov
-      ~&  >>>  "%volt: no provider configured"
-      `state
-    =+  provider-channels=(~(get by peer.chan) host.u.volt.prov)
+    =+  provider-channels=(~(get by peer.chan) prov)
     ?~  provider-channels
       ~&  >>>  "%volt: no channel with provider"
       `state
@@ -675,28 +662,23 @@
       ==
     =^  htlc   u.c  (~(add-htlc channel u.c) update)
     =.  live.chan  (~(put by live.chan) id.u.c u.c)
-    :: =^  cards  state
-    =/  zoo
-    (maybe-send-commitment id.u.c)
-    ~!  zoo
-    ^-  (quip card _state)
-    zoo
-    :: [cards state]
-    :: =|  fwd=forward-request
-    :: =.  fwd
-    ::   %=  fwd
-    ::     htlc  update
-    ::     payreq  pay
-    ::     forwarded  %.n
-    ::     lnd  %.n
-    ::     dest  who
-    ::     ours  %.y
-    ::   ==
-    :: :-  [(volt-action [%forward-payment pay htlc who] host.u.volt.prov) cards]
-    ::     %=  state
-    ::       :: live.chan          (~(put by live.chan) id.u.c u.c)
-    ::       outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
-    ::     ==
+    =^  cards  state
+      (maybe-send-commitment id.u.c)
+     =|  fwd=forward-request
+     =.  fwd
+       %=  fwd
+         htlc  update
+         payreq  pay
+         forwarded  %.n
+         lnd  %.n
+         dest  who
+         ours  %.y
+       ==
+     :-  [(volt-action [%forward-payment pay htlc who] prov) cards]
+         %=  state
+           :: live.chan          (~(put by live.chan) id.u.c u.c)
+           outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
+         ==
   ::
   ++  add-invoice
     |=  [=amount=sats:bc memo=(unit @t) network=(unit network:bolt)]
@@ -2342,6 +2324,11 @@
   ^-  ?
   ?~  volt.prov  %.n
   (team:title our.bowl host.u.volt.prov)
+::
+++  get-provider
+  ^-  (unit ship)
+  ?~  volt.prov  ~
+  `host.u.volt.prov
 ::
 ++  find-channel-with-capacity
   |=  [ids=(set id:bolt) =amount=msats]
