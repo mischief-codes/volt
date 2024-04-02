@@ -607,7 +607,7 @@
         memo     description.u.invoice
         payhash  payment-hash.u.invoice
       ==
-    :-  +.result
+    :-  [(give-payment-history [%payment-update p]) +.result]
     %=  state
       outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice req)
       history.payments   (~(put by history.payments) payment-hash.u.invoice p)
@@ -643,7 +643,7 @@
         memo     description.invoice
         payhash  payment-hash.invoice
       ==
-    :-  +.result
+    :-  [(give-payment-history [%payment-update p]) +.result]
     %=  state
       outgoing.payments  (~(put by outgoing.payments) payment-hash.invoice req)
       history.payments   (~(put by history.payments) payment-hash.invoice p)
@@ -698,7 +698,10 @@
        memo     description.u.invoice
        payhash  payment-hash.u.invoice
      ==
-   :-  [(volt-action [%forward-payment pay htlc who] prov) cards]
+   :-  :*  (volt-action [%forward-payment pay htlc who] prov)
+           (give-payment-history [%payment-update p])
+           cards
+       ==
    %=  state
      history.payments   (~(put by history.payments) payment-hash.u.invoice p)
      outgoing.payments  (~(put by outgoing.payments) payment-hash.u.invoice fwd)
@@ -1362,15 +1365,15 @@
       (snoc cards-2 (give-update-payment [%payment-result payreq.u.fwd %.y]))
     =+  ours=(~(get by history.payments) payment-hash)
     =^  cards-3  history.payments
-    ?~  ours
-      `history.payments
-    =/  p=payment
-      %=  u.ours
-        time  now.bowl
-        stat  %success
-      ==
-    :_  (~(put by history.payments) payment-hash p)
-    ~[(give-payment-history [%payment-update p])]
+      ?~  ours
+        `history.payments
+      =/  p=payment
+        %=  u.ours
+          time  now.bowl
+          stat  %success
+        ==
+      :_  (~(put by history.payments) payment-hash p)
+      ~[(give-payment-history [%payment-update p])]
     :-  :(weld cards-1 cards-2 cards-3)
     %=    state
       ::   live.chan
@@ -1397,18 +1400,18 @@
     =?  cards  =(^ reqs)
       (snoc cards (give-update-payment [%payment-result payreq:(head reqs) %.n]))
     =^  cards-2  history.payments
-    ?.  ?&  =(^ reqs)
-            (~(has by history.payments) payment-hash.htlc:(head reqs))
+      ?.  ?&  =(^ reqs)
+              (~(has by history.payments) payment-hash.htlc:(head reqs))
+          ==
+        `history.payments
+      =+  pay=(~(got by history.payments) payment-hash.htlc:(head reqs))
+      =/  p=payment
+        %=  pay
+          time  now.bowl
+          stat  %fail
         ==
-      `history.payments
-    =+  pay=(~(got by history.payments) payment-hash.htlc:(head reqs))
-    =/  p=payment
-      %=  pay
-        time  now.bowl
-        stat  %fail
-      ==
-    :_  (~(put by history.payments) payment-hash.htlc:(head reqs) p)
-    ~[(give-payment-history [%payment-update p])]
+      :_  (~(put by history.payments) payment-hash.htlc:(head reqs) p)
+      ~[(give-payment-history [%payment-update p])]
     ~&  >>>  "{<id.c>} failed HTLC: {<reason>}"
     [(weld cards cards-2) state]
   ::
@@ -2886,7 +2889,7 @@
 ++  give-payment-history
   |=  =update
   ^-  card
-  [%give %fact ~[/payment-history] %volt-update !>(update)]
+  [%give %fact ~[/payment-updates] %volt-update !>(update)]
 ::
 ++  request-id
   |=  salt=@
