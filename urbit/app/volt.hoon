@@ -2328,7 +2328,7 @@
 ++  get-provider
   ^-  (unit ship)
   ?~  volt.prov  ~
-  ?.  (team:title our.bowl host.u.volt.prov)  ~
+  ?:  (team:title our.bowl host.u.volt.prov)  ~
   `host.u.volt.prov
 ::
 ++  find-channel-with-capacity
