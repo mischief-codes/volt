@@ -1466,15 +1466,19 @@
       %take-invoice
     %-  (slog leaf+"{<payreq.action>}" ~)
     =+  inv=(de:bolt11 payreq.action)
-    ?~  inv  `state
-    ?~  description.u.inv  `state
-    =/  who  (slav %p u.description.u.inv)
+    ?~  inv
+      ~&  >  "%volt %take-invoice: invoice failed to decode"
+      `state
     =+  pr=(~(got by incoming.payments) payment-hash.u.inv)
     =.  payreq.pr  payreq.action
-    :_  state(incoming.payments (~(put by incoming.payments) payment-hash.u.inv pr))
-    :~  (give-update-invoice [%new-invoice payreq.action])
-        (give-update-invoice-ship who [%new-invoice payreq.action])
-    ==
+    =.  incoming.payments
+      (~(put by incoming.payments) payment-hash.u.inv pr(payreq payreq.action))
+    =/  cards=(list card)  ~[(give-update-invoice [%new-invoice payreq.action])]
+    ?~  description.u.inv  [cards state]
+    ?:  =('' u.description.u.inv)  [cards state]
+    =/  whom  (slav %p u.description.u.inv)
+    :_  state
+    [(give-update-invoice-ship whom [%new-invoice payreq.action]) cards]
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
