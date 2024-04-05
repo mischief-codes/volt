@@ -6,6 +6,7 @@ enum Command {
   SendPayment = "send-payment",
   SetProvider = "set-provider",
   SetUrl = "set-url",
+  InvoiceAndPay = "invoice-and-pay",  // "pseudo-command"
 }
 
 export default Command;

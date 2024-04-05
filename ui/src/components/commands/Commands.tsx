@@ -4,6 +4,7 @@ import CloseChannel from './CloseChannel';
 import CreateFunding from './CreateFunding';
 import OpenChannel from './OpenChannel';
 import SendPayment from './SendPayment';
+import InvoiceAndPay from './InvoiceAndPay';
 import SetProvider from './SetProvider';
 import { ChannelStatus } from '../../types/Channel';
 import SetUrl from './SetUrl';
@@ -37,6 +38,8 @@ const Commands: React.FC = () => {
         component: <CloseChannel api={api} openChannels={openChannels}  />
       },
       { name: 'Add Invoice', component: <AddInvoice api={api} /> },
+      { name: 'Invoice and Pay', component: <InvoiceAndPay api={api} /> },
+
     ];
 
     const handleCommandChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
