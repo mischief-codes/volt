@@ -334,7 +334,7 @@
       ``[%volt-update !>([%hot-wallet-fee ~])]
     =/  expected-vbytes=@  127
     =/  fee-estimate  (mul expected-vbytes +:fees.chain)
-    ``[%volt-update !>([%hot-wallet-fee fee-estimate])]
+    ``[%volt-update !>([%hot-wallet-fee `fee-estimate])]
     ::
       [%x %balance ~]
     ::  note: this ignores balances in channels that are closing and is
