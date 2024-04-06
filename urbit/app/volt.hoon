@@ -1473,12 +1473,13 @@
     =.  payreq.pr  payreq.action
     =.  incoming.payments
       (~(put by incoming.payments) payment-hash.u.inv pr(payreq payreq.action))
-    =/  cards=(list card)  ~[(give-update-invoice [%new-invoice payreq.action])]
+    =+  cards=~[(give-update-invoice [%new-invoice payreq.action])]
     ?~  description.u.inv  [cards state]
     ?:  =('' u.description.u.inv)  [cards state]
-    =/  whom  (slav %p u.description.u.inv)
+    =/  whom  (slaw %p u.description.u.inv)
+    ?~  whom  [cards state]
     :_  state
-    [(give-update-invoice-ship whom [%new-invoice payreq.action]) cards]
+    [(give-update-invoice-ship u.whom [%new-invoice payreq.action]) cards]
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
@@ -1636,6 +1637,17 @@
       ?~  req
         ~&  >>>  "%volt: unknown invoice"
         (cancel-invoice r-hash.result)
+      ?:  =(our.bowl payee.u.req)
+        =+  preimage=(~(got by preimages.payments) r-hash.result)
+        =^  cards  state  (maybe-settle-external r-hash.result preimage)
+        =+  p=(~(got by history.payments) r-hash.result)
+        =.  p
+          %=  p
+            stat  %success
+            time  now.bowl
+          ==
+        :-  [(give-payment-history [%payment-update p]) cards]
+        state(history.payments (~(put by history.payments) r-hash.result p))
       =+  chan-ids=(~(gut by peer.chan) payee.u.req ~)
       =+  c=(find-channel-with-capacity chan-ids value-msats.result)
       ?~  c
