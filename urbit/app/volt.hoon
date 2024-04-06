@@ -333,7 +333,7 @@
     ?.  ?=(^ fees.chain)
       ``[%volt-update !>([%hot-wallet-fee ~])]
     =/  expected-vbytes=@  127
-    =/  fee-estimate  (mul expected-vbytes +:fees.chain)
+    =/  fee-estimate  (mul expected-vbytes u:fees.chain)
     ``[%volt-update !>([%hot-wallet-fee `fee-estimate])]
     ::
       [%x %balance ~]
