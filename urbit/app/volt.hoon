@@ -1640,14 +1640,23 @@
       ?:  =(our.bowl payee.u.req)
         =+  preimage=(~(got by preimages.payments) r-hash.result)
         =^  cards  state  (maybe-settle-external r-hash.result preimage)
-        =+  p=(~(got by history.payments) r-hash.result)
-        =.  p
-          %=  p
+        =/  p=(unit payment)  (~(get by history.payments) r-hash.result)
+        =|  np=payment
+        =.  np
+          %=  np
+            way  %in
             stat  %success
             time  now.bowl
+            sats  (div amount-msats.u.req 1.000)
+            payhash  r-hash.result
           ==
-        :-  [(give-payment-history [%payment-update p]) cards]
-        state(history.payments (~(put by history.payments) r-hash.result p))
+        =?  np  ?=(^ p)
+          %=  np
+            ship  ship.u.p
+            memo  memo.u.p
+          ==
+        :-  [(give-payment-history [%payment-update np]) cards]
+        state(history.payments (~(put by history.payments) r-hash.result np))
       =+  chan-ids=(~(gut by peer.chan) payee.u.req ~)
       =+  c=(find-channel-with-capacity chan-ids value-msats.result)
       ?~  c
@@ -2711,6 +2720,7 @@
 ++  mark-open
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
+  ~&  >>  "new channel with {<ship.her.config.c>} open"
   ?>  ~(is-funded channel c)
   =+  old-state=state.c
   ?:  =(old-state %open)    `c
