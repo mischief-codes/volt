@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "zod": "vite --mode zod",
-    "wet": "vite --mode wet",
+    "ship1": "vite --mode ship1",
+    "ship2": "vite --mode ship2",
     "build": "tsc && vite build",
     "serve": "vite preview",
     "test": "tsc --noEmit",
