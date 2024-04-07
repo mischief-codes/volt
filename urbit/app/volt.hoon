@@ -333,8 +333,8 @@
     ?.  ?=(^ fees.chain)
       ``[%volt-update !>([%hot-wallet-fee ~])]
     =/  expected-vbytes=@  127
-    =/  fee-estimate  (mul expected-vbytes +:fees.chain)
-    ``[%volt-update !>([%hot-wallet-fee fee-estimate])]
+    =/  fee-estimate  (mul expected-vbytes u:fees.chain)
+    ``[%volt-update !>([%hot-wallet-fee `fee-estimate])]
     ::
       [%x %balance ~]
     ::  note: this ignores balances in channels that are closing and is
@@ -1598,13 +1598,13 @@
     =.  payreq.pr  payreq.action
     =.  incoming.payments
       (~(put by incoming.payments) payment-hash.u.inv pr(payreq payreq.action))
-    =/  cards=(list card)  ~[(give-update-invoice [%new-invoice pr])]
+    =+  cards=~[(give-update-invoice [%new-invoice pr])]
     ?~  description.u.inv  [cards state]
     ?:  =('' u.description.u.inv)  [cards state]
     =/  whom  (slaw %p u.description.u.inv)
-    =?  cards  ?!(=(~ whom))
-      (snoc cards (give-update-invoice-ship +.whom [%new-invoice pr]))
-    :_  state  cards
+    ?~  whom  [cards state]
+    :_  state
+    [(give-update-invoice-ship u.whom [%new-invoice pr]) cards]
   ::
       %give-pubkey
     =+  secp256k1:secp:crypto
@@ -1762,6 +1762,26 @@
       ?~  req
         ~&  >>>  "%volt: unknown invoice"
         (cancel-invoice r-hash.result)
+      ?:  =(our.bowl payee.u.req)
+        =+  preimage=(~(got by preimages.payments) r-hash.result)
+        =^  cards  state  (maybe-settle-external r-hash.result preimage)
+        =/  p=(unit payment)  (~(get by history.payments) r-hash.result)
+        =|  np=payment
+        =.  np
+          %=  np
+            way  %in
+            stat  %success
+            time  now.bowl
+            sats  (div amount-msats.u.req 1.000)
+            payhash  r-hash.result
+          ==
+        =?  np  ?=(^ p)
+          %=  np
+            ship  ship.u.p
+            memo  memo.u.p
+          ==
+        :-  [(give-payment-history [%payment-update np]) cards]
+        state(history.payments (~(put by history.payments) r-hash.result np))
       =+  chan-ids=(~(gut by peer.chan) payee.u.req ~)
       =+  c=(find-channel-with-capacity chan-ids value-msats.result)
       ?~  c
@@ -2828,6 +2848,7 @@
 ++  mark-open
   |=  c=chan:bolt
   ^-  (quip card chan:bolt)
+  ~&  >>  "new channel with {<ship.her.config.c>} open"
   ?>  ~(is-funded channel c)
   =+  old-state=state.c
   ?:  =(old-state %open)    `c
