@@ -98,18 +98,18 @@ let sendToShip = (path) => {
     console.log(`path ${path}`)
     let handler = data => {
         console.log(data)
-	let body = serialize(data)
-	let options = makeRequestOptions(path, body)
-	let req = http.request(options, res => {
-	    if (res.statusCode == 201)
-		console.log(`${path}: got OK`)
-	    else
-		console.error(`${path}: got ERR (${res.statusCode})`)
+        let body = serialize(data)
+        let options = makeRequestOptions(path, body)
+        let req = http.request(options, res => {
+            if (res.statusCode == 201)
+                console.log(`${path}: got OK`)
+            else
+                console.error(`${path}: got ERR (${res.statusCode})`)
 
-	})
-	req.on('error', error => { console.error(error) })
-	req.write(body)
-	req.end()
+	    })
+        req.on('error', error => { console.error(error) })
+        req.write(body)
+        req.end()
     }
     return handler
 }
@@ -119,12 +119,12 @@ let returnToShip = (res) => {
         console.log('returnToShip')
         console.log(`err ${JSON.stringify(err)}`)
         console.log(`data ${JSON.stringify(data)}`)
-	if (err) {
-	    res.status(500).json({'code': err.code, 'message': err.details})
-	} else {
-	    encodeBytes(data)
-	    res.json(data)
-	}
+        if (err) {
+            res.status(500).json({'code': err.code, 'message': err.details})
+        } else {
+            encodeBytes(data)
+            res.json(data)
+        }
     }
     return handler
 }
