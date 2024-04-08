@@ -10,7 +10,7 @@ import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
 import BitcoinAmount, { MIN_FUNDING_AMOUNT } from '../../types/BitcoinAmount';
 
-const OpenChannel = ({ api }: { api: Urbit }) => {
+const OpenChannel = ({ api, goToCreateFunding }: { api: Urbit, goToCreateFunding: () => void }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
 
   const [channelPartnerInput, setChannelPartnerInput] = useState('~');
@@ -108,7 +108,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
         },
         onSuccess: () => {
           displayCommandSuccess(Command.OpenChannel);
-
+          goToCreateFunding();
         },
         onError: (e) => displayCommandError(Command.OpenChannel, e),
       });

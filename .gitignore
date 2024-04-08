@@ -7,3 +7,4 @@ proxy/node_modules/*
 dev
 *.swo
 *.swp
+node_modules

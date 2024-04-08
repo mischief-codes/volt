@@ -1,6 +1,6 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
 import Urbit from '@urbit/http-api';
-import Channel from '../../types/Channel';
+import Channel, { ChannelStatus } from '../../types/Channel';
 import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
@@ -12,13 +12,15 @@ import CopyButton from './shared/CopyButton';
 import { HotWalletContext } from '../../contexts/HotWalletContext';
 import BitcoinAmount from '../../types/BitcoinAmount';
 import Network from '../../types/Network';
+import { ChannelContext } from '../../contexts/ChannelContext';
 
 const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
 const FUNDING_SOURCE_PSBT = 'PSBT';
 
 const CreateFunding = (
-  { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
+  { api }: { api: Urbit}
 ) => {
+  const { preopeningChannels } = useContext(ChannelContext);
   const { tauAddressByTempChanId, fundingAddressByTempChanId } = useContext(HotWalletContext);
 
   const fundableChannels = useMemo(() => {
@@ -29,6 +31,12 @@ const CreateFunding = (
 
   const [selectedChannel, setSelectedChannel] = useState(fundableChannels[0] || null);
   const [fundingSource, setFundingSource] = useState(FUNDING_SOURCE_HOT_WALLET);
+
+  useEffect(() => {
+    if (!selectedChannel && fundableChannels.length > 0) {
+      setSelectedChannel(fundableChannels[0]);
+    }
+  }, [preopeningChannels])
 
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedChannel(fundableChannels.find(channel => channel.id === event.target.value) as Channel);
@@ -53,7 +61,7 @@ const CreateFunding = (
 
   return (
     <>
-      {fundableChannels.length > 0 ? (
+      {selectedChannel ? (
         <CommandForm>
         <Dropdown
           label={"Funding Source"}
@@ -143,7 +151,7 @@ const CreateFundingHotWallet = (
   }
   return (
     <>
-    {totalAmount ? (
+    {(totalAmount && tauAddress) ? (
     <>
       <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
       <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
