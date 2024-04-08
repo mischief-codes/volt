@@ -1,0 +1,10 @@
+:~
+  title+'Volt'
+  info+'Lightning on Urbit'
+  color+0xe4.e4e7
+  version+[0 1 0]
+  website+'https://urbit.org'
+  license+'MIT'
+  base+'volt'
+  glob-ames+[~zod 0v0]
+==

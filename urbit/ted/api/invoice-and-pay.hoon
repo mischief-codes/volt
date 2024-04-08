@@ -15,7 +15,7 @@
 =+  !<(upd=update:volt q.c1)
 ~|  upd
 ?>  ?=(%new-invoice -.upd)
-=/  com=command:volt  [%send-payment payreq.upd `who]
+=/  com=command:volt  [%send-payment payreq.payment-request.upd `who]
 ;<  ~  bind:m  (watch-our:io /pay %volt /latest-payment)
 ;<  ~  bind:m  (poke-our:io %volt %volt-command !>(com))
 ;<  c2=cage  bind:m  (take-fact:io /pay)

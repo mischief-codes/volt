@@ -1,5 +1,8 @@
 PRIVATE.scratch.md
 *~undo-tree~
+node_modules
+.DS_Store
+ui/dist
 proxy/node_modules/*
 dev
 *.swo
