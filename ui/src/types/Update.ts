@@ -1,4 +1,5 @@
 import { ChannelStatus } from "./Channel";
+import Network from "./Network";
 
 export enum UpdateType {
   NeedFunding = "need-funding",
@@ -66,4 +67,5 @@ export type ChanInfo = {
   our: number;
   his: number;
   status: ChannelStatus;
+  network: Network;
 };
