@@ -5,15 +5,11 @@ import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
 import Input from './shared/Input';
-import Text from './shared/Text';
 import Dropdown from './shared/Dropdown';
 import CommandForm from './shared/CommandForm';
 import CopyButton from './shared/CopyButton';
-import { HotWalletContext } from '../../contexts/HotWalletContext';
-import BitcoinAmount from '../../types/BitcoinAmount';
 import Network from '../../types/Network';
 import { ChannelContext } from '../../contexts/ChannelContext';
-import QRCode from 'react-qr-code';
 import HotWalletFunding from './shared/HotWalletFunding';
 
 const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
