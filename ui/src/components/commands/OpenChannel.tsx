@@ -37,6 +37,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
   const [tauAddress, setTauAddress] = useState<string | null>(null);
 
   useEffect(() => {
+    // check if the channel we just tried to open is now in preopeningChannels
     if (openedChannelParams && !openedChannel) {
       const matchingChannel = preopeningChannels.find((channel) => {
         const pushMsats = new BitcoinAmount(openedChannelParams['push-msats']);
@@ -44,6 +45,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
         return preSig(channel.who) === preSig(openedChannelParams.who)
         && channel.our.eq(fundingAmount.sub(pushMsats))
         && channel.network === openedChannelParams.network
+        // can't check pushmsats because partner's balance isn't credited in initial state
       });
       if (matchingChannel) setOpenedChannel(matchingChannel);
     }
