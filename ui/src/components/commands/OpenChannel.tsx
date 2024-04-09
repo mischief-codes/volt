@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
 import Button from './shared/Button';
@@ -6,12 +6,55 @@ import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
 import Input from './shared/Input';
 import Dropdown from './shared/Dropdown';
+import Text from './shared/Text';
 import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
 import BitcoinAmount, { MIN_FUNDING_AMOUNT } from '../../types/BitcoinAmount';
+import { HotWalletContext } from '../../contexts/HotWalletContext';
+import CopyButton from './shared/CopyButton';
+import Channel, { TauAddress } from '../../types/Channel';
+import { ChannelContext } from '../../contexts/ChannelContext';
+
+const HotWalletFunding = ({channel, tauAddress, close}:
+  {channel: Channel, tauAddress: TauAddress, close: () => void}
+) => {
+  const { hotWalletFee } = useContext(HotWalletContext);
+  let totalAmount = hotWalletFee ? channel.our.add(hotWalletFee as BitcoinAmount) : null;
+  if (channel.network === Network.Regtest && !hotWalletFee) {
+    const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.0001);
+    totalAmount = channel.our.add(DEFAULT_REGTEST_FEE);
+  }
+  return (
+    <>
+    {totalAmount ? (
+    <>
+      <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
+      <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
+    </>
+    ): (
+    <>
+      <Text className='text-lg text-start mt-4' text={`Send: ${channel.our.asBtc()} BTC + fee`} />
+      <Text className='text-lg text-start mt-4' text={'(Fee estimate unavailable)'} />
+      <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
+    </>
+    )}
+    <CopyButton label={null} buttonText={'Copy Address'} copyText={tauAddress} />
+    <Button className='mt-4' onClick={close} label={'Done'}/>
+    </>
+  );
+}
+
+type OpenChannelParams = {
+  who: string,
+  'funding-sats': number,
+  'push-msats': number,
+  network: Network
+};
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
+  const { preopeningChannels } = useContext(ChannelContext);
+  const { tauAddressByTempChanId } = useContext(HotWalletContext);
 
   const [channelPartnerInput, setChannelPartnerInput] = useState('~');
   const [channelPartner, setChannelPartner] = useState<string | null>(null);
@@ -20,6 +63,33 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
   const [pushMsatsInput, setPushMsatsInput] = useState('0');
   const [pushAmount, setPushAmount] = useState(new BitcoinAmount(0));
   const [selectedOption, setSelectedOption] = useState(Network.Regtest);
+
+  const [openedChannelParams, setOpenedChannelParams] = useState<OpenChannelParams | null>(null);
+  const [openedChannel, setOpenedChannel] = useState<Channel | null>(null);
+  const [tauAddress, setTauAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (openedChannelParams && !openedChannel) {
+      const openedChannel = preopeningChannels.find((channel) => {
+        return channel.who === openedChannelParams.who
+        && channel.our === BitcoinAmount.fromSatoshis(openedChannelParams['funding-sats'])
+        && channel.his === new BitcoinAmount(openedChannelParams['push-msats'])
+        && channel.network === openedChannelParams.network
+      });
+      if (openedChannel) {
+        setOpenedChannel(openedChannel);
+      }
+    }
+  }, [openedChannelParams]);
+
+  useEffect(() => {
+    if (openedChannel) {
+      const tauAddress = tauAddressByTempChanId[openedChannel.id];
+      if (tauAddress) {
+        setTauAddress(tauAddress);
+      }
+    }
+  }, [openedChannel]);
 
   const onChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChannelPartnerInput(e.target.value);
@@ -95,20 +165,21 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     e.preventDefault();
     if (!validateOpenChannelParams()) return;
     try {
+      const params: OpenChannelParams = {
+        who: channelPartner as string,
+        'funding-sats': fundingSats as number,
+        'push-msats': pushAmount.millisatoshis,
+        network: selectedOption
+      };
       api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
-          "open-channel": {
-            who: channelPartner,
-            'funding-sats': fundingSats,
-            'push-msats': pushAmount.millisatoshis,
-            network: selectedOption
-          }
+          "open-channel": params
         },
         onSuccess: () => {
           displayCommandSuccess(Command.OpenChannel);
-
+          setOpenedChannelParams(params);
         },
         onError: (e) => displayCommandError(Command.OpenChannel, e),
       });
@@ -124,32 +195,50 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
     { value: Network.Mainnet, label: 'Mainnet' }
   ];
 
-  return (
-    <CommandForm>
-      <Input
-        label={"Channel Partner"}
-        value={channelPartnerInput}
-        onChange={onChangeChannelPartnerInput}
-      />
-      <Input
-        label={"Funding Sats"}
-        value={fundingSatsInput}
-        onChange={onChangeFundingSatsInput}
-      />
-      <Input
-        label={"Push msats"}
-        value={pushMsatsInput}
-        onChange={onChangePushMsatsInput}
-      />
-      <Dropdown
-        label={"Network"}
-        options={options}
-        value={selectedOption}
-        onChange={onChangeNetwork}
-      />
-      <Button onClick={openChannel} label={'Open Channel'}/>
-    </CommandForm>
-  );
+
+  const closeHotWalletFunding = () => {
+    setOpenedChannel(null);
+    setTauAddress(null);
+  }
+
+  if (openedChannel && tauAddress) {
+    return (
+      <CommandForm>
+        <HotWalletFunding
+          channel={openedChannel}
+          tauAddress={tauAddress}
+          close={closeHotWalletFunding}
+        />
+      </CommandForm>
+    )
+  } else {
+    return (
+      <CommandForm>
+        <Input
+          label={"Channel Partner"}
+          value={channelPartnerInput}
+          onChange={onChangeChannelPartnerInput}
+        />
+        <Input
+          label={"Funding Sats"}
+          value={fundingSatsInput}
+          onChange={onChangeFundingSatsInput}
+        />
+        <Input
+          label={"Push msats"}
+          value={pushMsatsInput}
+          onChange={onChangePushMsatsInput}
+        />
+        <Dropdown
+          label={"Network"}
+          options={options}
+          value={selectedOption}
+          onChange={onChangeNetwork}
+        />
+        <Button onClick={openChannel} label={'Open Channel'}/>
+      </CommandForm>
+    );
+  }
 };
 
 export default OpenChannel;

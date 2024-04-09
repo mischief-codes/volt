@@ -28,6 +28,7 @@ interface ChannelContextValue {
     closed: Channel[];
     redeemed: Channel[];
   };
+  preopeningChannels: Channel[];
 }
 
 export const ChannelContext = createContext<ChannelContextValue>({
@@ -46,6 +47,7 @@ export const ChannelContext = createContext<ChannelContextValue>({
     closed: [],
     redeemed: [],
   },
+  preopeningChannels: [],
 });
 
 export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -75,6 +77,11 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
       } as { [key in ChannelStatus]: Channel[] }
     );
   }, [channels]);
+
+  const preopeningChannels = useMemo(() => {
+    return channelsByStatus.preopening;
+  }, [channelsByStatus]);
+
 
   useEffect(() => {
     if (subscriptionConnected) {
@@ -194,7 +201,8 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     channels,
     channelsByStatus,
     inboundCapacity,
-    outboundCapacity
+    outboundCapacity,
+    preopeningChannels
   };
 
   return (
