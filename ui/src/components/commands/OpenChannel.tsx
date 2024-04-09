@@ -6,42 +6,12 @@ import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
 import Input from './shared/Input';
 import Dropdown from './shared/Dropdown';
-import Text from './shared/Text';
 import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
 import BitcoinAmount, { MIN_FUNDING_AMOUNT } from '../../types/BitcoinAmount';
-import { HotWalletContext } from '../../contexts/HotWalletContext';
-import CopyButton from './shared/CopyButton';
-import Channel, { TauAddress } from '../../types/Channel';
+import Channel from '../../types/Channel';
 import { ChannelContext } from '../../contexts/ChannelContext';
-import QRCode from 'react-qr-code';
-
-const HotWalletFunding = ({channel, tauAddress, close}:
-  {channel: Channel, tauAddress: TauAddress, close: () => void}
-) => {
-  const { hotWalletFee } = useContext(HotWalletContext);
-  let totalAmount = hotWalletFee ? channel.our.add(hotWalletFee as BitcoinAmount) : null;
-  if (channel.network === Network.Regtest && !hotWalletFee) {
-    const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.0001);
-    totalAmount = channel.our.add(DEFAULT_REGTEST_FEE);
-  }
-  return (
-    <>
-    {totalAmount ? (
-      <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
-    ):(
-    <>
-      <Text className='text-lg text-start mt-4' text={`Send: ${channel.our.asBtc()} BTC + fee`} />
-      <Text className='text-lg text-start mt-4' text={'(Fee estimate unavailable)'} />
-    </>
-    )}
-    <Text className='text-lg text-start text-balance break-all' text={`To: ${tauAddress}`} />
-    <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={tauAddress} />
-    <CopyButton className='w-8/12' label={null} buttonText={'Copy Address'} copyText={tauAddress} />
-    <Button className='!mt-4' onClick={close} label={'Done'}/>
-    </>
-  );
-}
+import HotWalletFunding from './shared/HotWalletFunding';
 
 type OpenChannelParams = {
   who: string,

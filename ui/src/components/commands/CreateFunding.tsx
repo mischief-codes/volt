@@ -14,6 +14,7 @@ import BitcoinAmount from '../../types/BitcoinAmount';
 import Network from '../../types/Network';
 import { ChannelContext } from '../../contexts/ChannelContext';
 import QRCode from 'react-qr-code';
+import HotWalletFunding from './shared/HotWalletFunding';
 
 const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
 const FUNDING_SOURCE_PSBT = 'PSBT';
@@ -80,7 +81,7 @@ const CreateFunding = (
         />
         { fundingSource === FUNDING_SOURCE_PSBT
           ? <CreateFundingPSBT api={api} selectedChannel={selectedChannel} fundingAddress={fundingAddress}/>
-          : <CreateFundingHotWallet selectedChannel={selectedChannel} tauAddress={tauAddress} />}
+          : <HotWalletFunding channel={selectedChannel} tauAddress={tauAddress} close={null}/>}
         </CommandForm>
       ) : <div className='text-center'>No fundable channels</div>}
     </>
@@ -140,33 +141,5 @@ const CreateFundingPSBT = (
     </>
   );
 }
-
-const CreateFundingHotWallet = (
-  { selectedChannel, tauAddress }: { selectedChannel: Channel, tauAddress: string}
-) => {
-  const { hotWalletFee } = useContext(HotWalletContext);
-  let totalAmount = hotWalletFee ? selectedChannel.our.add(hotWalletFee as BitcoinAmount) : null;
-  if (selectedChannel.network === Network.Regtest && !hotWalletFee) {
-    const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.0001);
-    totalAmount = selectedChannel.our.add(DEFAULT_REGTEST_FEE);
-  }
-  return (
-    <>
-    {totalAmount ? (
-      <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
-    ):(
-    <>
-      <Text className='text-lg text-start mt-4' text={`Send: ${selectedChannel.our.asBtc()} BTC + fee`} />
-      <Text className='text-lg text-start mt-4' text={'(Fee estimate unavailable)'} />
-    </>
-    )}
-    <Text className='text-lg text-start text-balance break-all' text={`To: ${tauAddress}`} />
-    <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={tauAddress} />
-    <CopyButton className='w-8/12' label={null} buttonText={'Copy Address'} copyText={tauAddress} />
-    </>
-  );
-}
-
-
 
 export default CreateFunding;
