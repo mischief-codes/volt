@@ -1,6 +1,6 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
 import Urbit from '@urbit/http-api';
-import Channel from '../../types/Channel';
+import Channel, { ChannelStatus, FundingAddress } from '../../types/Channel';
 import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
 import Command from '../../types/Command';
@@ -12,23 +12,31 @@ import CopyButton from './shared/CopyButton';
 import { HotWalletContext } from '../../contexts/HotWalletContext';
 import BitcoinAmount from '../../types/BitcoinAmount';
 import Network from '../../types/Network';
+import { ChannelContext } from '../../contexts/ChannelContext';
+import QRCode from 'react-qr-code';
 
 const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
 const FUNDING_SOURCE_PSBT = 'PSBT';
 
 const CreateFunding = (
-  { api, preopeningChannels }: { api: Urbit, preopeningChannels: Array<Channel> }
+  { api }: { api: Urbit, preopeningChannels: Array<Channel> }
 ) => {
-  const { tauAddressByTempChanId, fundingAddressByTempChanId } = useContext(HotWalletContext);
+  const { preopeningChannels } = useContext(ChannelContext);
+  const { tauAddressByTempChanId, fundingAddressByTempChanId } = useContext(ChannelContext);
 
-  const fundableChannels = useMemo(() => {
-    return preopeningChannels.filter(channel => {
-      return tauAddressByTempChanId[channel.id] && fundingAddressByTempChanId[channel.id]
-  });
-  }, [preopeningChannels]);
 
-  const [selectedChannel, setSelectedChannel] = useState(fundableChannels[0] || null);
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [fundingSource, setFundingSource] = useState(FUNDING_SOURCE_HOT_WALLET);
+
+  const fundableChannels = preopeningChannels.filter(channel => {
+    return tauAddressByTempChanId[channel.id] && fundingAddressByTempChanId[channel.id]
+});
+
+  useEffect(() => {
+    if (!selectedChannel && fundableChannels.length > 0) {
+      setSelectedChannel(fundableChannels[0]);
+    }
+  }, [preopeningChannels])
 
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedChannel(fundableChannels.find(channel => channel.id === event.target.value) as Channel);
@@ -51,9 +59,12 @@ const CreateFunding = (
     return { value: channel.id, label: getChannelLabel(channel) }
   });
 
+  const tauAddress = tauAddressByTempChanId[selectedChannel?.id as ChannelStatus];
+  const fundingAddress = fundingAddressByTempChanId[selectedChannel?.id as ChannelStatus];
+
   return (
     <>
-      {fundableChannels.length > 0 ? (
+      {selectedChannel ? (
         <CommandForm>
         <Dropdown
           label={"Funding Source"}
@@ -67,7 +78,9 @@ const CreateFunding = (
           options={channelOptions}
           onChange={onChangeSelectedChannel}
         />
-        { fundingSource === FUNDING_SOURCE_PSBT ? <CreateFundingPSBT api={api} selectedChannel={selectedChannel}/> : <CreateFundingHotWallet selectedChannel={selectedChannel} />}
+        { fundingSource === FUNDING_SOURCE_PSBT
+          ? <CreateFundingPSBT api={api} selectedChannel={selectedChannel} fundingAddress={fundingAddress}/>
+          : <CreateFundingHotWallet selectedChannel={selectedChannel} tauAddress={tauAddress} />}
         </CommandForm>
       ) : <div className='text-center'>No fundable channels</div>}
     </>
@@ -75,16 +88,14 @@ const CreateFunding = (
 };
 
 const CreateFundingPSBT = (
-  { api, selectedChannel }: { api: Urbit, selectedChannel: Channel }
+  { api, selectedChannel, fundingAddress }: { api: Urbit, selectedChannel: Channel, fundingAddress: FundingAddress}
 ) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
-  const { fundingAddressByTempChanId } = useContext(HotWalletContext);
+  const { fundingAddressByTempChanId } = useContext(ChannelContext);
 
   const [psbt, setPsbt] = useState('');
 
   const psbtCommand: null | string = useMemo(() => {
-    const fundingAddress = fundingAddressByTempChanId[selectedChannel.id];
-    if (!fundingAddress) return null;
     const networkFlag = selectedChannel.network === Network.Regtest ? '-regtest' : '';
     return `bitcoin-cli ${networkFlag} walletprocesspsbt `
       + `$(bitcoin-cli ${networkFlag} walletcreatefundedpsbt "[]" `
@@ -131,10 +142,8 @@ const CreateFundingPSBT = (
 }
 
 const CreateFundingHotWallet = (
-  { selectedChannel }: { selectedChannel: Channel }
+  { selectedChannel, tauAddress }: { selectedChannel: Channel, tauAddress: string}
 ) => {
-  const { tauAddressByTempChanId } = useContext(HotWalletContext);
-  const tauAddress = tauAddressByTempChanId[selectedChannel.id];
   const { hotWalletFee } = useContext(HotWalletContext);
   let totalAmount = hotWalletFee ? selectedChannel.our.add(hotWalletFee as BitcoinAmount) : null;
   if (selectedChannel.network === Network.Regtest && !hotWalletFee) {
@@ -144,14 +153,18 @@ const CreateFundingHotWallet = (
   return (
     <>
     {totalAmount ? (
-    <>
       <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
-      <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
-      <CopyButton label={null} buttonText={'Copy Address'} copyText={tauAddress} />
+    ):(
+    <>
+      <Text className='text-lg text-start mt-4' text={`Send: ${selectedChannel.our.asBtc()} BTC + fee`} />
+      <Text className='text-lg text-start mt-4' text={'(Fee estimate unavailable)'} />
     </>
-    ): <Text className='text-lg text-start mt-4' text={'Fee estimate unavailable'} />}
+    )}
+    <Text className='text-lg text-start text-balance break-all' text={`To: ${tauAddress}`} />
+    <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={tauAddress} />
+    <CopyButton className='w-8/12' label={null} buttonText={'Copy Address'} copyText={tauAddress} />
     </>
-  )
+  );
 }
 
 

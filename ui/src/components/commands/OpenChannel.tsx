@@ -14,6 +14,7 @@ import { HotWalletContext } from '../../contexts/HotWalletContext';
 import CopyButton from './shared/CopyButton';
 import Channel, { TauAddress } from '../../types/Channel';
 import { ChannelContext } from '../../contexts/ChannelContext';
+import QRCode from 'react-qr-code';
 
 const HotWalletFunding = ({channel, tauAddress, close}:
   {channel: Channel, tauAddress: TauAddress, close: () => void}
@@ -27,19 +28,17 @@ const HotWalletFunding = ({channel, tauAddress, close}:
   return (
     <>
     {totalAmount ? (
-    <>
       <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
-      <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
-    </>
-    ): (
+    ):(
     <>
       <Text className='text-lg text-start mt-4' text={`Send: ${channel.our.asBtc()} BTC + fee`} />
       <Text className='text-lg text-start mt-4' text={'(Fee estimate unavailable)'} />
-      <Text className='text-lg text-start' text={`To: ${tauAddress.slice(0, 8)}...${tauAddress.slice(-8)}`} />
     </>
     )}
-    <CopyButton label={null} buttonText={'Copy Address'} copyText={tauAddress} />
-    <Button className='mt-4' onClick={close} label={'Done'}/>
+    <Text className='text-lg text-start text-balance break-all' text={`To: ${tauAddress}`} />
+    <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={tauAddress} />
+    <CopyButton className='w-8/12' label={null} buttonText={'Copy Address'} copyText={tauAddress} />
+    <Button className='!mt-4' onClick={close} label={'Done'}/>
     </>
   );
 }
@@ -53,8 +52,7 @@ type OpenChannelParams = {
 
 const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
-  const { preopeningChannels } = useContext(ChannelContext);
-  const { tauAddressByTempChanId } = useContext(HotWalletContext);
+  const { preopeningChannels, tauAddressByTempChanId } = useContext(ChannelContext);
 
   const [channelPartnerInput, setChannelPartnerInput] = useState('~');
   const [channelPartner, setChannelPartner] = useState<string | null>(null);
@@ -70,17 +68,16 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
 
   useEffect(() => {
     if (openedChannelParams && !openedChannel) {
-      const openedChannel = preopeningChannels.find((channel) => {
-        return channel.who === openedChannelParams.who
-        && channel.our === BitcoinAmount.fromSatoshis(openedChannelParams['funding-sats'])
-        && channel.his === new BitcoinAmount(openedChannelParams['push-msats'])
+      const matchingChannel = preopeningChannels.find((channel) => {
+        const pushMsats = new BitcoinAmount(openedChannelParams['push-msats']);
+        const fundingAmount = BitcoinAmount.fromSatoshis(openedChannelParams['funding-sats']);
+        return preSig(channel.who) === preSig(openedChannelParams.who)
+        && channel.our.eq(fundingAmount.sub(pushMsats))
         && channel.network === openedChannelParams.network
       });
-      if (openedChannel) {
-        setOpenedChannel(openedChannel);
-      }
+      if (matchingChannel) setOpenedChannel(matchingChannel);
     }
-  }, [openedChannelParams]);
+  }, [openedChannelParams, preopeningChannels]);
 
   useEffect(() => {
     if (openedChannel) {
@@ -89,7 +86,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
         setTauAddress(tauAddress);
       }
     }
-  }, [openedChannel]);
+  }, [openedChannel, tauAddressByTempChanId]);
 
   const onChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChannelPartnerInput(e.target.value);

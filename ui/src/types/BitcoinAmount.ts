@@ -31,6 +31,13 @@ export default class BitcoinAmount {
     return new BitcoinAmount(sum);
   }
 
+  sub(other: BitcoinAmount): BitcoinAmount {
+    if (this.millisatoshis < other.millisatoshis) {
+      throw new Error('Subtraction would result in negative value');
+    }
+    return new BitcoinAmount(this.millisatoshis - other.millisatoshis);
+  }
+
   eq(other: BitcoinAmount): boolean {
     return this.millisatoshis === other.millisatoshis;
   }
