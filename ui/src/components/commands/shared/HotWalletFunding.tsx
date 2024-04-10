@@ -13,22 +13,26 @@ const HotWalletFunding = ({channel, tauAddress, close}:
   {channel: Channel, tauAddress: TauAddress, close: null | (() => void)}
 ) => {
   const { hotWalletFee } = useContext(HotWalletContext);
-  let totalAmount = hotWalletFee ? channel.our.add(hotWalletFee as BitcoinAmount) : null;
-  if (channel.network === Network.Regtest && !hotWalletFee) {
+  const fundingAmount = channel.our.add(channel.his);
+  let totalAmount = hotWalletFee ? fundingAmount.add(hotWalletFee as BitcoinAmount) : fundingAmount;
+
+  const useDefaultFee = channel.network === Network.Regtest && !hotWalletFee;
+  if (useDefaultFee) {
     const DEFAULT_REGTEST_FEE = BitcoinAmount.fromBtc(0.0001);
-    totalAmount = channel.our.add(DEFAULT_REGTEST_FEE);
+    totalAmount = fundingAmount.add(DEFAULT_REGTEST_FEE);
   }
+
   return (
     <>
-    {totalAmount ? (
-      <Text className='text-lg text-start mt-4' text={`Send: ${totalAmount?.asBtc()} BTC`} />
+    {(hotWalletFee || useDefaultFee) ? (
+      <Text className='text-lg text-center mt-4' text={`Send: ${totalAmount.asBtc()} BTC`} />
     ):(
     <>
-      <Text className='text-lg text-start mt-4' text={`Send: ${channel.our.asBtc()} BTC + fee`} />
-      <Text className='text-lg text-start mt-4' text={'(Fee estimate unavailable)'} />
+      <Text className='text-lg text-center mt-4' text={`Send: ${totalAmount.asBtc()} BTC + fee`} />
+      <Text className='text-md text-center !mt-0 mb-2' text={'(Fee estimate unavailable)'} />
     </>
     )}
-    <Text className='text-lg text-start text-balance break-all' text={`To: ${tauAddress}`} />
+    <Text className='text-lg text-center text-balance break-all' text={`To: ${tauAddress}`} />
     <QRCode className='col-span-2 mt-4 mb-2 col-start-2 mx-auto' size={150} value={tauAddress} />
     <CopyButton className='w-8/12' label={null} buttonText={'Copy Address'} copyText={tauAddress} />
     {close ? <Button className='!mt-4' onClick={close} label={'Done'}/> : null}

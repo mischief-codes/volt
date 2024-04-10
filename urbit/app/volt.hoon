@@ -102,8 +102,14 @@
   =+  seed=(~(rad og eny.bowl) (bex 256))
   =+  keypair=(generate-keypair:key-gen seed %main %node-key)
   ~&  >  '%volt initialized successfully'
-  :_  this(tau %.y, our.keys keypair)
+  =/  mainnet-prov=ship  ~falfer-docres-dozzod-tirrel
+  :-  %+  welp  (watch-provider mainnet-prov)
   [%pass /btc-provider %agent our.bowl^%bitcoin-rpc %watch /clients]~
+  %=  this
+    volt.prov  `[mainnet-prov %.n]
+    tau  %.y
+    our.keys  keypair
+  ==
 ::
 ++  on-save
   ^-  vase

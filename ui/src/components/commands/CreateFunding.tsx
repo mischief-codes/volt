@@ -16,7 +16,7 @@ const FUNDING_SOURCE_HOT_WALLET = 'Hot wallet';
 const FUNDING_SOURCE_PSBT = 'PSBT';
 
 const CreateFunding = (
-  { api }: { api: Urbit, preopeningChannels: Array<Channel> }
+  { api }: { api: Urbit}
 ) => {
   const { preopeningChannels } = useContext(ChannelContext);
   const { tauAddressByTempChanId, fundingAddressByTempChanId } = useContext(ChannelContext);
