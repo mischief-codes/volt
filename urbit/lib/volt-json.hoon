@@ -4,10 +4,15 @@
 ++  dejs
   =,  dejs:format
   |%
+  ++  invoice-and-pay-params
+    |=  jon=json
+    ^-  invoice-and-pay-params:volt
+    %-  (ot ~[amount+ni net+network who+ship])
+    jon
+  ::
   ++  command
     |=  jon=json
     ^-  command:volt
-    ~&  jon
     %.  jon
     %-  of
     :~  set-provider+(mu ship)

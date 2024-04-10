@@ -104,7 +104,6 @@ const AddInvoice = ({ api }: { api: Urbit }) => {
     { value: Network.Mainnet, label: 'Mainnet' }
   ];
 
-
   // Show QR display component even without a confirmed invoice to prevent user from submitting multiple invoices
   if (submittedInvoiceAmount) {
     return (
