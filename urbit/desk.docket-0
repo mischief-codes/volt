@@ -6,5 +6,5 @@
   website+'https://urbit.org'
   license+'MIT'
   base+'volt'
-  glob-ames+[~zod 0v0]
+  glob-http+['https://tirrel.io/assets/globs/volt/glob-0v2.chija.ecqil.lpo65.jbor9.edf9r.glob' 0v2.chija.ecqil.lpo65.jbor9.edf9r]
 ==

@@ -4,6 +4,7 @@ node_modules
 .DS_Store
 ui/dist
 proxy/node_modules/*
+ui/package-lock.json
 dev
 *.swo
 *.swp
