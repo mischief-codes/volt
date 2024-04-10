@@ -176,6 +176,7 @@ const OpenChannel = ({ api }: { api: Urbit }) => {
         <HotWalletFunding
           channel={openedChannel}
           tauAddress={tauAddress}
+          pushAmount={new BitcoinAmount(openedChannelParams!['push-msats'])}
           close={closeHotWalletFunding}
         />
       </CommandForm>

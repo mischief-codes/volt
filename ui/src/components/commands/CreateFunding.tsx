@@ -21,7 +21,6 @@ const CreateFunding = (
   const { preopeningChannels } = useContext(ChannelContext);
   const { tauAddressByTempChanId, fundingAddressByTempChanId } = useContext(ChannelContext);
 
-
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [fundingSource, setFundingSource] = useState(FUNDING_SOURCE_HOT_WALLET);
 
@@ -36,7 +35,9 @@ const CreateFunding = (
   }, [preopeningChannels])
 
   const onChangeSelectedChannel = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedChannel(fundableChannels.find(channel => channel.id === event.target.value) as Channel);
+    setSelectedChannel(
+      fundableChannels.find(channel => channel.id === event.target.value) as Channel
+    );
   };
 
   const onChangeFundingSource = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -76,8 +77,12 @@ const CreateFunding = (
           onChange={onChangeSelectedChannel}
         />
         { fundingSource === FUNDING_SOURCE_PSBT
-          ? <CreateFundingPSBT api={api} selectedChannel={selectedChannel} fundingAddress={fundingAddress}/>
-          : <HotWalletFunding channel={selectedChannel} tauAddress={tauAddress} close={null}/>}
+          ? <CreateFundingPSBT
+              api={api}
+              selectedChannel={selectedChannel}
+              fundingAddress={fundingAddress}
+            />
+          : <HotWalletFunding channel={selectedChannel} tauAddress={tauAddress} pushAmount={null} close={null}/>}
         </CommandForm>
       ) : <div className='text-center'>No fundable channels</div>}
     </>
@@ -85,7 +90,8 @@ const CreateFunding = (
 };
 
 const CreateFundingPSBT = (
-  { api, selectedChannel, fundingAddress }: { api: Urbit, selectedChannel: Channel, fundingAddress: FundingAddress}
+  { api, selectedChannel, fundingAddress }:
+    { api: Urbit, selectedChannel: Channel, fundingAddress: FundingAddress}
 ) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
   const { fundingAddressByTempChanId } = useContext(ChannelContext);

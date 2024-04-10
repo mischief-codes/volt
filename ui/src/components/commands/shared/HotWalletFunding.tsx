@@ -9,11 +9,19 @@ import Button from "./Button";
 import CopyButton from "./CopyButton";
 import Text from "./Text";
 
-const HotWalletFunding = ({channel, tauAddress, close}:
-  {channel: Channel, tauAddress: TauAddress, close: null | (() => void)}
+const HotWalletFunding = ({channel, tauAddress, pushAmount, close}:
+  {
+    channel: Channel,
+    tauAddress: TauAddress,
+    pushAmount: BitcoinAmount | null,
+    close: null | (() => void)
+  }
 ) => {
   const { hotWalletFee } = useContext(HotWalletContext);
-  const fundingAmount = channel.our.add(channel.his);
+  // We need to pass pushAmount to this component directly if available because it currently
+  // does not appear as part of "his" balance until after refreshing the page
+  const hisBalance = pushAmount || channel.his;
+  const fundingAmount = channel.our.add(hisBalance);
   let totalAmount = hotWalletFee ? fundingAmount.add(hotWalletFee as BitcoinAmount) : fundingAmount;
 
   const useDefaultFee = channel.network === Network.Regtest && !hotWalletFee;
