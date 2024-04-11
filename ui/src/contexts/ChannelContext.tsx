@@ -58,9 +58,13 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
   const { displayJsInfo, displayJsSuccess, displayJsError } = useContext(FeedbackContext);
 
   const [channels, setChannels] = useState<Array<Channel>>([]);
-  const isSubscribed = useRef(false);
   const [tauAddressByTempChanId, setTauAddressByTempChanId] = useState({});
   const [fundingAddressByTempChanId, setFundingAddressByTempChanId] = useState({});
+
+  // currently subscribed or attempting to subscribe
+  const activeSubscription = useRef(false);
+  // subscribed and have received an update
+  const subscriptionSuccessful = useRef(false);
 
   const channelsByStatus = useMemo(() => {
     return channels.reduce(
@@ -89,6 +93,10 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     const handleAllUpdate = (update: Update) => {
+      if (!subscriptionSuccessful.current) {
+        subscriptionSuccessful.current = true;
+        displayJsSuccess('Subscription to /all succeeded');
+      }
       if (update.type === UpdateType.NeedFunding) {
         displayJsInfo('Got need funding update from /all');
         handleNeedFunding(update as NeedFundingUpdate)
@@ -176,7 +184,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     };
 
     const subscribe = () => {
-      if (isSubscribed.current) return;
+      if (activeSubscription.current) return;
       try {
         api.subscribe({
           app: "volt",
@@ -186,18 +194,21 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
           },
           err: () => {
             displayJsError("Subscription to /all rejected")
-            isSubscribed.current = false;
+            activeSubscription.current = false;
+            subscriptionSuccessful.current = false;
           },
           quit: () => {
             displayJsError("Kicked from subscription to /all")
-            isSubscribed.current = false
+            activeSubscription.current = false;
+            subscriptionSuccessful.current = false;
           },
         });
-        isSubscribed.current = true;
-        displayJsSuccess("Subscription to /all succeeded");
+        activeSubscription.current = true;
       } catch (e) {
-        displayJsError("Error subscribing to /all"),
         console.error(e)
+        displayJsError("Error subscribing to /all"),
+        activeSubscription.current = false;
+        subscriptionSuccessful.current = false;
       }
     };
     subscribe()
