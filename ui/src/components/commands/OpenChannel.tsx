@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
 import Button from './shared/Button';
@@ -9,9 +9,20 @@ import Dropdown from './shared/Dropdown';
 import Network from '../../types/Network';
 import CommandForm from './shared/CommandForm';
 import BitcoinAmount, { MIN_FUNDING_AMOUNT } from '../../types/BitcoinAmount';
+import Channel from '../../types/Channel';
+import { ChannelContext } from '../../contexts/ChannelContext';
+import HotWalletFunding from './shared/HotWalletFunding';
 
-const OpenChannel = ({ api, goToCreateFunding }: { api: Urbit, goToCreateFunding: () => void }) => {
+type OpenChannelParams = {
+  who: string,
+  'funding-sats': number,
+  'push-msats': number,
+  network: Network
+};
+
+const OpenChannel = ({ api }: { api: Urbit }) => {
   const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
+  const { preopeningChannels, tauAddressByTempChanId } = useContext(ChannelContext);
 
   const [channelPartnerInput, setChannelPartnerInput] = useState('~');
   const [channelPartner, setChannelPartner] = useState<string | null>(null);
@@ -20,6 +31,34 @@ const OpenChannel = ({ api, goToCreateFunding }: { api: Urbit, goToCreateFunding
   const [pushMsatsInput, setPushMsatsInput] = useState('0');
   const [pushAmount, setPushAmount] = useState(new BitcoinAmount(0));
   const [selectedOption, setSelectedOption] = useState(Network.Regtest);
+
+  const [openedChannelParams, setOpenedChannelParams] = useState<OpenChannelParams | null>(null);
+  const [openedChannel, setOpenedChannel] = useState<Channel | null>(null);
+  const [tauAddress, setTauAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    // check if the channel we just tried to open is now in preopeningChannels
+    if (openedChannelParams && !openedChannel) {
+      const matchingChannel = preopeningChannels.find((channel) => {
+        const pushMsats = new BitcoinAmount(openedChannelParams['push-msats']);
+        const fundingAmount = BitcoinAmount.fromSatoshis(openedChannelParams['funding-sats']);
+        return preSig(channel.who) === preSig(openedChannelParams.who)
+        && channel.our.eq(fundingAmount.sub(pushMsats))
+        && channel.network === openedChannelParams.network
+        // can't check pushmsats because partner's balance isn't credited in initial state
+      });
+      if (matchingChannel) setOpenedChannel(matchingChannel);
+    }
+  }, [openedChannelParams, preopeningChannels]);
+
+  useEffect(() => {
+    if (openedChannel) {
+      const tauAddress = tauAddressByTempChanId[openedChannel.id];
+      if (tauAddress) {
+        setTauAddress(tauAddress);
+      }
+    }
+  }, [openedChannel, tauAddressByTempChanId]);
 
   const onChangeChannelPartnerInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChannelPartnerInput(e.target.value);
@@ -95,20 +134,21 @@ const OpenChannel = ({ api, goToCreateFunding }: { api: Urbit, goToCreateFunding
     e.preventDefault();
     if (!validateOpenChannelParams()) return;
     try {
+      const params: OpenChannelParams = {
+        who: channelPartner as string,
+        'funding-sats': fundingSats as number,
+        'push-msats': pushAmount.millisatoshis,
+        network: selectedOption
+      };
       api.poke({
         app: "volt",
         mark: "volt-command",
         json: {
-          "open-channel": {
-            who: channelPartner,
-            'funding-sats': fundingSats,
-            'push-msats': pushAmount.millisatoshis,
-            network: selectedOption
-          }
+          "open-channel": params
         },
         onSuccess: () => {
           displayCommandSuccess(Command.OpenChannel);
-          goToCreateFunding();
+          setOpenedChannelParams(params);
         },
         onError: (e) => displayCommandError(Command.OpenChannel, e),
       });
@@ -124,32 +164,51 @@ const OpenChannel = ({ api, goToCreateFunding }: { api: Urbit, goToCreateFunding
     { value: Network.Mainnet, label: 'Mainnet' }
   ];
 
-  return (
-    <CommandForm>
-      <Input
-        label={"Channel Partner"}
-        value={channelPartnerInput}
-        onChange={onChangeChannelPartnerInput}
-      />
-      <Input
-        label={"Funding Sats"}
-        value={fundingSatsInput}
-        onChange={onChangeFundingSatsInput}
-      />
-      <Input
-        label={"Push msats"}
-        value={pushMsatsInput}
-        onChange={onChangePushMsatsInput}
-      />
-      <Dropdown
-        label={"Network"}
-        options={options}
-        value={selectedOption}
-        onChange={onChangeNetwork}
-      />
-      <Button onClick={openChannel} label={'Open Channel'}/>
-    </CommandForm>
-  );
+
+  const closeHotWalletFunding = () => {
+    setOpenedChannel(null);
+    setTauAddress(null);
+  }
+
+  if (openedChannel && tauAddress) {
+    return (
+      <CommandForm>
+        <HotWalletFunding
+          channel={openedChannel}
+          tauAddress={tauAddress}
+          pushAmount={new BitcoinAmount(openedChannelParams!['push-msats'])}
+          close={closeHotWalletFunding}
+        />
+      </CommandForm>
+    )
+  } else {
+    return (
+      <CommandForm>
+        <Input
+          label={"Channel Partner"}
+          value={channelPartnerInput}
+          onChange={onChangeChannelPartnerInput}
+        />
+        <Input
+          label={"Funding Sats"}
+          value={fundingSatsInput}
+          onChange={onChangeFundingSatsInput}
+        />
+        <Input
+          label={"Push msats"}
+          value={pushMsatsInput}
+          onChange={onChangePushMsatsInput}
+        />
+        <Dropdown
+          label={"Network"}
+          options={options}
+          value={selectedOption}
+          onChange={onChangeNetwork}
+        />
+        <Button onClick={openChannel} label={'Open Channel'}/>
+      </CommandForm>
+    );
+  }
 };
 
 export default OpenChannel;

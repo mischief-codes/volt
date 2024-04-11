@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 
 interface CommandFormProps {
-  children: React.ReactNode[];
+  children: ReactNode | ReactNode[];
 }
 
 const CommandForm: React.FC<CommandFormProps> = ({ children }) => {

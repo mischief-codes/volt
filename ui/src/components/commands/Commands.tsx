@@ -18,29 +18,18 @@ const Commands: React.FC = () => {
 
   const [selectedCommand, setSelectedCommand] = useState('Set Provider');
 
-
     const openChannels = channelsByStatus[ChannelStatus.Open];
-
-    const goToCreateFunding = () => {
-      setSelectedCommand('Create Funding')
-    }
 
     const commands = [
       { name: 'Set Provider', component: <SetProvider api={api} /> },
       { name: 'Set URL', component: <SetUrl api={api} /> },
-      { name: 'Open Channel',
-        component: <OpenChannel
-        api={api}
-        goToCreateFunding={goToCreateFunding} />
-      },
+      { name: 'Open Channel', component: <OpenChannel api={api} /> },
       { name: 'Create Funding', component: <CreateFunding api={api}  /> },
       { name: 'Send Payment', component: <SendPayment api={api} /> },
       { name: 'Close Channel', component: <CloseChannel api={api} openChannels={openChannels}  /> },
       { name: 'Add Invoice', component: <AddInvoice api={api} /> },
       { name: 'Invoice and Pay', component: <InvoiceAndPay api={api} /> },
     ];
-
-
 
     const handleCommandChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setSelectedCommand(event.target.value);

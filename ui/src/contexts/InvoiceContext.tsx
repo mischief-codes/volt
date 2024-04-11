@@ -15,11 +15,19 @@ export const InvoiceContext = createContext<InvoiceContextValue>({
 export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const api = useContext(ApiContext);
   const { displayJsSuccess, displayJsError, displayJsInfo } = useContext(FeedbackContext);
-  const isSubscribed = useRef(false);
   const [latestInvoice, setLatestInvoice] = useState<Invoice | null>(null);
+
+  // currently subscribed or attempting to subscribe
+  const activeSubscription = useRef(false);
+  // subscribed and have received an update
+  const subscriptionSuccessful = useRef(false);
 
   useEffect(() => {
     const handleLatestInvoice = (invoiceRaw: any) => {
+      if (!subscriptionSuccessful.current) {
+        subscriptionSuccessful.current = true;
+        displayJsSuccess("Subscription to /latest-invoice succeeded");
+      }
       displayJsInfo("Got update from /latest-invoice");
       const payreq = invoiceRaw['payment-request'].payreq;
       setLatestInvoice(
@@ -31,7 +39,7 @@ export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = (
 
     const subscribe = () => {
       try {
-        if (isSubscribed.current) return;
+        if (activeSubscription.current) return;
         api.subscribe({
           app: "volt",
           path: "/latest-invoice",
@@ -40,18 +48,21 @@ export const InvoiceContextProvider: React.FC<{ children: React.ReactNode }> = (
           },
           err: () => {
             displayJsError("Subscription to /latest-invoice rejected");
-            isSubscribed.current = false;
+            activeSubscription.current = false;
+            subscriptionSuccessful.current = false;
           },
           quit: () => {
             displayJsError("Kicked from subscription to /latest-invoice");
-            isSubscribed.current = false
+            activeSubscription.current = false;
+            subscriptionSuccessful.current = false;
           },
         });
-        isSubscribed.current = true;
-        displayJsSuccess("Subscription to /latest-invoice succeeded");
+        activeSubscription.current = true;
       } catch (e) {
-        displayJsError("Error subscribing to /latest-invoice"),
         console.error(e)
+        displayJsError("Error subscribing to /latest-invoice");
+        activeSubscription.current = false;
+        subscriptionSuccessful.current = false;
       }
     };
     subscribe()
