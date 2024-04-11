@@ -351,6 +351,12 @@
       =/  last-commitment  (snag (dec (lent our.commitments.chan)) our.commitments.chan)
       (add out balance.our.last-commitment)
     ``noun+!>((div total-msats 1.000))
+    ::
+      [%x %utils %payreq %amount @t ~]
+    =/  invoice=(unit invoice:bolt11)  (de:bolt11 +>+>-.path)
+    ?~  invoice  !!
+    ?~  amount.u.invoice  ``noun+!>(~)
+    ``noun+!>((amount-to-msats:bolt11 u.amount.u.invoice))
   ==
 ::
 ++  on-leave  on-leave:def
