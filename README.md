@@ -2,13 +2,30 @@
 
 Lightning on Urbit
 
-VERY ALPHA EDITION
+ALPHA EDITION
 REPEAT
 THIS IS ALPHA SOFTWARE
+Testnet coins and small mainnet amounts are strongly advised until further notice. Currently the allowed channel capacity is hardcoded between 60.000 satoshis (60 ksats, 0.0006 BTC) and 300ks, or approximately 40-200USD at time of writing.
 
-## Self-Contained Setup
+## Quickstart
 
-To run connected to the Earthside Lightning network and be able to forward payments to and for other ships:
+1. Install from ~dister-dozzod-tirrel
+2. If you want to use testnet coins, use the Set Provider menu in the UI to change your routing provider to ~TBD
+3. Use the Open Channel menu to initiate a payment channel with your routing provider. By default that's ~falfer-docres-dozzod-tirrel (for mainnet Bitcoin routing). If you changed it in step 2, open your channel to that ship instead.
+4. Send the exact amount displayed (chosen capacity + estimated L1 transaction fee) to the generated Bitcoin (L1) address. You can do this from any Bitcoin wallet, just make sure testnet coins go to testnet channels and mainnet coins go to mainnet channels, and that you send the correct amount. This L1 address is a hot wallet on your ship, so if you mess up the funds can be recovered, but currently that is a very manual process.
+<PAUSE HERE>
+5. The channel will be open in 4 blocks, approximately 40 minutes.
+
+## Basics
+
+_Get paid_: Use the Add Invoice menu (UI) or %add-invoice command (dojo) to generate an 'invoice' or 'payreq' that's used to route a payment to your ship. The UI will display string and QR representations, dojo naturally only string. This invoice can be used by any Lightning user on Earth or Mars to send a payment to your ship.
+_Send a payment using an invoice_: Send Payment menu or %send-payment command. If you received the invoice from an Urbit operator and know their @p, include that field for best routing efficiency in some cases.
+_Send a payment to an Urbit ship, no invoice needed_:
+_Open another channel with a frequent recipient, or for additional routing liquidity with your provider_: You can open a channel with any Volt node. Currently only providers route indirect payments, but if you transact with another ship regularly, or want to do so with full privacy, you can open a dedicated channel with them. You can also open more channels with your provider to increase your capacity to send payments.
+
+## Not-so-quickstart
+
+To run connected to the Earthside Lightning network and be able to forward payments for other ships:
 
 Follow the [LND install guide](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md) and install LND on your host.
 
@@ -18,26 +35,9 @@ If you're connecting LND to a local bitcoin fullnode, you must configure LND wit
 
 - For btcd, check [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#btcd-options) and [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#using-btcd).
 
-As an alternative, you can use LND's embedded neutrino client and a connect to a node that supports `peerblockfilters`. Note that there are some security implications to doing so.
+You will also need to be connected via proxy to a Bitcoin full node. You can find the proxy repo and startup instructions [here](https://github.com/cyclomancer/urbit-bitcoin-rpc). If you don't have a Bitcoin node to connect to, you can connect to the blockchain via another ship over the network using dojo commands noted below.
 
-To set it up, set the following in your lnd.conf:
-
-``` conf
-bitcoin.active=1
-bitcoin.mainnet=1
-bitcoin.node=neutrino
-# lightning.community provides a neutrino peer
-neutrino.addpeer=faucet.lightning.community
-# optionally, you can add your own bitcoin node
-# neutrino.addpeer=your.bitcoin.node:1337
-feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
-```
-
-The set of neutrino options is documented [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md#neutrino-options).
-
-You will also need to be connected via proxy to a Bitcoin full node. You can find the proxy repo and detailed startup instructions [here](https://github.com/cyclomancer/urbit-bitcoin-rpc). If you don't have a Bitcoin node to connect to, you can connect to the blockchain via another ship over the network using dojo commands noted below.
-
-If you want to run Volt without your own instance of LND, you can still open your own channels but you need to choose a provider ship to route multihop payments for you. (TBA ~tirrel) You can configure this in dojo as shown below, substituting the target ship for your own when running %set-provider.
+Finally, your LND node will also 
 
 ### Start the LND Proxy Server
 
@@ -97,7 +97,7 @@ Initiate a channel contract with another ship, and get the address to deposit fu
 > wallet-address=bcrt1qpc7sn6fk9mycmvz440pwj3g0zdxapuwrx9t2ra
 ```
 
-The channel will be open for business 3 blocks (~30m on mainnet) after your funds are sent to that address.
+The channel will be open for business 4 blocks (~40m on mainnet) after your funds are sent to that address.
 
 * Creating Invoices
 
