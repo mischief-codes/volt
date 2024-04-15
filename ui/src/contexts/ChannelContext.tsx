@@ -1,5 +1,5 @@
-import React, { createContext, useState, useEffect, useContext, useMemo} from 'react';
-import Channel, { ChannelJson, ChannelStatus } from '../types/Channel';
+import React, { createContext, useState, useEffect, useContext, useMemo, useRef} from 'react';
+import Channel, { ChannelId, ChannelJson, ChannelStatus, FundingAddress, TauAddress } from '../types/Channel';
 import { FeedbackContext } from './FeedbackContext';
 import { ApiContext } from './ApiContext';
 import BitcoinAmount from '../types/BitcoinAmount';
@@ -9,11 +9,11 @@ import {
   InitialStateUpdate,
   NewChannelUpdate,
   Update,
-  UpdateType
+  UpdateType,
+  NeedFundingUpdate
 } from '../types/Update';
 
 interface ChannelContextValue {
-  subscriptionConnected: boolean;
   inboundCapacity: BitcoinAmount;
   outboundCapacity: BitcoinAmount;
   channels: Array<Channel>;
@@ -28,10 +28,12 @@ interface ChannelContextValue {
     closed: Channel[];
     redeemed: Channel[];
   };
+  preopeningChannels: Channel[];
+  tauAddressByTempChanId: Record<ChannelId, TauAddress>;
+  fundingAddressByTempChanId: Record<ChannelId, FundingAddress>;
 }
 
 export const ChannelContext = createContext<ChannelContextValue>({
-  subscriptionConnected: false,
   inboundCapacity: new BitcoinAmount(0),
   outboundCapacity: new BitcoinAmount(0),
   channels: [],
@@ -46,14 +48,23 @@ export const ChannelContext = createContext<ChannelContextValue>({
     closed: [],
     redeemed: [],
   },
+  preopeningChannels: [],
+  tauAddressByTempChanId: {},
+  fundingAddressByTempChanId: {},
 });
 
 export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const api = useContext(ApiContext);
   const { displayJsInfo, displayJsSuccess, displayJsError } = useContext(FeedbackContext);
 
-  const [subscriptionConnected, setSubscriptionConnected] = useState<boolean>(false);
   const [channels, setChannels] = useState<Array<Channel>>([]);
+  const [tauAddressByTempChanId, setTauAddressByTempChanId] = useState({});
+  const [fundingAddressByTempChanId, setFundingAddressByTempChanId] = useState({});
+
+  // currently subscribed or attempting to subscribe
+  const activeSubscription = useRef(false);
+  // subscribed and have received an update
+  const subscriptionSuccessful = useRef(false);
 
   const channelsByStatus = useMemo(() => {
     return channels.reduce(
@@ -76,38 +87,52 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     );
   }, [channels]);
 
-  useEffect(() => {
-    if (subscriptionConnected) {
-      displayJsSuccess("Subscription to /all succeeded");
-    }
-  }, [subscriptionConnected]);
+  const preopeningChannels = useMemo(() => {
+    return channelsByStatus.preopening;
+  }, [channelsByStatus]);
 
   useEffect(() => {
     const handleAllUpdate = (update: Update) => {
-      console.log('Got update from /all', update);
-      if (!subscriptionConnected) {
-        setSubscriptionConnected(true);
-      } else {
-        displayJsInfo("Got update from /all");
+      if (!subscriptionSuccessful.current) {
+        subscriptionSuccessful.current = true;
+        displayJsSuccess('Subscription to /all succeeded');
       }
       if (update.type === UpdateType.NeedFunding) {
-        console.log('Got need funding update from /all', update);
-      // handled in HotWalletContext
-      } if (update.type === UpdateType.InitialState) {
-        console.log('Got initial state update from /all', update);
+        displayJsInfo('Got need funding update from /all');
+        handleNeedFunding(update as NeedFundingUpdate)
+      } else if (update.type === UpdateType.InitialState) {
+        displayJsInfo('Got initial state update from /all');
         handleInitialState(update as InitialStateUpdate);
       } else if (update.type === UpdateType.ChannelState) {
-        console.log('Got channel state update from /all', update);
+        displayJsInfo('Got channel state update from /all');
         handleChannelUpdate(update as ChannelStateUpdate);
       } else if (update.type === UpdateType.NewChannel) {
-        console.log('Got new channel update from /all', update);
+        displayJsInfo('Got new channel update from /all');
         handleNewChannel(update as NewChannelUpdate);
       } else if (update.type === UpdateType.TempChanUpgraded) {
-        console.log('Got channel deleted update from /all', update);
+        displayJsInfo('Got channel deleted update from /all');
         handleTemporaryChannelUpgraded(update as TempChanUpgradedUpdate);
       } else {
         console.log('Unimplemented update type', update);
       }
+    }
+
+    const handleNeedFunding = (update: NeedFundingUpdate) => {
+      const fundingInfo = update['funding-info'];
+      let newTauAddressByTempChanId: Record<ChannelId, TauAddress> = {};
+      let newFundingAddressByTempChanId: Record<ChannelId, FundingAddress> = {};
+      fundingInfo.forEach((info) => {
+        newTauAddressByTempChanId[info['temporary-channel-id']] = info['tau-address'];
+        newFundingAddressByTempChanId[info['temporary-channel-id']] = info['funding-address'];
+      });
+      setTauAddressByTempChanId(prevState => ({
+        ...prevState,
+        ...newTauAddressByTempChanId
+      }));
+      setFundingAddressByTempChanId(prevState => ({
+        ...prevState,
+        ...newFundingAddressByTempChanId
+      }));
     }
 
     const handleChannelUpdate = (update: ChannelStateUpdate) => {
@@ -159,6 +184,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     };
 
     const subscribe = () => {
+      if (activeSubscription.current) return;
       try {
         api.subscribe({
           app: "volt",
@@ -166,12 +192,23 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
           event: (e) => {
             handleAllUpdate(e);
           },
-          err: () => displayJsError("Subscription to /all rejected"),
-          quit: () => displayJsError("Kicked from subscription to /all"),
+          err: () => {
+            displayJsError("Subscription to /all rejected")
+            activeSubscription.current = false;
+            subscriptionSuccessful.current = false;
+          },
+          quit: () => {
+            displayJsError("Kicked from subscription to /all")
+            activeSubscription.current = false;
+            subscriptionSuccessful.current = false;
+          },
         });
+        activeSubscription.current = true;
       } catch (e) {
-        displayJsError("Error subscribing to /all"),
         console.error(e)
+        displayJsError("Error subscribing to /all"),
+        activeSubscription.current = false;
+        subscriptionSuccessful.current = false;
       }
     };
     subscribe()
@@ -190,11 +227,13 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
   }, [channelsByStatus]);
 
   const value = {
-    subscriptionConnected,
     channels,
     channelsByStatus,
     inboundCapacity,
-    outboundCapacity
+    outboundCapacity,
+    preopeningChannels,
+    tauAddressByTempChanId,
+    fundingAddressByTempChanId,
   };
 
   return (

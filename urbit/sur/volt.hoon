@@ -337,6 +337,8 @@
       done=?
   ==
 ::
++$  invoice-and-pay-params  [amount=@ud net=?(%regtest %main %testnet) who=@p]
+::
 +$  update
   $%  [%hot-wallet-fee sats=(unit sats:bc)]
       [%need-funding funding-info=(list funding-info)]

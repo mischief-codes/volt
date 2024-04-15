@@ -14,28 +14,28 @@ export function App() {
   return (
     <FeedbackContextProvider>
       <HotWalletContextProvider>
-      <ChannelContextProvider>
-        <VoltProviderContextProvider>
-          <InvoiceContextProvider>
-            <main className="bg-slate-200 h-screen">
-            <div className="flex h-full overflow-y-hidden">
-            <div className="bg-zinc-100 w-1/2 pt-20">
-                <Commands />
-            </div>
-              <div className='flex flex-col h-full w-1/2'>
-                <div className='h-1/3 bg-zinc-800 overflow-scroll rounded-b-sm'>
-                <CommandFeedback />
-                </div>
-                <div className='h-2/3 bg-zinc-300 text-gray-500 rounded-sm'>
-                  <LiquidityDisplay/>
-                  <ChannelDisplay />
+        <ChannelContextProvider>
+          <VoltProviderContextProvider>
+            <InvoiceContextProvider>
+              <main className="bg-slate-200 h-screen">
+              <div className="flex h-full overflow-y-hidden">
+              <div className="bg-zinc-100 w-1/2 pt-20">
+                  <Commands />
+              </div>
+                <div className='flex flex-col h-full w-1/2'>
+                  <div className='h-1/3 bg-zinc-800 overflow-scroll rounded-b-sm'>
+                  <CommandFeedback />
+                  </div>
+                  <div className='h-2/3 bg-zinc-300 text-gray-500 rounded-sm'>
+                    <LiquidityDisplay/>
+                    <ChannelDisplay />
+                  </div>
                 </div>
               </div>
-            </div>
-            </main>
-          </InvoiceContextProvider>
-        </VoltProviderContextProvider>
-      </ChannelContextProvider>
+              </main>
+            </InvoiceContextProvider>
+          </VoltProviderContextProvider>
+        </ChannelContextProvider>
       </HotWalletContextProvider>
     </FeedbackContextProvider>
   );
