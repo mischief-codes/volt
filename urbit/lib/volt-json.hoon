@@ -128,6 +128,17 @@
       ==
     ==
   ::
+  ++  response
+    |=  res=response:volt
+    ^-  json
+    ?-    -.res
+        %payreq-amount
+      %-  pairs
+      :~  ['is-valid' b+is-valid.res]
+          ['msats' ?^(msats.res (numb u.msats.res) ~)]
+      ==
+    ==
+  ::
   ++  funding-info
     |=  info=funding-info:volt
     %-  pairs

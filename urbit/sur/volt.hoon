@@ -357,4 +357,8 @@
       [%payment-update =payment]
       [%payment-history log=(map hexb:bc payment)]
   ==
+::
++$  response
+  $%  [%payreq-amount is-valid=? msats=(unit msats)]
+  ==
 --

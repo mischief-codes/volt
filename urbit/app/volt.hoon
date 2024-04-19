@@ -354,9 +354,9 @@
     ::
       [%x %utils %payreq %amount @t ~]
     =/  invoice=(unit invoice:bolt11)  (de:bolt11 +>+>-.path)
-    ?~  invoice  !!
-    ?~  amount.u.invoice  ``noun+!>(~)
-    ``noun+!>((amount-to-msats:bolt11 u.amount.u.invoice))
+    ?~  invoice  ``[%volt-response !>([%payreq-amount | ~])]
+    ?~  amount.u.invoice   ``[%volt-response !>([%payreq-amount & ~])]
+    ``[%volt-response !>([%payreq-amount & `(amount-to-msats:bolt11 u.amount.u.invoice)])]
   ==
 ::
 ++  on-leave  on-leave:def
