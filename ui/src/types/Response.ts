@@ -1,12 +1,10 @@
-import { UpdateType } from "./Update";
-
 export enum ScryResponseType {
   HotWalletFee = "hot-wallet-fee",
   PayreqAmount = "payreq-amount",
 }
 
 export type ScryResponse = {
-  type: UpdateType;
+  type: ScryResponseType;
   [key: string]: any;
 };
 
