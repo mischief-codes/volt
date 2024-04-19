@@ -335,13 +335,6 @@
   |=  =path
   ^-  (unit (unit cage))
   ?+    path  (on-peek:def path)
-      [%x %hot-wallet-fee ~]
-    ?.  ?=(^ fees.chain)
-      ``[%volt-update !>([%hot-wallet-fee ~])]
-    =/  expected-vbytes=@  127
-    =/  fee-estimate  (mul expected-vbytes u:fees.chain)
-    ``[%volt-update !>([%hot-wallet-fee `fee-estimate])]
-    ::
       [%x %balance ~]
     ::  note: this ignores balances in channels that are closing and is
     ::  optimisitic on commitment updates
@@ -351,6 +344,13 @@
       =/  last-commitment  (snag (dec (lent our.commitments.chan)) our.commitments.chan)
       (add out balance.our.last-commitment)
     ``noun+!>((div total-msats 1.000))
+    ::
+      [%x %hot-wallet-fee ~]
+    ?.  ?=(^ fees.chain)
+      ``[%volt-response !>([%hot-wallet-fee ~])]
+    =/  expected-vbytes=@  127
+    =/  fee-estimate  (mul expected-vbytes u:fees.chain)
+    ``[%volt-response !>([%hot-wallet-fee `fee-estimate])]
     ::
       [%x %utils %payreq %amount @t ~]
     =/  invoice=(unit invoice:bolt11)  (de:bolt11 +>+>-.path)

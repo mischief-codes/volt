@@ -8,8 +8,9 @@ import Input from './shared/Input';
 import CommandForm from './shared/CommandForm';
 import BitcoinAmount from '../../types/BitcoinAmount';
 import Text from './shared/Text';
+import { PayreqAmountScryResponse } from '../../types/Response';
 
-type PayreqAmountResponse = {
+type DecodedPayreqAmountScryResponse = {
   amount: BitcoinAmount | null,
   isValid: boolean
 }
@@ -23,9 +24,9 @@ const SendPayment = ({ api }: { api: Urbit }) => {
   const [shipInput, setShipInput] = useState('~');
   const [ship, setShip] = useState<string | null>(null);
 
-  const getPayreqAmount = async (invoiceString: string): Promise<PayreqAmountResponse> => {
+  const getPayreqAmount = async (invoiceString: string): Promise<DecodedPayreqAmountScryResponse> => {
     try {
-      const response = await api.scry({
+      const response: PayreqAmountScryResponse = await api.scry({
         app: "volt",
         path: `/utils/payreq/amount/${invoiceString}`,
       });
@@ -34,7 +35,7 @@ const SendPayment = ({ api }: { api: Urbit }) => {
       return { amount, isValid: response['is-valid'] };
     } catch (e) {
       console.error(e);
-      displayJsError(`Scry /utils/payreq/amount/ failed`);
+      displayJsError(`Scry /utils/payreq/amount failed`);
       throw e;
     }
   }
