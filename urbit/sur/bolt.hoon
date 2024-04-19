@@ -33,8 +33,8 @@
   ++  min-final-cltv-expiry  144
   ++  min-remote-delay       144
   ++  max-remote-delay       2.016
-  ++  min-funding-sats       200.000
-  ++  max-funding-sats       16.777.216
+  ++  min-funding-sats       60.000
+  ++  max-funding-sats       300.000
   ++  max-htlc-number        966
   ++  min-confirmations      3
   ++  max-confirmations      6
