@@ -68,7 +68,7 @@ const InvoiceAndPay = ({ api }: { api: Urbit }) => {
     e.preventDefault();
     if (!validateInvoiceAndPayParams()) return;
     try {
-      const res = await api.thread({
+      await api.thread({
         inputMark: 'volt-invoice-and-pay-params',
         outputMark: 'volt-update',
         threadName: 'api-invoice-and-pay',

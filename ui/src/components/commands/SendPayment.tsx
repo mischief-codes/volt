@@ -9,7 +9,6 @@ import CommandForm from './shared/CommandForm';
 import BitcoinAmount from '../../types/BitcoinAmount';
 import Text from './shared/Text';
 import { PayreqAmountScryResponse } from '../../types/Response';
-import { ChannelContext } from '../../contexts/ChannelContext';
 
 type DecodedPayreqAmountScryResponse = {
   amount: BitcoinAmount | null,

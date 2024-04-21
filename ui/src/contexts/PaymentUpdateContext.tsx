@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { ApiContext } from './ApiContext';
 import { FeedbackContext } from './FeedbackContext';
 import { Update, UpdateType } from '../types/Update';
