@@ -343,9 +343,7 @@
   $%  [%need-funding funding-info=(list funding-info)]
       [%channel-state =chan-id =chan-state:bolt]
       [%temp-chan-upgraded id=@]
-      [%received-payment from=ship =amt=msats]
       [%new-invoice =payment-request]
-      [%invoice-paid =payreq]
       [%payment-result =payreq success=?]
       [%new-channel =chan-info]
       $:  %initial-state
@@ -360,5 +358,6 @@
 +$  response
   $%  [%payreq-amount is-valid=? msats=(unit msats)]
       [%hot-wallet-fee sats=(unit sats:bc)]
+      [%chan-state chans=(list chan-info)]
   ==
 --
