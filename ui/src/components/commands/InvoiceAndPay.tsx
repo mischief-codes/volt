@@ -1,9 +1,8 @@
-import React, { useState, useContext, memo } from 'react';
+import React, { useState, useContext } from 'react';
 import Urbit from '@urbit/http-api';
 import { isValidPatp, preSig } from '@urbit/aura'
 import Button from './shared/Button';
 import { FeedbackContext } from '../../contexts/FeedbackContext';
-import Command from '../../types/Command';
 import Input from './shared/Input';
 import CommandForm from './shared/CommandForm';
 import BitcoinAmount from '../../types/BitcoinAmount';
@@ -11,7 +10,7 @@ import Dropdown from './shared/Dropdown';
 import Network from '../../types/Network';
 
 const InvoiceAndPay = ({ api }: { api: Urbit }) => {
-  const { displayCommandSuccess, displayCommandError, displayJsError } = useContext(FeedbackContext);
+  const { displayJsError, displayJsSuccess } = useContext(FeedbackContext);
 
   const [shipInput, setShipInput] = useState('~');
   const [ship, setShip] = useState<string | null>(null);
@@ -51,7 +50,7 @@ const InvoiceAndPay = ({ api }: { api: Urbit }) => {
       displayJsError('Invalid ship');
       valid = false;
     } else if (ship === api.ship || ship === `~${api.ship}`) {
-      displayJsError("Cannot invoice and pau self")
+      displayJsError("Cannot invoice and pay self")
       valid = false;
     }
     if (!amount) {
@@ -68,7 +67,6 @@ const InvoiceAndPay = ({ api }: { api: Urbit }) => {
   const invoiceAndPay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateInvoiceAndPayParams()) return;
-    console.log('ship', ship);
     try {
       const res = await api.thread({
         inputMark: 'volt-invoice-and-pay-params',
@@ -83,9 +81,9 @@ const InvoiceAndPay = ({ api }: { api: Urbit }) => {
           }
         }
       )
-        console.log('thread done', res);
+      displayJsSuccess('Thread !api-invoice-and-pay succeeded');
     } catch (e) {
-      displayJsError('Error sending payment');
+      displayJsError('Error running thread !api-invoice-and-pay');
       console.error(e);
     }
   };
