@@ -17,6 +17,7 @@ interface ChannelContextValue {
   inboundCapacity: BitcoinAmount;
   outboundCapacity: BitcoinAmount;
   channels: Array<Channel>;
+  refreshChannelState: () => void;
   channelsByStatus: {
     preopening: Channel[];
     opening: Channel[];
@@ -37,6 +38,7 @@ export const ChannelContext = createContext<ChannelContextValue>({
   inboundCapacity: new BitcoinAmount(0),
   outboundCapacity: new BitcoinAmount(0),
   channels: [],
+  refreshChannelState: () => {},
   channelsByStatus: {
     preopening: [],
     opening: [],
@@ -91,6 +93,34 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
     return channelsByStatus.preopening;
   }, [channelsByStatus]);
 
+
+  const refreshChannelState = () => {
+    // Refresh channel state after a short delay; otherwise, in most cases we would refresh
+    // e.g. after sending payment, balances won't be updated
+    setTimeout(async () => {
+        try {
+        const response = await api.scry({
+          app: "volt",
+          path: "/chan-state",
+        });
+        displayJsSuccess('Scry /chan-state succeeded');
+        const { chans: jsonChans }: { 'chans': Array<ChannelJson> } = response;
+        const channels: Array<Channel> = jsonChans.map((chan) => {
+          return {
+            ...chan,
+            his: new BitcoinAmount(chan.his),
+            our: new BitcoinAmount(chan.our),
+          }
+        });
+        setChannels(channels);
+      } catch (e) {
+        console.error(e);
+        displayJsError('Scry /chan-state failed');
+      }
+    }, 1000);
+  };
+
+
   useEffect(() => {
     const handleAllUpdate = (update: Update) => {
       if (!subscriptionSuccessful.current) {
@@ -110,7 +140,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
         displayJsInfo('Got new channel update from /all');
         handleNewChannel(update as NewChannelUpdate);
       } else if (update.type === UpdateType.TempChanUpgraded) {
-        displayJsInfo('Got channel deleted update from /all');
+        displayJsInfo('Got channel upgraded update from /all');
         handleTemporaryChannelUpgraded(update as TempChanUpgradedUpdate);
       } else {
         console.log('Unimplemented update type', update);
@@ -228,6 +258,7 @@ export const ChannelContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   const value = {
     channels,
+    refreshChannelState,
     channelsByStatus,
     inboundCapacity,
     outboundCapacity,

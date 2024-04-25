@@ -4,13 +4,12 @@ import Network from "./Network";
 export enum UpdateType {
   NeedFunding = "need-funding",
   ChannelState = "channel-state",
-  ReceivedPayment = "received-payment",
-  NewInvoice = "new-invoice",
-  InvoicePaid = "invoice-paid",
-  PaymentResult = "payment-result",
   TempChanUpgraded = "temp-chan-upgraded",
+  NewInvoice = "new-invoice",
+  PaymentResult = "payment-result",
   NewChannel = "new-channel",
   InitialState = "initial-state",
+  PaymentUpdate = "payment-update",
 }
 
 export type Update = {
@@ -29,6 +28,11 @@ export type ChannelStateUpdate = {
   status: ChannelStatus;
 };
 
+export type TempChanUpgradedUpdate = {
+  type: UpdateType.TempChanUpgraded;
+  id: string;
+};
+
 export type NewInvoiceUpdate = {
   type: UpdateType.NewInvoice;
   'payment-request': {
@@ -42,16 +46,15 @@ export type NewChannelUpdate = {
   'chan-info': ChanInfo;
 };
 
-export type TempChanUpgradedUpdate = {
-  type: UpdateType.TempChanUpgraded;
-  id: string;
-};
-
 export type InitialStateUpdate = {
   type: UpdateType.InitialState;
   chans: Array<ChanInfo>;
   txs: Array<any>;
   invoices: Array<any>;
+};
+
+export type PaymentUpdate = {
+  type: UpdateType.PaymentUpdate;
 };
 
 export type FundingInfo = {

@@ -261,30 +261,6 @@
   ?+    path  (on-watch:def path)
       [%all ~]
     ?>  (team:title our.bowl src.bowl)
-    =/  chans=(list chan-info)
-      %+  turn  ~(tap by larv.chan)
-      |=  [=id:bolt l=larva-chan:bolt]
-      :*  id
-        ship.her.l
-        initial-msats.our.l
-        initial-msats.her.l
-        %preopening
-        network.our.l
-      ==
-    =.  chans
-      %+  weld  chans
-      %+  turn  ~(tap by live.chan)
-      |=  [=id:bolt c=chan:bolt]
-      ::  confirm LI/FI
-      =+  our-com=(rear our.commitments.c)
-      =+  her-com=(rear her.commitments.c)
-      :*  id
-        ship.her.config.c
-        balance.our.our-com
-        balance.her.her-com
-        state.c
-        network.our.config.c
-      ==
     =/  payment-requests=(list payment-request)
       %+  turn  ~(tap by incoming.payments)
       |=  [=hexb:bc =payment-request]
@@ -301,7 +277,7 @@
       ==
     ::  pays
     :_  this
-    :~  (give-update [%initial-state chans ~ payment-requests])
+    :~  (give-update [%initial-state client-chans:hc ~ payment-requests])
         (give-update [%need-funding funding-info])
     ==
       [%latest-invoice ~]
@@ -335,13 +311,6 @@
   |=  =path
   ^-  (unit (unit cage))
   ?+    path  (on-peek:def path)
-      [%x %hot-wallet-fee ~]
-    ?.  ?=(^ fees.chain)
-      ``[%volt-update !>([%hot-wallet-fee ~])]
-    =/  expected-vbytes=@  127
-    =/  fee-estimate  (mul expected-vbytes u:fees.chain)
-    ``[%volt-update !>([%hot-wallet-fee `fee-estimate])]
-    ::
       [%x %balance ~]
     ::  note: this ignores balances in channels that are closing and is
     ::  optimisitic on commitment updates
@@ -351,6 +320,22 @@
       =/  last-commitment  (snag (dec (lent our.commitments.chan)) our.commitments.chan)
       (add out balance.our.last-commitment)
     ``noun+!>((div total-msats 1.000))
+    ::
+      [%x %chan-state ~]
+    ``[%volt-response !>([%chan-state client-chans:hc])]
+    ::
+      [%x %hot-wallet-fee ~]
+    ?.  ?=(^ fees.chain)
+      ``[%volt-response !>([%hot-wallet-fee ~])]
+    =/  expected-vbytes=@  127
+    =/  fee-estimate  (mul expected-vbytes u:fees.chain)
+    ``[%volt-response !>([%hot-wallet-fee `fee-estimate])]
+    ::
+      [%x %utils %payreq %amount @t ~]
+    =/  invoice=(unit invoice:bolt11)  (de:bolt11 +>+>-.path)
+    ?~  invoice  ``[%volt-response !>([%payreq-amount | ~])]
+    ?~  amount.u.invoice   ``[%volt-response !>([%payreq-amount & ~])]
+    ``[%volt-response !>([%payreq-amount & `(amount-to-msats:bolt11 u.amount.u.invoice)])]
   ==
 ::
 ++  on-leave  on-leave:def
@@ -358,6 +343,34 @@
 --
 ::
 |_  =bowl:gall
+++  client-chans
+  ^-  (list chan-info)
+  =/  chans=(list chan-info)
+  %+  turn  ~(tap by larv.chan.state)
+  |=  [=id:bolt l=larva-chan:bolt]
+  :*  id
+    ship.her.l
+    initial-msats.our.l
+    initial-msats.her.l
+    %preopening
+    network.our.l
+  ==
+=.  chans
+  %+  weld  chans
+  %+  turn  ~(tap by live.chan.state)
+  |=  [=id:bolt c=chan:bolt]
+  ::  confirm LI/FI
+  =+  our-com=(rear our.commitments.c)
+  =+  her-com=(rear her.commitments.c)
+  :*  id
+    ship.her.config.c
+    balance.our.our-com
+    balance.her.her-com
+    state.c
+    network.our.config.c
+  ==
+  chans
+::
 ++  get-funding-address
   |=  =id:bolt
   ^-  address:bc

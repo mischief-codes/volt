@@ -80,25 +80,23 @@
     |=  upd=update:volt
     ^-  json
     ?+    -.upd  (frond 'type' s+'unimplemented')
-        %hot-wallet-fee
-      %-  pairs
-        :~  ['type' s+'hot-wallet-fee']
-            ['sats' ?^(sats.upd (numb +.sats.upd) ~)]
-        ==
-      ::
         %need-funding
       %-  pairs
-        :~  ['type' s+'need-funding']
-            ['funding-info' a+(turn funding-info.upd funding-info)]
-
-            ::  (funding-info funding-info.upd)]
-        ==
-      ::
+      :~  ['type' s+'need-funding']
+          ['funding-info' a+(turn funding-info.upd funding-info)]
+      ==
+    ::
         %channel-state
       %-  pairs
       :~  ['type' s+'channel-state']
           ['id' s+`@t`(scot %ud chan-id.upd)]
           ['status' s+chan-state.upd]
+      ==
+    ::
+        %temp-chan-upgraded
+      %-  pairs
+      :~  ['type' s+'temp-chan-upgraded']
+          ['id' s+`@t`(scot %ud id.upd)]
       ==
     ::
         %new-invoice
@@ -113,12 +111,6 @@
           ['chan-info' (chan-info chan-info.upd)]
       ==
     ::
-        %temp-chan-upgraded
-      %-  pairs
-      :~  ['type' s+'temp-chan-upgraded']
-          ['id' s+`@t`(scot %ud id.upd)]
-      ==
-    ::
         %initial-state
       %-  pairs
       :~  ['type' s+'initial-state']
@@ -126,6 +118,36 @@
           ['txs' a+(turn txs.upd pay-info)]
           ['invoices' a+(turn invoices.upd payment-request)]
       ==
+    ::
+        %payment-update
+      %-  pairs
+      :~  ['type' s+'payment-update']
+      ==
+    ==
+  ::
+  ++  response
+    |=  res=response:volt
+    ^-  json
+    ?-    -.res
+        %hot-wallet-fee
+      %-  pairs
+      :~  ['type' s+'hot-wallet-fee']
+          ['sats' ?^(sats.res (numb +.sats.res) ~)]
+      ==
+      ::
+        %payreq-amount
+      %-  pairs
+      :~  ['type' s+'payreq-amount']
+          ['is-valid' b+is-valid.res]
+          ['msats' ?^(msats.res (numb u.msats.res) ~)]
+      ==
+      ::
+        %chan-state
+      %-  pairs
+      :~  ['type' s+'payreq-amount']
+          ['chans' a+(turn chans.res chan-info)]
+      ==
+      ::
     ==
   ::
   ++  funding-info
